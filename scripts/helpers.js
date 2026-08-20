@@ -42,6 +42,34 @@ export async function deleteInfluence(id) {
   await setInfluences({ events: { ...influences.events } });
 }
 
+/** Current research events as a plain, safely-mutable object. */
+export function getResearches() {
+  return game.settings.get(MODULE_ID, SETTINGS.researches).toObject();
+}
+
+export async function setResearches(researches) {
+  return game.settings.set(MODULE_ID, SETTINGS.researches, researches);
+}
+
+export function getResearch(id) {
+  return getResearches().events[id] ?? null;
+}
+
+export async function updateResearch(id, mutate) {
+  const researches = getResearches();
+  const event = researches.events[id];
+  if (!event) return null;
+  mutate(event);
+  await setResearches(researches);
+  return event;
+}
+
+export async function deleteResearch(id) {
+  const researches = getResearches();
+  delete researches.events[id];
+  await setResearches({ events: { ...researches.events } });
+}
+
 /** Read a single chase as a plain object, or null. */
 export function getChase(id) {
   return getChases().events[id] ?? null;

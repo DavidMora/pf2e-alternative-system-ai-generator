@@ -3,10 +3,15 @@ import {
   capitalize,
   deleteChase,
   deleteInfluence,
+  deleteResearch,
   enrich,
   getInfluence,
   getInfluences,
+  getResearch,
+  getResearches,
   setInfluences,
+  setResearches,
+  updateResearch,
   updateInfluence,
   escapeHTML,
   guessPartyLevel,
@@ -28,18 +33,24 @@ import {
 } from '../helpers.js';
 import { GenerateChaseDialog } from './generate-chase-dialog.js';
 import { GenerateInfluenceDialog } from './generate-influence-dialog.js';
+import { GenerateResearchDialog } from './generate-research-dialog.js';
 import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
 import { generateApproach, toApproachEntry } from '../ai/influence.js';
+import { generateSource, toCheckEntry, toSourceEntry } from '../ai/research.js';
 import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowEvent } from '../socket.js';
 import { eventTarget, exportPayload, importPayload, subsystem } from '../subsystems.js';
 import {
   adjustContribution,
   adjustInfluenceContribution,
+  adjustResearchContribution,
+  advanceResearch,
+  announceResearchProgress,
   passTurn,
   revealByProgress,
   rollChaseCheck,
   rollInfluenceCheck,
+  rollResearchCheck,
 } from '../rolls.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
 
@@ -79,6 +90,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Selected influence encounter, independent of the chase selection. */
   #selectedInfluenceId = null;
 
+  /** Selected research event. */
+  #selectedResearchId = null;
+
   static DEFAULT_OPTIONS = {
     id: 'pfai-subsystem-view',
     classes: ['pfai', 'pfai-view'],
@@ -92,6 +106,30 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       generate: SubsystemView.#onGenerate,
       switchSubsystem: SubsystemView.#onSwitchSubsystem,
       generateInfluence: SubsystemView.#onGenerateInfluence,
+      generateResearch: SubsystemView.#onGenerateResearch,
+      openResearch: SubsystemView.#onOpenResearch,
+      backResearch: SubsystemView.#onBackResearch,
+      deleteResearch: SubsystemView.#onDeleteResearch,
+      researchPointDelta: SubsystemView.#onResearchPointDelta,
+      researchRoundDelta: SubsystemView.#onResearchRoundDelta,
+      researchNextRound: SubsystemView.#onResearchNextRound,
+      rollResearch: SubsystemView.#onRollResearch,
+      awardResearch: SubsystemView.#onAwardResearch,
+      toggleResearchReveal: SubsystemView.#onToggleResearchReveal,
+      toggleEventActive: SubsystemView.#onToggleEventActive,
+      addSource: SubsystemView.#onAddSource,
+      generateSource: SubsystemView.#onGenerateSource,
+      editSource: SubsystemView.#onEditSource,
+      deleteSource: SubsystemView.#onDeleteSource,
+      addCheck: SubsystemView.#onAddCheck,
+      editCheck: SubsystemView.#onEditCheck,
+      deleteCheck: SubsystemView.#onDeleteCheck,
+      addFinding: SubsystemView.#onAddFinding,
+      editFinding: SubsystemView.#onEditFinding,
+      deleteFinding: SubsystemView.#onDeleteFinding,
+      addComplication: SubsystemView.#onAddComplication,
+      editComplication: SubsystemView.#onEditComplication,
+      deleteComplication: SubsystemView.#onDeleteComplication,
       openInfluence: SubsystemView.#onOpenInfluence,
       backInfluence: SubsystemView.#onBackInfluence,
       deleteInfluence: SubsystemView.#onDeleteInfluence,
@@ -165,12 +203,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const app = existing instanceof SubsystemView ? existing : new SubsystemView();
     if (eventId) {
       app.#subsystem = subsystem(subsystemKey).key;
-      if (app.#subsystem === 'influence') app.#selectedInfluenceId = eventId;
-      else {
-        app.#selectedId = eventId;
-        // Start on the active obstacle rather than wherever this user last browsed.
-        app.#obstacleIndex = null;
-      }
+      app.#select(app.#subsystem, eventId);
     }
     await app.render({ force: true });
     // A window that is already open but minimised or behind others would
@@ -178,6 +211,25 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     if (app.minimized) await app.maximize();
     app.bringToFront();
     return app;
+  }
+
+  /** Record the open event for a subsystem. */
+  #select(subsystemKey, eventId) {
+    switch (subsystemKey) {
+      case 'influence':
+        this.#selectedInfluenceId = eventId;
+        break;
+      case 'research':
+        this.#selectedResearchId = eventId;
+        break;
+      case 'chase':
+        this.#selectedId = eventId;
+        // Start on the active obstacle, not wherever this user last browsed.
+        this.#obstacleIndex = null;
+        break;
+      default:
+        console.warn(`${MODULE_ID} | no selection field for subsystem "${subsystemKey}"`);
+    }
   }
 
   select(chaseId) {
@@ -223,12 +275,29 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const selectedInfluence =
       selectedInfluenceRaw && (isGM || !selectedInfluenceRaw.hidden) ? selectedInfluenceRaw : null;
 
+    const researches = getResearches().events;
+    const visibleResearches = Object.values(researches)
+      .filter((event) => isGM || !event.hidden)
+      .sort((a, b) => a.position - b.position);
+    const selectedResearchRaw = this.#selectedResearchId ? researches[this.#selectedResearchId] : null;
+    if (!selectedResearchRaw) this.#selectedResearchId = null;
+    const selectedResearch =
+      selectedResearchRaw && (isGM || !selectedResearchRaw.hidden) ? selectedResearchRaw : null;
+
     return {
       isGM,
       isRealGM: game.user.isGM,
       subsystem: this.#subsystem,
       isChaseTab: this.#subsystem === 'chase',
       isInfluenceTab: this.#subsystem === 'influence',
+      isResearchTab: this.#subsystem === 'research',
+      researches: visibleResearches.map((event) => ({
+        ...event,
+        sourceCount: Object.keys(event.sources).length,
+      })),
+      selectedResearch: selectedResearch
+        ? await this.#prepareResearch(selectedResearch, isGM)
+        : null,
       influences: visibleInfluences.map((event) => ({
         ...event,
         thresholdCount: Object.keys(event.thresholds).length,
@@ -549,6 +618,133 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
+  /** Shape one research event for display. */
+  async #prepareResearch(event, isGM) {
+    const visible = (record) =>
+      Object.values(record ?? {})
+        .filter((entry) => isGM || !entry.hidden)
+        .sort((a, b) => a.position - b.position);
+
+    const modifier = Object.values(event.events ?? {}).reduce(
+      (acc, e) => acc + (e.modifier.active ? e.modifier.value : 0),
+      0,
+    );
+
+    const sources = await Promise.all(
+      visible(event.sources).map(async (source) => {
+        const exhausted = source.researchPoints.current >= source.researchPoints.max;
+        return {
+          ...source,
+          exhausted,
+          percent: source.researchPoints.max
+            ? Math.min(100, Math.round((source.researchPoints.current / source.researchPoints.max) * 100))
+            : 0,
+          enrichedDescription: await enrich(source.description),
+          checks: visible(source.checks).map((check) => ({
+            ...check,
+            effectiveDC: check.dc + modifier,
+            lockedUntil:
+              check.hidden && check.revealAt !== null && check.revealAt !== undefined
+                ? check.revealAt
+                : null,
+          })),
+          hiddenChecks: isGM ? Object.values(source.checks).filter((c) => c.hidden).length : 0,
+        };
+      }),
+    );
+
+    const thresholds = await Promise.all(
+      visible(event.thresholds)
+        .sort((a, b) => a.points - b.points)
+        .map(async (threshold) => ({
+          ...threshold,
+          reached: event.researchPoints >= threshold.points,
+          enrichedDescription: await enrich(threshold.description),
+        })),
+    );
+
+    const complications = await Promise.all(
+      visible(event.events).map(async (complication) => ({
+        ...complication,
+        enrichedDescription: await enrich(complication.description),
+        triggerLabel: game.i18n.format(
+          complication.trigger.kind === 'rounds'
+            ? 'PFAI.Research.TriggerRounds'
+            : 'PFAI.Research.TriggerPoints',
+          { at: complication.trigger.at },
+        ),
+      })),
+    );
+
+    // The picker spans sources, so each option carries both ids. Only revealed,
+    // unexhausted sources are rollable - a cap reached is a door closed.
+    const rollOptions = sources
+      .filter((source) => !source.hidden && !source.exhausted)
+      .flatMap((source) =>
+        source.checks
+          .filter((check) => !check.hidden)
+          .map((check) => ({
+            value: `${source.id}|${check.id}`,
+            label: `${source.name}: ${check.label}`,
+            dc: check.effectiveDC,
+          })),
+      );
+
+    const participants = Object.values(event.participants)
+      .filter((p) => isGM || !p.hidden)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((participant) => {
+        const actor = participant.uuid ? fromUuidSync(participant.uuid) : null;
+        const owned = Boolean(actor?.isOwner);
+        const contribution = participant.contribution ?? {};
+        return {
+          ...participant,
+          owned,
+          noActor: !participant.uuid,
+          missingActor: Boolean(participant.uuid) && !actor,
+          canRoll: rollOptions.length > 0 && (isGM ? Boolean(actor) : owned && !participant.hasActed),
+          isReroll: isGM && participant.hasActed,
+          canAward: isGM,
+          rollOptions,
+          contributedTotal: contribution.total ?? 0,
+          rollCount: contribution.rolls ?? 0,
+          successCount: contribution.successes ?? 0,
+          hasContributed: (contribution.rolls ?? 0) > 0,
+        };
+      });
+
+    const next = thresholds.find((t) => !t.reached) ?? null;
+
+    return {
+      ...event,
+      dcModifier: modifier,
+      sources,
+      thresholds,
+      complications,
+      nextThreshold: next,
+      allThresholdsReached: thresholds.length > 0 && !next,
+      rollOptions,
+      participants,
+      // How much is still obtainable, so a GM can see if it has become unwinnable.
+      remainingCapacity: Object.values(event.sources).reduce(
+        (acc, source) => acc + Math.max(0, source.researchPoints.max - source.researchPoints.current),
+        0,
+      ),
+      enrichedPremise: await enrich(event.premise),
+      enrichedTopic: await enrich(event.topic),
+      enrichedGoal: await enrich(event.goal),
+      enrichedGmNotes: isGM ? await enrich(event.gmNotes, { secrets: true }) : '',
+      outOfTime: event.rounds.max !== null && event.rounds.current >= event.rounds.max,
+      hiddenCounts: isGM
+        ? {
+            sources: Object.values(event.sources).filter((e) => e.hidden).length,
+            thresholds: Object.values(event.thresholds).filter((e) => e.hidden).length,
+            events: Object.values(event.events).filter((e) => e.hidden).length,
+          }
+        : null,
+    };
+  }
+
   /* -------------------------------------------- */
   /*  Actions                                     */
   /* -------------------------------------------- */
@@ -851,6 +1047,442 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   static #onSwitchSubsystem(_event, target) {
     this.#subsystem = target.dataset.subsystem ?? 'chase';
     this.render();
+  }
+
+  static async #onAddSource(_event, target) {
+    await updateResearch(target.dataset.researchId, (event) => {
+      const id = foundry.utils.randomID();
+      event.sources[id] = {
+        id,
+        position: nextPosition(event.sources),
+        name: game.i18n.localize('PFAI.Research.NewSource'),
+        description: '',
+        hidden: true,
+        revealAt: null,
+        researchPoints: { current: 0, max: 3 },
+        checks: {},
+      };
+    });
+  }
+
+  static async #onGenerateSource(_event, target) {
+    if (this.#generatingObstacle) return;
+    const researchId = target.dataset.researchId;
+    const event = getResearch(researchId);
+    if (!event) return;
+    if (!hasApiKey()) {
+      ui.notifications.error(game.i18n.localize('PFAI.Errors.NoApiKey'));
+      return;
+    }
+
+    this.#generatingObstacle = true;
+    await this.render();
+    try {
+      const source = await generateSource({
+        premise: htmlToText(event.premise),
+        topic: htmlToText(event.topic),
+        goal: htmlToText(event.goal),
+        baseDC: event.baseDC,
+        level: event.level,
+        partySize: event.partySize,
+        roundLimit: event.rounds?.max ?? 0,
+        language: game.settings.get(MODULE_ID, 'outputLanguage')?.trim() || game.i18n.lang,
+        existingNames: Object.values(event.sources).map((s) => s.name),
+        becauseOf: event.researchPoints > 0
+          ? game.i18n.format('PFAI.Research.BecauseProgress', { points: event.researchPoints })
+          : '',
+      });
+
+      await updateResearch(researchId, (draft) => {
+        const entry = toSourceEntry(source, draft.baseDC, {
+          position: nextPosition(draft.sources),
+          hidden: true,
+        });
+        draft.sources[entry.id] = entry;
+      });
+      ui.notifications.info(game.i18n.format('PFAI.Research.SourceAdded', { name: source.name }));
+    } catch (error) {
+      console.error(`${MODULE_ID} | source generation failed`, error);
+      ui.notifications.error(error.message, { permanent: true });
+    } finally {
+      this.#generatingObstacle = false;
+      await this.render();
+    }
+  }
+
+  static async #onEditSource(_event, target) {
+    const { researchId, entryId } = target.dataset;
+    const event = getResearch(researchId);
+    const source = event?.sources?.[entryId];
+    if (!source) return;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Research.EditSource') },
+      position: { width: 580 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.SourceName')}</span>
+          <input type="text" name="name" value="${escapeHTML(source.name)}"></label>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.MaxPoints')}</span>
+            <input type="number" name="max" min="1" step="1" value="${source.researchPoints.max}">
+            <small>${game.i18n.localize('PFAI.Research.MaxPointsHint')}</small></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.TakenSoFar')}</span>
+            <input type="number" name="current" min="0" step="1" value="${source.researchPoints.current}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.RevealAt')}</span>
+            <input type="number" name="revealAt" min="0" step="1" value="${source.revealAt ?? ''}">
+            <small>${game.i18n.localize('PFAI.Research.RevealAtHint')}</small></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.SourceDescription')}</span>
+          <textarea name="description" rows="4">${escapeHTML(source.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await updateResearch(researchId, (draft) => {
+      const edited = draft.sources[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.description = String(result.description ?? '');
+      edited.researchPoints.max = Math.max(1, Number(result.max) || edited.researchPoints.max);
+      edited.researchPoints.current = Math.clamp(
+        Number(result.current) || 0,
+        0,
+        edited.researchPoints.max,
+      );
+      const at = String(result.revealAt ?? '').trim();
+      edited.revealAt = at === '' ? null : Math.max(0, Number(at) || 0);
+      if (edited.revealAt !== null && draft.researchPoints >= edited.revealAt) edited.hidden = false;
+    });
+  }
+
+  static async #onDeleteSource(_event, target) {
+    const { researchId, entryId } = target.dataset;
+    const store = getResearches();
+    const event = store.events[researchId];
+    if (!event) return;
+    const { [entryId]: _removed, ...remaining } = event.sources;
+    event.sources = remaining;
+    await setResearches(store);
+  }
+
+  static async #onAddCheck(_event, target) {
+    const { researchId, sourceId } = target.dataset;
+    await updateResearch(researchId, (event) => {
+      const source = event.sources[sourceId];
+      if (!source) return;
+      const id = foundry.utils.randomID();
+      source.checks[id] = {
+        id,
+        position: nextPosition(source.checks),
+        slug: 'society',
+        label: game.i18n.localize('PFAI.Research.NewCheck'),
+        dc: event.baseDC,
+        description: '',
+        hidden: false,
+        revealAt: null,
+      };
+    });
+  }
+
+  static async #onEditCheck(_event, target) {
+    const { researchId, sourceId, entryId } = target.dataset;
+    const event = getResearch(researchId);
+    const check = event?.sources?.[sourceId]?.checks?.[entryId];
+    if (!check) return;
+
+    const skillOptions = PF2E_SKILLS.filter((skill) => skill !== 'lore')
+      .map((skill) => `<option value="${skill}" ${skill === check.slug ? 'selected' : ''}>${capitalize(skill)}</option>`)
+      .join('');
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Research.EditCheck') },
+      position: { width: 580 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.ApproachLabel')}</span>
+          <input type="text" name="label" value="${escapeHTML(check.label)}"></label>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Statistic')}</span>
+            <select name="slug">${skillOptions}
+              <option value="${escapeHTML(check.slug)}" selected>${escapeHTML(check.slug)}</option>
+            </select>
+            <small>${game.i18n.localize('PFAI.Influence.StatisticHint')}</small></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.DC')}</span>
+            <input type="number" name="dc" min="1" step="1" value="${check.dc}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.RevealAt')}</span>
+            <input type="number" name="revealAt" min="0" step="1" value="${check.revealAt ?? ''}">
+            <small>${game.i18n.localize('PFAI.Research.RevealAtHint')}</small></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.ApproachDescription')}</span>
+          <input type="text" name="description" value="${escapeHTML(check.description)}"></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await updateResearch(researchId, (draft) => {
+      const edited = draft.sources[sourceId]?.checks?.[entryId];
+      if (!edited) return;
+      edited.label = String(result.label ?? edited.label);
+      edited.slug = String(result.slug ?? edited.slug);
+      edited.dc = Math.max(1, Number(result.dc) || edited.dc);
+      edited.description = String(result.description ?? '');
+      const at = String(result.revealAt ?? '').trim();
+      edited.revealAt = at === '' ? null : Math.max(0, Number(at) || 0);
+      if (edited.revealAt !== null && draft.researchPoints >= edited.revealAt) edited.hidden = false;
+    });
+  }
+
+  static async #onDeleteCheck(_event, target) {
+    const { researchId, sourceId, entryId } = target.dataset;
+    const store = getResearches();
+    const source = store.events[researchId]?.sources?.[sourceId];
+    if (!source) return;
+    const { [entryId]: _removed, ...remaining } = source.checks;
+    source.checks = remaining;
+    await setResearches(store);
+  }
+
+  static async #onAddFinding(_event, target) {
+    await updateResearch(target.dataset.researchId, (event) => {
+      const id = foundry.utils.randomID();
+      const highest = Object.values(event.thresholds).reduce((max, t) => Math.max(max, t.points), 0);
+      event.thresholds[id] = {
+        id,
+        position: nextPosition(event.thresholds),
+        points: highest + 2,
+        name: game.i18n.localize('PFAI.Research.NewFinding'),
+        description: '',
+        hidden: true,
+      };
+    });
+  }
+
+  static async #onEditFinding(_event, target) {
+    const { researchId, entryId } = target.dataset;
+    const event = getResearch(researchId);
+    const threshold = event?.thresholds?.[entryId];
+    if (!threshold) return;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Research.EditFinding') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <div class="pfai-field-row">
+          <label class="pfai-field pfai-field-wide"><span>${game.i18n.localize('PFAI.Research.FindingName')}</span>
+            <input type="text" name="name" value="${escapeHTML(threshold.name)}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.Points')}</span>
+            <input type="number" name="points" min="1" step="1" value="${threshold.points}"></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.WhatTheyLearn')}</span>
+          <textarea name="description" rows="4">${escapeHTML(threshold.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await updateResearch(researchId, (draft) => {
+      const edited = draft.thresholds[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.points = Math.max(1, Number(result.points) || edited.points);
+      edited.description = String(result.description ?? '');
+      if (draft.researchPoints >= edited.points) edited.hidden = false;
+    });
+  }
+
+  static async #onDeleteFinding(_event, target) {
+    const { researchId, entryId } = target.dataset;
+    const store = getResearches();
+    const event = store.events[researchId];
+    if (!event) return;
+    const { [entryId]: _removed, ...remaining } = event.thresholds;
+    event.thresholds = remaining;
+    await setResearches(store);
+  }
+
+  static async #onAddComplication(_event, target) {
+    await updateResearch(target.dataset.researchId, (event) => {
+      const id = foundry.utils.randomID();
+      event.events[id] = {
+        id,
+        position: nextPosition(event.events),
+        name: game.i18n.localize('PFAI.Research.NewComplication'),
+        description: '',
+        hidden: true,
+        trigger: { kind: 'points', at: Math.max(1, event.researchPoints + 2) },
+        fired: false,
+        modifier: { value: 0, active: false },
+      };
+    });
+  }
+
+  static async #onEditComplication(_event, target) {
+    const { researchId, entryId } = target.dataset;
+    const event = getResearch(researchId);
+    const complication = event?.events?.[entryId];
+    if (!complication) return;
+
+    const kindOption = (value, key) =>
+      `<option value="${value}" ${value === complication.trigger.kind ? 'selected' : ''}>${game.i18n.localize(key)}</option>`;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Research.EditComplication') },
+      position: { width: 600 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.ComplicationName')}</span>
+          <input type="text" name="name" value="${escapeHTML(complication.name)}"></label>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.TriggerKind')}</span>
+            <select name="kind">
+              ${kindOption('points', 'PFAI.Research.TriggerKindPoints')}
+              ${kindOption('rounds', 'PFAI.Research.TriggerKindRounds')}
+            </select></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.TriggerAt')}</span>
+            <input type="number" name="at" min="1" step="1" value="${complication.trigger.at}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.DCShift')}</span>
+            <input type="number" name="dcShift" min="-10" max="10" step="1" value="${complication.modifier.value}">
+            <small>${game.i18n.localize('PFAI.Research.DCShiftHint')}</small></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.WhatHappens')}</span>
+          <textarea name="description" rows="4">${escapeHTML(complication.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await updateResearch(researchId, (draft) => {
+      const edited = draft.events[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.description = String(result.description ?? '');
+      edited.trigger.kind = result.kind === 'rounds' ? 'rounds' : 'points';
+      edited.trigger.at = Math.max(1, Number(result.at) || edited.trigger.at);
+      edited.modifier.value = Math.clamp(Number(result.dcShift) || 0, -10, 10);
+    });
+  }
+
+  static async #onDeleteComplication(_event, target) {
+    const { researchId, entryId } = target.dataset;
+    const store = getResearches();
+    const event = store.events[researchId];
+    if (!event) return;
+    const { [entryId]: _removed, ...remaining } = event.events;
+    event.events = remaining;
+    await setResearches(store);
+  }
+
+  static #onGenerateResearch() {
+    new GenerateResearchDialog({
+      onGenerated: (id) => {
+        this.#subsystem = 'research';
+        this.#selectedResearchId = id;
+        this.render();
+      },
+    }).render({ force: true });
+  }
+
+  static #onOpenResearch(_event, target) {
+    this.#selectedResearchId = target.dataset.researchId;
+    this.render();
+  }
+
+  static #onBackResearch() {
+    this.#selectedResearchId = null;
+    this.render();
+  }
+
+  static async #onDeleteResearch(_event, target) {
+    const event = getResearch(target.dataset.researchId);
+    if (!event) return;
+    const confirmed = await DialogV2.confirm({
+      window: { title: game.i18n.localize('PFAI.Research.DeleteTitle') },
+      content: `<p>${game.i18n.format('PFAI.Research.DeleteConfirm', { name: event.name })}</p>`,
+    });
+    if (!confirmed) return;
+    if (this.#selectedResearchId === event.id) this.#selectedResearchId = null;
+    await deleteResearch(event.id);
+  }
+
+  static async #onResearchPointDelta(_event, target) {
+    const delta = Number(target.dataset.delta);
+    let summary = null;
+    await updateResearch(target.dataset.researchId, (event) => {
+      event.researchPoints = Math.max(0, event.researchPoints + delta);
+      summary = advanceResearch(event);
+    });
+    if (summary) announceResearchProgress(summary);
+  }
+
+  static async #onResearchRoundDelta(_event, target) {
+    const delta = Number(target.dataset.delta);
+    let summary = null;
+    await updateResearch(target.dataset.researchId, (event) => {
+      event.rounds.current = Math.max(0, event.rounds.current + delta);
+      // Time-triggered events fire from the round counter, however it moved.
+      summary = advanceResearch(event);
+    });
+    if (summary) announceResearchProgress(summary);
+  }
+
+  static async #onResearchNextRound(_event, target) {
+    let summary = null;
+    await updateResearch(target.dataset.researchId, (event) => {
+      event.rounds.current += 1;
+      for (const participant of Object.values(event.participants)) participant.hasActed = false;
+      summary = advanceResearch(event);
+    });
+    if (summary) announceResearchProgress(summary);
+  }
+
+  static async #onRollResearch(_event, target) {
+    const { researchId, participantId } = target.dataset;
+    const row = target.closest('.pfai-participant');
+    const select = row?.querySelector('.pfai-roll-option');
+    if (!select?.value) return;
+    // The option carries which source it belongs to, since caps are per source.
+    const [sourceId, checkId] = select.value.split('|');
+    await rollResearchCheck({
+      researchId,
+      participantId,
+      sourceId,
+      checkId,
+      force: game.user.isGM,
+    });
+  }
+
+  static async #onAwardResearch(_event, target) {
+    const { researchId, participantId } = target.dataset;
+    await adjustResearchContribution({
+      researchId,
+      participantId,
+      delta: Number(target.dataset.delta),
+    });
+  }
+
+  /** Reveal or re-hide a source, a check inside one, a threshold or an event. */
+  static async #onToggleResearchReveal(_event, target) {
+    const { researchId, collection, entryId, sourceId } = target.dataset;
+    await updateResearch(researchId, (event) => {
+      const entry = sourceId
+        ? event.sources?.[sourceId]?.checks?.[entryId]
+        : event[collection]?.[entryId];
+      if (entry) entry.hidden = !entry.hidden;
+    });
+  }
+
+  /** Put an event's ongoing DC shift into play, or lift it. */
+  static async #onToggleEventActive(_event, target) {
+    const { researchId, entryId } = target.dataset;
+    await updateResearch(researchId, (event) => {
+      const complication = event.events?.[entryId];
+      if (!complication) return;
+      complication.modifier.active = !complication.modifier.active;
+      if (complication.modifier.active) {
+        complication.hidden = false;
+        complication.fired = true;
+      }
+    });
   }
 
   static #onGenerateInfluence() {
@@ -1929,12 +2561,8 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
     // Land the user on whatever they imported, whichever subsystem it belongs to.
     this.#subsystem = imported.key;
-    const id = imported.id;
-    if (imported.key === 'chase') this.select(id);
-    else {
-      this.#selectedInfluenceId = id;
-      this.render();
-    }
+    this.#select(imported.key, imported.id);
+    this.render();
   }
 }
 

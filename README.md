@@ -400,6 +400,56 @@ including the GM. A GM still sees hidden entries in the lists and reveals them
 with the eye icon, at which point they become rollable. A roll can never get
 ahead of what the party has been shown.
 
+## Research
+
+The third subsystem. [Rules](https://2e.aonprd.com/Rules.aspx?ID=3045).
+
+### Generating one
+
+Same contract as the others — you supply what the model cannot invent, and it is
+stored verbatim:
+
+| You provide | Example |
+|---|---|
+| **What they are researching** | The provenance of the Ashen Ledger, and who last held it |
+| **The situation** | Three days in the Grand Archive of Absalom, while a rival delegation works the same shelves |
+| **What it buys them** | The name of the ledger's last owner, and where they were buried |
+
+The model returns sources, the checks inside each, ascending findings, and
+complications.
+
+### Sources have caps
+
+This is the shape that makes Research different. Points come from **sources** —
+a library wing, an archive, an informant — and each caps how much can be taken
+from it. That cap is what stops a party grinding one shelf forever, so it lives
+on the source rather than the checks under it.
+
+A roll that would exceed the cap yields only the remainder and says so; once a
+source is at its cap it is marked **exhausted**, drops out of the roll picker,
+and refuses further rolls. The status bar shows **Left to find** — the total
+still obtainable — so you can see at a glance if the research has become
+unwinnable and needs another source opened.
+
+### Complications fire on points or time
+
+Each complication carries a trigger: a research point total, or a number of
+rounds elapsed. Both are checked wherever those numbers move — a roll, an award,
+the manual steppers, Next Round — so a GM adjusting either by hand still gets the
+interruption. A complication can carry an ongoing DC shift that applies to every
+check while it is in play.
+
+Rounds carry a unit (`hour`, `day`) because the rules put one round anywhere from
+ten minutes to a full day.
+
+### Everything else is as you would expect
+
+Sources, their checks, findings and complications can each be added by hand or —
+for sources — generated, then edited and removed. Checks and sources can carry an
+unlock point so the work opens up as it advances. Participants roll from their
+row, drag in from the sidebar, and carry a contribution tally. The header has the
+same six operations as the other subsystems.
+
 ## Fidelity to the published rules
 
 Checked against [Chases (GM Core)](https://2e.aonprd.com/Rules.aspx?ID=3049).
@@ -448,7 +498,10 @@ scripts/
   ai/image.js                  image generation, reference loading, file saving
   ai/chase.js                  chase + obstacles-only schemas, prompts, mapping
   ai/influence.js              influence schema, prompt, mapping
+  ai/research.js               research schema, prompt, mapping
   data/influence.js            Influence / Influences DataModels
+  data/research.js             Research / Researches DataModels
+  subsystems.js                registry: storage + shared GM operations
   apps/subsystem-view.js       the GM/player window
   apps/generate-chase-dialog.js the generation form
 ```

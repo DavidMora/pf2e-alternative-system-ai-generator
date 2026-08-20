@@ -5,7 +5,12 @@ import { GenerateChaseDialog } from './apps/generate-chase-dialog.js';
 import { GenerateImageDialog } from './apps/generate-image-dialog.js';
 import { generateChase } from './ai/chase.js';
 import { registerSocket } from './socket.js';
-import { applyInfluenceResult, applyPassResult, applyRollResult } from './rolls.js';
+import {
+  applyInfluenceResult,
+  applyPassResult,
+  applyResearchResult,
+  applyRollResult,
+} from './rolls.js';
 import { migrateChases } from './migrate.js';
 
 Hooks.once('init', () => {
@@ -33,6 +38,7 @@ async function registerPartials() {
     pfaiInfluenceDetail: `modules/${MODULE_ID}/templates/partials/influence-detail.hbs`,
     pfaiInfluenceChecks: `modules/${MODULE_ID}/templates/partials/influence-checks.hbs`,
     pfaiInfluenceTraits: `modules/${MODULE_ID}/templates/partials/influence-traits.hbs`,
+    pfaiResearchDetail: `modules/${MODULE_ID}/templates/partials/research-detail.hbs`,
   });
 }
 
@@ -56,6 +62,7 @@ Hooks.once('ready', async () => {
     onApplyRoll: (data) => applyRollResult(data),
     onApplyPass: (data) => applyPassResult(data),
     onApplyInfluence: (data) => applyInfluenceResult(data),
+    onApplyResearch: (data) => applyResearchResult(data),
   });
 });
 

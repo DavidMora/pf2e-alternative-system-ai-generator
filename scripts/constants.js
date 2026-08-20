@@ -4,6 +4,7 @@ export const MODULE_ID = 'pf2e-alternative-system-ai-generator';
 export const SETTINGS = {
   chases: 'chases',
   influences: 'influences',
+  researches: 'researches',
   apiKey: 'openaiApiKey',
   model: 'openaiModel',
   modelOverride: 'openaiModelOverride',

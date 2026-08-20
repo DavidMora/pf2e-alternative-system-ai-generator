@@ -1404,3 +1404,35 @@
 .pfai .pfai-info:hover {
   opacity: 0.9;
 }
+
+/* ---------- Research sources ---------- */
+
+.pfai .pfai-source {
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  padding: 0.5rem 0;
+}
+
+.pfai .pfai-source:first-of-type { border-top: none; }
+
+/* A source at its cap is closed, not merely quiet. */
+.pfai .pfai-source.is-exhausted { opacity: 0.6; }
+
+.pfai .pfai-source > header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pfai .pfai-source > header h4 { flex: 1; margin: 0; }
+
+.pfai .pfai-source .pfai-check-list { margin-top: 0.35rem; }
+
+.pfai .pfai-trigger-badge {
+  font-size: 0.68rem;
+  opacity: 0.65;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  margin-left: 0.35rem;
+  white-space: nowrap;
+}

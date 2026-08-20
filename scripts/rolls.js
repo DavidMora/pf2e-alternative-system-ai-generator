@@ -3,10 +3,12 @@ import {
   chasePointsForDegree,
   getChase,
   getInfluence,
+  getResearch,
   updateChase,
   updateInfluence,
+  updateResearch,
 } from './helpers.js';
-import { emitApplyInfluence, emitApplyPass, emitApplyRoll } from './socket.js';
+import { emitApplyInfluence, emitApplyPass, emitApplyResearch, emitApplyRoll } from './socket.js';
 
 /**
  * Roll a chase skill check and record the outcome.
@@ -556,5 +558,243 @@ export async function adjustInfluenceContribution({ influenceId, participantId, 
       game.i18n.format('PFAI.Influence.Unlocked', { what: summary.unlocked.join(', ') }),
     );
   }
+  return summary;
+}
+
+
+/**
+ * Roll a research check.
+ *
+ * Reuses the shared degree-to-points mapping; the published values are the same
+ * as chases and influence. What is specific here is that points come from a
+ * source with a cap, so a source that is exhausted yields nothing further.
+ */
+export async function rollResearchCheck({ researchId, participantId, sourceId, checkId, force = false }) {
+  const event = getResearch(researchId);
+  const participant = event?.participants?.[participantId];
+  const source = event?.sources?.[sourceId];
+  const check = source?.checks?.[checkId];
+  if (!event || !participant || !source || !check) return null;
+
+  if (source.hidden || check.hidden) {
+    ui.notifications.warn(game.i18n.format('PFAI.Research.NotRevealed', { name: check.label }));
+    return null;
+  }
+
+  const override = force && game.user.isGM;
+  if (participant.hasActed && !override) {
+    ui.notifications.warn(game.i18n.format('PFAI.Roll.AlreadyActed', { name: participant.name }));
+    return null;
+  }
+  if (source.researchPoints.current >= source.researchPoints.max) {
+    ui.notifications.warn(game.i18n.format('PFAI.Research.SourceExhausted', { name: source.name }));
+    return null;
+  }
+
+  const actor = participant.uuid ? await fromUuid(participant.uuid) : null;
+  if (!actor) {
+    ui.notifications.error(game.i18n.format('PFAI.Roll.NoActor', { name: participant.name }));
+    return null;
+  }
+  if (!actor.isOwner) {
+    ui.notifications.error(game.i18n.format('PFAI.Roll.NotOwner', { name: participant.name }));
+    return null;
+  }
+
+  const statistic = actor.getStatistic?.(check.slug);
+  if (!statistic) {
+    ui.notifications.error(
+      game.i18n.format('PFAI.Roll.NoStatistic', { skill: check.label, name: actor.name }),
+    );
+    return null;
+  }
+
+  // Events in play shift every DC while they last.
+  const modifier = Object.values(event.events ?? {}).reduce(
+    (acc, e) => acc + (e.modifier.active ? e.modifier.value : 0),
+    0,
+  );
+
+  const roll = await statistic.roll({
+    dc: { value: check.dc + modifier },
+    label: `${event.name} — ${source.name}`,
+    extraRollOptions: [`${MODULE_ID}:research`],
+  });
+  if (!roll) return null;
+
+  const degree = roll.degreeOfSuccess ?? roll.options?.degreeOfSuccess;
+  if (!Number.isInteger(degree)) {
+    ui.notifications.error(game.i18n.localize('PFAI.Roll.NoDegree'));
+    return null;
+  }
+
+  const payload = { researchId, participantId, sourceId, checkId, degree };
+  if (game.user.isGM) await applyResearchResult(payload);
+  else {
+    if (!game.users.activeGM) {
+      ui.notifications.error(game.i18n.localize('PFAI.Roll.NoGM'));
+      return null;
+    }
+    emitApplyResearch(payload);
+  }
+  return { degree };
+}
+
+/** GM-side application of a research result. */
+export async function applyResearchResult({ researchId, participantId, sourceId, checkId, degree }) {
+  if (!game.user.isGM) return;
+  const points = chasePointsForDegree(degree);
+
+  let summary = null;
+  await updateResearch(researchId, (event) => {
+    const participant = event.participants[participantId];
+    const source = event.sources[sourceId];
+    if (!participant || !source) return;
+
+    const before = event.researchPoints;
+    // A source only ever yields up to its cap, so clamp the gain there first.
+    const headroom = Math.max(0, source.researchPoints.max - source.researchPoints.current);
+    const gain = points > 0 ? Math.min(points, headroom) : points;
+
+    event.researchPoints = Math.max(0, before + gain);
+    const applied = event.researchPoints - before;
+    source.researchPoints.current = Math.max(0, source.researchPoints.current + applied);
+
+    participant.contribution ??= { total: 0, successes: 0, rolls: 0 };
+    participant.contribution.rolls += 1;
+    if (degree >= 2) participant.contribution.successes += 1;
+    participant.contribution.total += applied;
+    participant.hasActed = true;
+
+    summary = {
+      participant: participant.name,
+      source: source.name,
+      applied,
+      capped: points > 0 && applied < points,
+      current: event.researchPoints,
+      ...advanceResearch(event),
+    };
+  });
+
+  if (!summary) return;
+
+  const degreeKey = ['CriticalFailure', 'Failure', 'Success', 'CriticalSuccess'][degree];
+  ui.notifications.info(
+    game.i18n.format('PFAI.Research.Applied', {
+      name: summary.participant,
+      degree: game.i18n.localize(`PFAI.Degree.${degreeKey}`),
+      points: summary.applied >= 0 ? `+${summary.applied}` : String(summary.applied),
+      current: summary.current,
+    }),
+  );
+  if (summary.capped) {
+    ui.notifications.warn(game.i18n.format('PFAI.Research.SourceCapped', { name: summary.source }));
+  }
+  announceResearchProgress(summary);
+}
+
+/**
+ * Surface anything the party has now earned: thresholds reached, sources and
+ * checks that unlock at a point total, and events whose trigger has come up.
+ */
+export function advanceResearch(event) {
+  const reached = Object.values(event.thresholds)
+    .sort((a, b) => a.points - b.points)
+    .filter((t) => event.researchPoints >= t.points && t.hidden);
+  for (const threshold of reached) threshold.hidden = false;
+
+  const unlocked = [];
+  for (const source of Object.values(event.sources)) {
+    if (source.hidden && source.revealAt !== null && event.researchPoints >= source.revealAt) {
+      source.hidden = false;
+      unlocked.push(source.name);
+    }
+    for (const check of Object.values(source.checks ?? {})) {
+      if (check.hidden && check.revealAt !== null && event.researchPoints >= check.revealAt) {
+        check.hidden = false;
+        unlocked.push(check.label);
+      }
+    }
+  }
+
+  // Point-triggered and time-triggered events both fire from here, so a GM
+  // adjusting either number by hand still gets the interruption.
+  const fired = [];
+  for (const complication of Object.values(event.events)) {
+    if (complication.fired) continue;
+    const at = complication.trigger.at;
+    const reachedTrigger =
+      complication.trigger.kind === 'rounds'
+        ? event.rounds.current >= at
+        : event.researchPoints >= at;
+    if (!reachedTrigger) continue;
+    complication.fired = true;
+    complication.hidden = false;
+    if (complication.modifier.value) complication.modifier.active = true;
+    fired.push(complication.name);
+  }
+
+  return { reached, unlocked, fired };
+}
+
+/** Shared notifications for whatever advanceResearch surfaced. */
+export function announceResearchProgress(summary) {
+  for (const threshold of summary.reached ?? []) {
+    ui.notifications.info(game.i18n.format('PFAI.Research.ThresholdReached', { name: threshold.name }));
+  }
+  if (summary.unlocked?.length) {
+    ui.notifications.info(game.i18n.format('PFAI.Research.Unlocked', { what: summary.unlocked.join(', ') }));
+  }
+  for (const name of summary.fired ?? []) {
+    ui.notifications.warn(game.i18n.format('PFAI.Research.EventFired', { name }), { permanent: true });
+  }
+}
+
+/** Award or remove research points on a participant's behalf. */
+export async function adjustResearchContribution({ researchId, participantId, sourceId, delta }) {
+  if (!game.user.isGM) return null;
+  const step = Math.trunc(Number(delta) || 0);
+  if (!step) return null;
+
+  let summary = null;
+  await updateResearch(researchId, (event) => {
+    const participant = event.participants[participantId];
+    if (!participant) return;
+
+    const before = event.researchPoints;
+    event.researchPoints = Math.max(0, before + step);
+    const applied = event.researchPoints - before;
+    if (!applied) return;
+
+    // Keep a source's tally in step when the award is attributed to one.
+    const source = sourceId ? event.sources[sourceId] : null;
+    if (source) {
+      source.researchPoints.current = Math.clamp(
+        source.researchPoints.current + applied,
+        0,
+        source.researchPoints.max,
+      );
+    }
+
+    participant.contribution ??= { total: 0, successes: 0, rolls: 0 };
+    participant.contribution.total += applied;
+
+    summary = {
+      participant: participant.name,
+      applied,
+      current: event.researchPoints,
+      ...advanceResearch(event),
+    };
+  });
+
+  if (!summary) return null;
+  ui.notifications.info(
+    game.i18n.format('PFAI.Research.Adjusted', {
+      name: summary.participant,
+      points: summary.applied > 0 ? `+${summary.applied}` : String(summary.applied),
+      current: summary.current,
+    }),
+  );
+  announceResearchProgress(summary);
   return summary;
 }

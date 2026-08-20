@@ -130,5 +130,11 @@ database contains the OpenAI API key.
 4. `scripts/ai/<name>.js` — strict schema, prompt, and payload→stored mapping.
    Collect from the GM whatever the model cannot invent.
 5. A generate dialog and a view partial.
-6. Add a tab, and add the subsystem to the parity assertion in
-   `check-templates.mjs`.
+6. Add a tab, add a case to `SubsystemView#select`, and add the subsystem to the
+   parity assertion in `check-templates.mjs`.
+
+Step 5 has a trap worth naming: `SubsystemView.open()` routes an event id to the
+right selection field. That routing is runtime, not template, so the parity test
+cannot catch a missing case — research initially fell through to the chase branch
+and opened an empty list. `#select` now warns on an unknown subsystem instead of
+silently guessing.

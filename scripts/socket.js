@@ -7,6 +7,7 @@ export const SOCKET_ACTIONS = {
   applyRoll: 'applyRoll',
   applyPass: 'applyPass',
   applyInfluence: 'applyInfluence',
+  applyResearch: 'applyResearch',
 };
 
 /**
@@ -72,6 +73,28 @@ export function emitApplyInfluence({ influenceId, participantId, entryId, kind, 
   });
 }
 
+/** Research results are relayed exactly like the others, to one GM only. */
+export function shouldApplyResearch(data, context) {
+  if (!data || typeof data !== 'object') return false;
+  if (data.action !== SOCKET_ACTIONS.applyResearch) return false;
+  if (!data.researchId || !data.participantId || !data.sourceId || !data.checkId) return false;
+  if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
+  if (!context.isGM) return false;
+  return data.gmId ? data.gmId === context.userId : context.activeGMId === context.userId;
+}
+
+export function emitApplyResearch({ researchId, participantId, sourceId, checkId, degree }) {
+  game.socket.emit(SOCKET_EVENT, {
+    action: SOCKET_ACTIONS.applyResearch,
+    researchId,
+    participantId,
+    sourceId,
+    checkId,
+    degree,
+    gmId: game.users.activeGM?.id ?? null,
+  });
+}
+
 /** A passed turn carries no degree; everything else is validated the same. */
 export function shouldApplyPass(data, context) {
   if (!data || typeof data !== 'object') return false;
@@ -118,7 +141,7 @@ export function emitApplyPass({ chaseId, obstacleId, participantId }) {
   });
 }
 
-export function registerSocket({ onShowChase, onApplyRoll, onApplyPass, onApplyInfluence }) {
+export function registerSocket({ onShowChase, onApplyRoll, onApplyPass, onApplyInfluence, onApplyResearch }) {
   game.socket.on(SOCKET_EVENT, (data) => {
     if (shouldHandle(data, game.user.id)) {
       onShowChase({
@@ -135,5 +158,6 @@ export function registerSocket({ onShowChase, onApplyRoll, onApplyPass, onApplyI
     if (shouldApplyRoll(data, context)) onApplyRoll(data);
     else if (shouldApplyPass(data, context)) onApplyPass(data);
     else if (shouldApplyInfluence(data, context)) onApplyInfluence(data);
+    else if (shouldApplyResearch(data, context)) onApplyResearch(data);
   });
 }

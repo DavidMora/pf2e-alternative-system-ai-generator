@@ -4,13 +4,18 @@ import {
   deleteInfluence,
   getChase,
   getChases,
+  deleteResearch,
   getInfluence,
   getInfluences,
+  getResearch,
+  getResearches,
   nextPosition,
   setChases,
   setInfluences,
+  setResearches,
   updateChase,
   updateInfluence,
+  updateResearch,
 } from './helpers.js';
 
 /**
@@ -32,6 +37,16 @@ export const SUBSYSTEMS = {
     save: setChases,
     update: updateChase,
     remove: deleteChase,
+  },
+  research: {
+    key: 'research',
+    label: 'PFAI.Research.Tab',
+    icon: 'fa-book-open-reader',
+    get: getResearch,
+    getAll: getResearches,
+    save: setResearches,
+    update: updateResearch,
+    remove: deleteResearch,
   },
   influence: {
     key: 'influence',

@@ -16,6 +16,7 @@ Handlebars.registerHelper('pfaiSubtract', (a, b) => Number(a) - Number(b));
 // Partials must be registered before the templates that use them compile.
 const partialsDir = path.join(dir, 'partials');
 for (const [name, file] of [
+  ['pfaiResearchDetail', 'research-detail.hbs'],
   ['pfaiInfluenceDetail', 'influence-detail.hbs'],
   ['pfaiInfluenceChecks', 'influence-checks.hbs'],
   ['pfaiInfluenceTraits', 'influence-traits.hbs'],
@@ -479,6 +480,115 @@ for (const isGM of [true, false]) {
   if (leaked.length) { failed = 1; console.error(`  authoring leaked to players: ${leaked}`); }
 
   console.log(`authoring: fields=[${fields.join(',')}] ${JSON.stringify(authoring)} leaks=${leaked.length}`);
+}
+
+// ---- Research: same guarantees as the other two ----
+const RESEARCH_ROLL_OPTIONS = [
+  { value: 'src1|c1', label: 'Grand Archive: Society', dc: 16 },
+  { value: 'src1|c2', label: 'Grand Archive: Academia Lore', dc: 18 },
+];
+
+const researchCtx = (isGM) => ({
+  isGM, isRealGM: isGM, previewAsPlayer: false, isResearchTab: true,
+  chases: [], influences: [], researches: [],
+  selectedResearch: {
+    id: 'r1', name: 'The Ashen Ledger', hidden: false, started: false,
+    researchPoints: 4, baseDC: 20, dcModifier: 2, remainingCapacity: 7,
+    rounds: { current: 1, max: 3, unit: 'day' }, outOfTime: false,
+    ai: { generated: true },
+    enrichedTopic: '<p>Who last held it.</p>',
+    enrichedPremise: '<p>Three days in the Grand Archive.</p>',
+    enrichedGoal: '<p>A name and a grave.</p>',
+    enrichedGmNotes: '<p>RESEARCH-SECRET</p>',
+    sources: [{
+      id: 'src1', name: 'Grand Archive', hidden: false, exhausted: false, percent: 50,
+      researchPoints: { current: 2, max: 4 }, enrichedDescription: '<p>Vast.</p>', hiddenChecks: isGM ? 1 : 0,
+      checks: isGM
+        ? [{ id: 'c1', label: 'Society', dc: 18, effectiveDC: 20, description: 'Ask.', hidden: false },
+           { id: 'c3', label: 'Occultism', dc: 22, effectiveDC: 24, description: 'Pry.', hidden: true, revealAt: 6, lockedUntil: 6 }]
+        : [{ id: 'c1', label: 'Society', dc: 18, effectiveDC: 20, description: 'Ask.', hidden: false }],
+    }],
+    thresholds: isGM
+      ? [{ id: 't1', points: 3, name: 'A name', reached: true, hidden: false, enrichedDescription: '<p>x</p>' },
+         { id: 't2', points: 8, name: 'A grave', reached: false, hidden: true, enrichedDescription: '<p>y</p>' }]
+      : [{ id: 't1', points: 3, name: 'A name', reached: true, hidden: false, enrichedDescription: '<p>x</p>' }],
+    nextThreshold: { id: 't2', points: 8, name: 'A grave' }, allThresholdsReached: false,
+    complications: isGM
+      ? [{ id: 'e1', name: 'The rival delegation', hidden: false, fired: true,
+           trigger: { kind: 'points', at: 3 }, triggerLabel: 'at 3 points',
+           modifier: { value: 2, active: true }, enrichedDescription: '<p>They arrive.</p>' }]
+      : [],
+    rollOptions: RESEARCH_ROLL_OPTIONS,
+    participants: [
+      { id: 'p1', name: 'Ezren', img: 'a.png', hasActed: false, canRoll: true, owned: true, noActor: false,
+        canAward: isGM, isReroll: false, rollOptions: RESEARCH_ROLL_OPTIONS,
+        contributedTotal: 3, successCount: 3, rollCount: 4, hasContributed: true },
+      { id: 'p2', name: 'Kyra', img: 'b.png', hasActed: true, canRoll: isGM, owned: true, noActor: false,
+        canAward: isGM, isReroll: isGM, rollOptions: RESEARCH_ROLL_OPTIONS,
+        contributedTotal: 1, successCount: 1, rollCount: 2, hasContributed: true },
+    ],
+    hiddenCounts: isGM ? { sources: 1, thresholds: 1, events: 0 } : null,
+  },
+});
+
+for (const isGM of [true, false]) {
+  const out = view(researchCtx(isGM));
+  const has = (a) => out.includes(`data-action="${a}"`);
+  const count = (a) => (out.match(new RegExp(`data-action="${a}"`, 'g')) ?? []).length;
+
+  // GM prose must not reach players.
+  if (out.includes('RESEARCH-SECRET') !== isGM) { failed = 1; console.error('  research GM notes leak'); }
+
+  // Rolling matches the other subsystems: picker + button per able participant.
+  const rolls = count('rollResearch');
+  if (rolls !== (isGM ? 2 : 1)) { failed = 1; console.error(`  research rolls: expected ${isGM ? 2 : 1}, got ${rolls}`); }
+  const options = (out.match(/<option value="src1\|/g) ?? []).length;
+  if (options !== rolls * RESEARCH_ROLL_OPTIONS.length) {
+    failed = 1; console.error(`  research picker wrong: ${options} options for ${rolls} buttons`);
+  }
+
+  // Everything a GM authors is GM-only.
+  const authoring = ['addSource', 'generateSource', 'editSource', 'deleteSource', 'addCheck', 'editCheck',
+                     'deleteCheck', 'addFinding', 'editFinding', 'deleteFinding', 'addComplication',
+                     'editComplication', 'deleteComplication', 'toggleResearchReveal', 'awardResearch',
+                     'removeParticipant', 'editText'];
+  const leaked = authoring.filter((a) => has(a));
+  if (isGM && leaked.length !== authoring.length) {
+    failed = 1;
+    console.error(`  research missing authoring: ${authoring.filter((a) => !has(a))}`);
+  }
+  if (!isGM && leaked.length) { failed = 1; console.error(`  research authoring leaked: ${leaked}`); }
+
+  // Source caps, locks and complication triggers must be legible.
+  if (isGM) {
+    for (const [what, present] of [
+      ['source cap', out.includes('2 / 4')],
+      ['locked check badge', out.includes('pfai-unlock-badge')],
+      ['trigger badge', out.includes('pfai-trigger-badge')],
+      ['remaining capacity', out.includes('Left to find') || out.includes('PFAI.Research.Remaining')],
+      ['info tooltips', (out.match(/pfai-info/g) ?? []).length >= 3],
+    ]) {
+      if (!present) { failed = 1; console.error(`  research: ${what} not shown`); }
+    }
+  }
+  console.log(`research isGM=${isGM}: bytes=${out.length} rolls=${rolls} options=${options} authoring=${leaked.length}`);
+}
+
+// Research must offer the same event-level operations as the other two.
+{
+  const out = view(researchCtx(true));
+  const SHARED = ['togglePlayerPreview', 'showToPlayers', 'toggleHidden', 'exportEvent', 'editTitle', 'toggleStarted'];
+  const missing = SHARED.filter((a) => !out.includes(`data-action="${a}"`));
+  if (missing.length) { failed = 1; console.error(`  research missing shared operations: ${missing}`); }
+  for (const tag of out.match(/<[^>]*data-action="(?:showToPlayers|toggleHidden|exportEvent|editTitle|toggleStarted)"[^>]*>/g) ?? []) {
+    if (!/data-subsystem="research"/.test(tag) || !/data-event-id="/.test(tag)) {
+      failed = 1; console.error(`  research shared action not wired: ${tag.slice(0, 80)}`);
+    }
+  }
+  // And the same participant roster contract.
+  const zone = out.includes('pfai-dropzone') && /data-subsystem="research"/.test(out);
+  if (!zone) { failed = 1; console.error('  research roster is not a drop target'); }
+  console.log(`research parity: shared=${SHARED.length - missing.length}/${SHARED.length} dropzone=${zone}`);
 }
 
 process.exit(failed);

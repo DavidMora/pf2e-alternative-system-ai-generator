@@ -10,6 +10,7 @@ import {
 } from './constants.js';
 import { Chases } from './data/chase.js';
 import { Influences } from './data/influence.js';
+import { Researches } from './data/research.js';
 import { SubsystemView } from './apps/subsystem-view.js';
 
 /** Re-render any open subsystem window when world data changes. */
@@ -34,6 +35,14 @@ export function registerSettings() {
     scope: 'world',
     config: false,
     type: Influences,
+    default: { events: {} },
+    onChange: refreshOpenViews,
+  });
+
+  game.settings.register(MODULE_ID, SETTINGS.researches, {
+    scope: 'world',
+    config: false,
+    type: Researches,
     default: { events: {} },
     onChange: refreshOpenViews,
   });

@@ -1,0 +1,441 @@
+{{#with selectedResearch}}
+<header class="pfai-detail-header">
+  <button type="button" class="pfai-icon" data-action="backResearch" data-tooltip="{{localize 'PFAI.Back'}}">
+    <i class="fa-solid fa-chevron-left"></i>
+  </button>
+  <h2 class="pfai-title">
+    {{name}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-title-edit" data-action="editTitle"
+              data-subsystem="research" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.EditTitle'}}"><i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+    {{#if ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
+  </h2>
+  <div class="pfai-header-actions">
+    {{#if ../isRealGM}}
+      <button type="button" class="pfai-icon {{#if ../previewAsPlayer}}pfai-toggle-on{{/if}}"
+              data-action="togglePlayerPreview" data-tooltip="{{localize 'PFAI.View.PreviewAsPlayer'}}">
+        <i class="fa-solid {{#if ../previewAsPlayer}}fa-user-check{{else}}fa-user{{/if}}"></i>
+      </button>
+    {{/if}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-show-players" data-action="showToPlayers"
+              data-subsystem="research" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.ShowToPlayersHint'}}"><i class="fa-solid fa-tv"></i></button>
+      <button type="button" class="pfai-icon" data-action="toggleHidden"
+              data-subsystem="research" data-event-id="{{id}}"
+              data-tooltip="{{#if hidden}}{{localize 'PFAI.View.ShowToPlayers'}}{{else}}{{localize 'PFAI.View.HideFromPlayers'}}{{/if}}">
+        <i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+      </button>
+      <button type="button" class="pfai-icon" data-action="exportEvent"
+              data-subsystem="research" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Export'}}"><i class="fa-solid fa-file-export"></i></button>
+      <button type="button" class="pfai-icon pfai-danger" data-action="deleteResearch" data-research-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-trash"></i></button>
+    {{/if}}
+  </div>
+</header>
+
+<section class="pfai-status">
+  <div class="pfai-status-item">
+    <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}{{#if rounds.unit}} <em>({{rounds.unit}})</em>{{/if}}</span>
+    <span class="pfai-round">
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="researchRoundDelta" data-research-id="{{id}}" data-delta="-1">&minus;</button>
+      {{/if}}
+      <strong>{{rounds.current}}</strong>{{#if rounds.max}} / {{rounds.max}}{{/if}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="researchRoundDelta" data-research-id="{{id}}" data-delta="1">+</button>
+      {{/if}}
+    </span>
+  </div>
+
+  <div class="pfai-status-item">
+    <span class="pfai-label">{{localize 'PFAI.Research.Points'}}</span>
+    <span class="pfai-round">
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="researchPointDelta" data-research-id="{{id}}" data-delta="-1">&minus;</button>
+      {{/if}}
+      <strong class="pfai-points-big">{{researchPoints}}</strong>
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="researchPointDelta" data-research-id="{{id}}" data-delta="1">+</button>
+      {{/if}}
+    </span>
+  </div>
+
+  {{#if nextThreshold}}
+    <div class="pfai-status-item pfai-live-obstacle">
+      <span class="pfai-label">{{localize 'PFAI.Research.NextFinding'}}</span>
+      <span class="pfai-live-points">
+        <strong>{{researchPoints}} / {{nextThreshold.points}}</strong>
+        <span class="pfai-live-name">{{nextThreshold.name}}</span>
+      </span>
+    </div>
+  {{else if allThresholdsReached}}
+    <div class="pfai-flag pfai-flag-good">{{localize 'PFAI.Research.FullyResearched'}}</div>
+  {{/if}}
+
+  {{#if ../isGM}}
+    <div class="pfai-status-item" data-tooltip="{{localize 'PFAI.Research.RemainingHint'}}">
+      <span class="pfai-label">{{localize 'PFAI.Research.Remaining'}}</span>
+      <strong class="{{#unless remainingCapacity}}pfai-bad{{/unless}}">{{remainingCapacity}}</strong>
+    </div>
+  {{/if}}
+
+  {{#if dcModifier}}
+    <div class="pfai-status-item">
+      <span class="pfai-label">{{localize 'PFAI.Influence.DCShift'}}</span>
+      <strong class="{{#if (pfaiLt dcModifier 0)}}pfai-good{{else}}pfai-bad{{/if}}">
+        {{#if (pfaiLt dcModifier 0)}}{{dcModifier}}{{else}}+{{dcModifier}}{{/if}}
+      </strong>
+    </div>
+  {{/if}}
+
+  {{#if outOfTime}}<div class="pfai-flag pfai-flag-bad">{{localize 'PFAI.Chase.OutOfTime'}}</div>{{/if}}
+
+  {{#if ../isGM}}
+    <div class="pfai-status-actions">
+      <button type="button" data-action="researchNextRound" data-research-id="{{id}}">
+        <i class="fa-solid fa-forward-step"></i> {{localize 'PFAI.Chase.NextRound'}}
+      </button>
+      <button type="button" data-action="toggleStarted" data-subsystem="research" data-event-id="{{id}}">
+        <i class="fa-solid {{#if started}}fa-pause{{else}}fa-play{{/if}}"></i>
+        {{#if started}}{{localize 'PFAI.Chase.Pause'}}{{else}}{{localize 'PFAI.Chase.Start'}}{{/if}}
+      </button>
+    </div>
+  {{/if}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Research.Topic'}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="research" data-event-id="{{id}}" data-field="topic"
+              data-label="PFAI.Research.Topic" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-prose">{{{enrichedTopic}}}</div>
+
+  <h3>
+    {{localize 'PFAI.Research.Situation'}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="research" data-event-id="{{id}}" data-field="premise"
+              data-label="PFAI.Research.Situation" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-prose">{{{enrichedPremise}}}</div>
+
+  <p class="pfai-goal"><span class="pfai-label">{{localize 'PFAI.Research.Goal'}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="research" data-event-id="{{id}}" data-field="goal"
+              data-label="PFAI.Research.Goal" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </span></p>
+  <div class="pfai-prose">{{{enrichedGoal}}}</div>
+</section>
+
+{{#if ../isGM}}
+  <section class="pfai-panel pfai-gm">
+    <h3>
+      {{localize 'PFAI.Chase.GmNotes'}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="research" data-event-id="{{id}}" data-field="gmNotes"
+              data-label="PFAI.Chase.EditGmNotes" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    </h3>
+    <div class="pfai-prose">{{{enrichedGmNotes}}}</div>
+  </section>
+{{/if}}
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Research.Sources'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Research.SourcesInfo'}}"></i>
+    {{#if hiddenCounts.sources}}<span class="pfai-hidden-count">{{hiddenCounts.sources}} {{localize 'PFAI.Research.Unopened'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addSource" data-research-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Research.AddSourceHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+        <button type="button" class="pfai-generate-obstacles" data-action="generateSource" data-research-id="{{id}}"
+                {{#if ../generatingObstacle}}disabled{{/if}}
+                data-tooltip="{{localize 'PFAI.Research.GenerateSourceHint'}}">
+          {{#if ../generatingObstacle}}
+            <i class="fa-solid fa-spinner fa-spin"></i> {{localize 'PFAI.Generate.Working'}}
+          {{else}}
+            <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.Research.AISource'}}
+          {{/if}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+
+  {{#each sources as |source|}}
+    <article class="pfai-source {{#if source.hidden}}is-hidden{{/if}} {{#if source.exhausted}}is-exhausted{{/if}}">
+      <header>
+        <h4>{{source.name}}</h4>
+        {{#if source.exhausted}}
+          <span class="pfai-flag pfai-flag-muted">{{localize 'PFAI.Research.Exhausted'}}</span>
+        {{/if}}
+        <span class="pfai-points-value" data-tooltip="{{localize 'PFAI.Research.SourceCapTooltip'}}">
+          {{source.researchPoints.current}} / {{source.researchPoints.max}}
+        </span>
+        {{#if ../../isGM}}
+          <span class="pfai-trait-actions">
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleResearchReveal"
+                    data-research-id="{{../id}}" data-collection="sources" data-entry-id="{{source.id}}"
+                    data-tooltip="{{#if source.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+              <i class="fa-solid {{#if source.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="editSource"
+                    data-research-id="{{../id}}" data-entry-id="{{source.id}}"
+                    data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="addCheck"
+                    data-research-id="{{../id}}" data-source-id="{{source.id}}"
+                    data-tooltip="{{localize 'PFAI.Research.AddCheckHint'}}"><i class="fa-solid fa-plus"></i></button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteSource"
+                    data-research-id="{{../id}}" data-entry-id="{{source.id}}"
+                    data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+          </span>
+        {{/if}}
+      </header>
+      <div class="pfai-progress"><div class="pfai-progress-bar" style="width: {{source.percent}}%"></div></div>
+      <div class="pfai-prose">{{{source.enrichedDescription}}}</div>
+
+      <ul class="pfai-check-list">
+        {{#each source.checks as |check|}}
+          <li class="pfai-check {{#if check.hidden}}is-hidden{{/if}}">
+            <span class="pfai-check-dc">DC {{check.effectiveDC}}</span>
+            <div class="pfai-check-body">
+              <strong>{{check.label}}</strong>
+              {{#if check.lockedUntil}}
+                <span class="pfai-unlock-badge" data-tooltip="{{localize 'PFAI.Research.UnlocksAtHint'}}">
+                  <i class="fa-solid fa-lock"></i> {{localize 'PFAI.Influence.UnlocksAt'}} {{check.revealAt}}
+                </span>
+              {{/if}}
+              <span class="pfai-check-desc">{{check.description}}</span>
+            </div>
+            {{#if ../../../isGM}}
+              <span class="pfai-check-actions">
+                <button type="button" class="pfai-icon pfai-row-control" data-action="toggleResearchReveal"
+                        data-research-id="{{../../id}}" data-source-id="{{source.id}}" data-entry-id="{{check.id}}"
+                        data-tooltip="{{#if check.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+                  <i class="fa-solid {{#if check.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+                </button>
+                <button type="button" class="pfai-icon pfai-row-control" data-action="editCheck"
+                        data-research-id="{{../../id}}" data-source-id="{{source.id}}" data-entry-id="{{check.id}}"
+                        data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+                <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteCheck"
+                        data-research-id="{{../../id}}" data-source-id="{{source.id}}" data-entry-id="{{check.id}}"
+                        data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+              </span>
+            {{/if}}
+          </li>
+        {{else}}
+          <p class="pfai-empty pfai-empty-small">{{localize 'PFAI.Research.NoChecks'}}</p>
+        {{/each}}
+      </ul>
+    </article>
+  {{else}}
+    <p class="pfai-empty">{{localize 'PFAI.Research.NoSources'}}</p>
+  {{/each}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Research.Findings'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Research.FindingsInfo'}}"></i>
+    {{#if hiddenCounts.thresholds}}<span class="pfai-hidden-count">{{hiddenCounts.thresholds}} {{localize 'PFAI.Influence.Undiscovered'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addFinding" data-research-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Research.AddFindingHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+  <ol class="pfai-thresholds">
+    {{#each thresholds as |threshold|}}
+      <li class="pfai-threshold {{#if threshold.reached}}is-reached{{/if}} {{#if threshold.hidden}}is-hidden{{/if}}">
+        <span class="pfai-threshold-points">{{threshold.points}}</span>
+        <div class="pfai-threshold-body">
+          <strong>{{threshold.name}}</strong>
+          <div class="pfai-prose">{{{threshold.enrichedDescription}}}</div>
+        </div>
+        {{#if ../../isGM}}
+          <span class="pfai-trait-actions">
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleResearchReveal"
+                    data-research-id="{{../id}}" data-collection="thresholds" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{#if threshold.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+              <i class="fa-solid {{#if threshold.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="editFinding"
+                    data-research-id="{{../id}}" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteFinding"
+                    data-research-id="{{../id}}" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+          </span>
+        {{/if}}
+      </li>
+    {{else}}
+      <p class="pfai-empty">{{localize 'PFAI.Research.NoFindings'}}</p>
+    {{/each}}
+  </ol>
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Research.Complications'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Research.ComplicationsInfo'}}"></i>
+    {{#if hiddenCounts.events}}<span class="pfai-hidden-count">{{hiddenCounts.events}} {{localize 'PFAI.Research.Pending'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addComplication" data-research-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Research.AddComplicationHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+  {{#each complications as |complication|}}
+    <div class="pfai-trait {{#if complication.modifier.active}}is-used{{/if}} {{#if complication.hidden}}is-hidden{{/if}}">
+      <span class="pfai-trait-mod">
+        {{#if complication.modifier.value}}
+          {{#if (pfaiLt complication.modifier.value 0)}}{{complication.modifier.value}}{{else}}+{{complication.modifier.value}}{{/if}}
+        {{else}}&mdash;{{/if}}
+      </span>
+      <div class="pfai-trait-body">
+        <strong>{{complication.name}}</strong>
+        <span class="pfai-trigger-badge">{{complication.triggerLabel}}</span>
+        {{#if complication.fired}}<span class="pfai-flag pfai-flag-bad">{{localize 'PFAI.Research.Fired'}}</span>{{/if}}
+        <div class="pfai-prose">{{{complication.enrichedDescription}}}</div>
+      </div>
+      {{#if ../../isGM}}
+        <span class="pfai-trait-actions">
+          {{#if complication.modifier.value}}
+            <button type="button" class="pfai-icon {{#if complication.modifier.active}}pfai-toggle-on{{/if}}"
+                    data-action="toggleEventActive" data-research-id="{{../id}}" data-entry-id="{{complication.id}}"
+                    data-tooltip="{{#if complication.modifier.active}}{{localize 'PFAI.Influence.StopApplying'}}{{else}}{{localize 'PFAI.Influence.Apply'}}{{/if}}">
+              <i class="fa-solid fa-scale-balanced"></i>
+            </button>
+          {{/if}}
+          <button type="button" class="pfai-icon pfai-row-control" data-action="toggleResearchReveal"
+                  data-research-id="{{../id}}" data-collection="events" data-entry-id="{{complication.id}}"
+                  data-tooltip="{{#if complication.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+            <i class="fa-solid {{#if complication.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+          </button>
+          <button type="button" class="pfai-icon pfai-row-control" data-action="editComplication"
+                  data-research-id="{{../id}}" data-entry-id="{{complication.id}}"
+                  data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteComplication"
+                  data-research-id="{{../id}}" data-entry-id="{{complication.id}}"
+                  data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+        </span>
+      {{/if}}
+    </div>
+  {{else}}
+    <p class="pfai-empty">{{localize 'PFAI.Research.NoComplications'}}</p>
+  {{/each}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Chase.Participants'}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon" data-action="addParticipants"
+              data-subsystem="research" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-roster pfai-roster-influence pfai-dropzone"
+       data-subsystem="research" data-event-id="{{id}}">
+    <div class="pfai-roster-head">
+      <span>{{localize 'PFAI.Chase.Participant'}}</span>
+      <span>{{localize 'PFAI.Chase.Points'}}</span>
+      <span>{{localize 'PFAI.Chase.Turn'}}</span>
+      <span></span>
+    </div>
+    {{#each participants as |participant|}}
+      <div class="pfai-participant {{#if participant.hasActed}}has-acted{{/if}}">
+        <span class="pfai-p-who">
+          <img src="{{participant.img}}" alt="">
+          <span class="pfai-p-name">{{participant.name}}</span>
+          {{#if participant.hasActed}}
+            <i class="fa-solid fa-check pfai-acted-mark" data-tooltip="{{localize 'PFAI.Chase.ActedTooltip'}}"></i>
+          {{/if}}
+        </span>
+        <span class="pfai-p-points"
+              data-tooltip="{{localize 'PFAI.Research.ContributionTooltip'}} {{participant.successCount}}/{{participant.rollCount}}">
+          {{#if participant.canAward}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="awardResearch"
+                    data-research-id="{{../id}}" data-participant-id="{{participant.id}}" data-delta="-1"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveSuccess'}}">&minus;</button>
+          {{/if}}
+          <span class="pfai-tally {{#unless participant.hasContributed}}is-empty{{/unless}}">
+            <i class="fa-solid fa-star"></i><strong>{{participant.contributedTotal}}</strong>
+          </span>
+          {{#if participant.canAward}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="awardResearch"
+                    data-research-id="{{../id}}" data-participant-id="{{participant.id}}" data-delta="1"
+                    data-tooltip="{{localize 'PFAI.Chase.AwardSuccess'}}">+</button>
+          {{/if}}
+        </span>
+        <span class="pfai-p-turn">
+          {{#if participant.canRoll}}
+            <select class="pfai-roll-option" aria-label="{{localize 'PFAI.Roll.PickSkill'}}">
+              {{#each participant.rollOptions as |option|}}
+                <option value="{{option.value}}">{{option.label}} DC {{option.dc}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="pfai-roll-button {{#if participant.isReroll}}pfai-reroll{{/if}}"
+                    data-action="rollResearch" data-research-id="{{../id}}"
+                    data-participant-id="{{participant.id}}"
+                    data-tooltip="{{#if participant.isReroll}}{{localize 'PFAI.Roll.RerollHint'}}{{else}}{{localize 'PFAI.Roll.Roll'}}{{/if}}">
+              <i class="fa-solid fa-dice-d20"></i>
+            </button>
+          {{else if participant.noActor}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NoActorLinked'}}</span>
+          {{else if participant.hasActed}}
+            <span class="pfai-p-note">{{localize 'PFAI.Chase.Acted'}}</span>
+          {{else}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NotYours'}}</span>
+          {{/if}}
+        </span>
+        <span class="pfai-p-end">
+          {{#if ../../isGM}}
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleActed"
+                    data-subsystem="research" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.ToggleActed'}}">
+              <i class="fa-solid {{#if participant.hasActed}}fa-circle-check{{else}}fa-circle{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="removeParticipant"
+                    data-subsystem="research" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveParticipant'}}">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          {{/if}}
+        </span>
+      </div>
+    {{/each}}
+    {{#unless participants.length}}
+      <p class="pfai-empty pfai-drop-hint">
+        {{#if ../isGM}}
+          <i class="fa-solid fa-hand-pointer"></i> {{localize 'PFAI.Chase.DropHint'}}
+        {{else}}
+          {{localize 'PFAI.Chase.NoParticipants'}}
+        {{/if}}
+      </p>
+    {{/unless}}
+  </div>
+</section>
+{{/with}}
