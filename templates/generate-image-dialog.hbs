@@ -1,0 +1,120 @@
+<div class="pfai-form pfai-image-form">
+
+  {{#unless hasApiKey}}
+    <p class="pfai-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i> {{localize 'PFAI.Generate.NoKeyWarning'}}
+    </p>
+  {{/unless}}
+
+  <p class="pfai-note">
+    <i class="fa-solid fa-circle-info"></i>
+    {{#if (pfaiEq targetKind "obstacle")}}
+      {{localize 'PFAI.Image.ForObstacle'}}
+    {{else}}
+      {{localize 'PFAI.Image.ForChase'}}
+    {{/if}}
+    <strong>{{targetName}}</strong>
+  </p>
+
+  {{#if currentImage}}
+    <div class="pfai-current-image">
+      <img src="{{currentImage}}" alt="{{targetName}}">
+      <small>{{localize 'PFAI.Image.WillReplace'}}</small>
+    </div>
+  {{/if}}
+
+  <label class="pfai-field">
+    <span>{{localize 'PFAI.Image.Context'}} <em class="pfai-optional">{{localize 'PFAI.Optional'}}</em></span>
+    <textarea name="context" rows="3" placeholder="{{localize 'PFAI.Image.ContextPlaceholder'}}"
+              {{#if busy}}disabled{{/if}} autofocus></textarea>
+    <small>{{localize 'PFAI.Image.ContextHint'}}</small>
+  </label>
+
+  {{#if promptPreview}}
+    <details class="pfai-prompt-preview">
+      <summary>{{localize 'PFAI.Image.PromptPreview'}}</summary>
+      <pre>{{promptPreview}}</pre>
+    </details>
+  {{/if}}
+
+  <div class="pfai-references">
+    <div class="pfai-references-header">
+      <span>{{localize 'PFAI.Image.References'}} <em>({{referenceCount}})</em></span>
+      <div class="pfai-reference-buttons">
+        <button type="button" data-action="addSelectedTokens" {{#if busy}}disabled{{/if}}>
+          <i class="fa-solid fa-crosshairs"></i> {{localize 'PFAI.Image.SelectedTokens'}}
+        </button>
+        <button type="button" data-action="addActor" {{#if busy}}disabled{{/if}}>
+          <i class="fa-solid fa-user"></i> {{localize 'PFAI.Image.FromActor'}}
+        </button>
+        <button type="button" data-action="addFile" {{#if busy}}disabled{{/if}}>
+          <i class="fa-solid fa-folder-open"></i> {{localize 'PFAI.Image.FromFile'}}
+        </button>
+        <button type="button" data-action="addUrl" {{#if busy}}disabled{{/if}}>
+          <i class="fa-solid fa-link"></i> {{localize 'PFAI.Image.FromUrl'}}
+        </button>
+      </div>
+    </div>
+
+    {{#if references.length}}
+      <ul class="pfai-reference-list">
+        {{#each references as |reference|}}
+          <li class="pfai-reference">
+            <img src="{{reference.src}}" alt="{{reference.label}}" loading="lazy">
+            <span class="pfai-reference-label" data-tooltip="{{reference.src}}">{{reference.label}}</span>
+            <button type="button" class="pfai-icon pfai-danger" data-action="removeReference"
+                    data-index="{{@index}}" {{#if ../busy}}disabled{{/if}}
+                    data-tooltip="{{localize 'PFAI.Image.RemoveReference'}}">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </li>
+        {{/each}}
+      </ul>
+      <small class="pfai-reference-hint">{{localize 'PFAI.Image.ReferenceHint'}}</small>
+    {{else}}
+      <p class="pfai-empty">{{localize 'PFAI.Image.NoReferences'}}</p>
+    {{/if}}
+  </div>
+
+  <div class="pfai-field-row">
+    <label class="pfai-field">
+      <span>{{localize 'PFAI.Image.Size'}}</span>
+      <select name="size" {{#if busy}}disabled{{/if}}>
+        {{#each sizes as |size|}}
+          <option value="{{size.value}}" {{#if size.selected}}selected{{/if}}>{{size.label}}</option>
+        {{/each}}
+      </select>
+    </label>
+
+    <label class="pfai-field">
+      <span>{{localize 'PFAI.Image.Quality'}}</span>
+      <select name="quality" {{#if busy}}disabled{{/if}}>
+        {{#each qualities as |quality|}}
+          <option value="{{quality.value}}" {{#if quality.selected}}selected{{/if}}>{{quality.label}}</option>
+        {{/each}}
+      </select>
+    </label>
+  </div>
+
+  <div class="pfai-own-image">
+    <span>{{localize 'PFAI.Image.OwnImage'}}</span>
+    <button type="button" data-action="useOwnImage" {{#if busy}}disabled{{/if}}>
+      <i class="fa-solid fa-upload"></i> {{localize 'PFAI.Image.BrowseOrUpload'}}
+    </button>
+    <small>{{localize 'PFAI.Image.OwnImageHint'}}</small>
+  </div>
+
+  <footer class="pfai-generate-footer">
+    <span class="pfai-model">{{localize 'PFAI.Generate.UsingModel'}} <code>{{model}}</code></span>
+    {{#if busy}}
+      <span class="pfai-busy"><i class="fa-solid fa-spinner fa-spin"></i> {{localize 'PFAI.Image.Working'}}</span>
+      <button type="button" data-action="cancel">{{localize 'PFAI.Generate.Cancel'}}</button>
+    {{else}}
+      <button type="button" data-action="cancel">{{localize 'PFAI.Close'}}</button>
+      <button type="submit" class="pfai-primary" {{#unless hasApiKey}}disabled{{/unless}}>
+        <i class="fa-solid fa-image"></i> {{localize 'PFAI.Image.Submit'}}
+      </button>
+    {{/if}}
+  </footer>
+
+</div>

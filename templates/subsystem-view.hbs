@@ -1,0 +1,508 @@
+<div class="pfai-root">
+
+{{#if previewHiddenChase}}
+  <div class="pfai-preview-hidden">
+    <p class="pfai-preview-banner">
+      <i class="fa-solid fa-eye"></i> {{localize 'PFAI.View.PreviewBanner'}}
+      <button type="button" data-action="togglePlayerPreview">{{localize 'PFAI.View.ExitPreview'}}</button>
+    </p>
+    <p class="pfai-empty">
+      <i class="fa-solid fa-eye-slash"></i>
+      {{localize 'PFAI.View.PreviewHiddenChase'}}
+    </p>
+  </div>
+{{else if selected}}
+  {{#with selected}}
+  <header class="pfai-detail-header">
+    <button type="button" class="pfai-icon" data-action="back" data-tooltip="{{localize 'PFAI.Back'}}">
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+    <h2 class="pfai-title">
+      {{name}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-icon pfai-title-edit" data-action="editTitle" data-chase-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Chase.EditTitle'}}"><i class="fa-solid fa-pen"></i></button>
+      {{/if}}
+      {{#if ai.generated}}
+        <i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"
+           data-tooltip="{{localize 'PFAI.View.GeneratedTooltip'}} {{ai.model}} &mdash; {{generatedAt}}"></i>
+      {{/if}}
+    </h2>
+    <div class="pfai-header-actions">
+      {{#if ../isRealGM}}
+        <button type="button" class="pfai-icon {{#if ../previewAsPlayer}}pfai-toggle-on{{/if}}"
+                data-action="togglePlayerPreview"
+                data-tooltip="{{localize 'PFAI.View.PreviewAsPlayer'}}">
+          <i class="fa-solid {{#if ../previewAsPlayer}}fa-user-check{{else}}fa-user{{/if}}"></i>
+        </button>
+      {{/if}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-icon pfai-show-players" data-action="showToPlayers" data-chase-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.View.ShowToPlayersHint'}}">
+          <i class="fa-solid fa-tv"></i>
+        </button>
+        <button type="button" class="pfai-icon" data-action="toggleHidden" data-chase-id="{{id}}"
+                data-tooltip="{{#if hidden}}{{localize 'PFAI.View.ShowToPlayers'}}{{else}}{{localize 'PFAI.View.HideFromPlayers'}}{{/if}}">
+          <i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+        </button>
+        <button type="button" class="pfai-icon" data-action="exportChase" data-chase-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.View.Export'}}">
+          <i class="fa-solid fa-file-export"></i>
+        </button>
+        <button type="button" class="pfai-icon pfai-danger" data-action="deleteChase" data-chase-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.View.Delete'}}">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      {{/if}}
+    </div>
+  </header>
+
+  {{#if ../previewAsPlayer}}
+    <p class="pfai-preview-banner">
+      <i class="fa-solid fa-eye"></i> {{localize 'PFAI.View.PreviewBanner'}}
+      <button type="button" data-action="togglePlayerPreview">{{localize 'PFAI.View.ExitPreview'}}</button>
+    </p>
+  {{/if}}
+
+  {{#if img}}
+    <figure class="pfai-chase-art">
+      <img src="{{img}}" alt="{{name}}">
+      {{#if ../isGM}}
+        <figcaption>
+          <button type="button" class="pfai-icon" data-action="generateImage" data-chase-id="{{id}}"
+                  data-tooltip="{{localize 'PFAI.Image.Regenerate'}}"><i class="fa-solid fa-arrows-rotate"></i></button>
+          <button type="button" class="pfai-icon pfai-danger" data-action="clearImage" data-chase-id="{{id}}"
+                  data-tooltip="{{localize 'PFAI.Image.Remove'}}"><i class="fa-solid fa-trash"></i></button>
+        </figcaption>
+      {{/if}}
+    </figure>
+  {{/if}}
+
+  <section class="pfai-status">
+    <div class="pfai-status-item">
+      <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}</span>
+      <span class="pfai-round">
+        {{#if ../isGM}}
+          <button type="button" class="pfai-step" data-action="roundDelta" data-chase-id="{{id}}" data-delta="-1">&minus;</button>
+        {{/if}}
+        <strong>{{rounds.current}}</strong>{{#if rounds.max}} / {{rounds.max}}{{/if}}
+        {{#if ../isGM}}
+          <button type="button" class="pfai-step" data-action="roundDelta" data-chase-id="{{id}}" data-delta="1">+</button>
+        {{/if}}
+      </span>
+    </div>
+    <div class="pfai-status-item">
+      <span class="pfai-label">{{localize 'PFAI.Chase.BaseDC'}}</span>
+      <strong>{{baseDC}}</strong>
+    </div>
+    {{#if liveObstacle}}
+      <div class="pfai-status-item pfai-live-obstacle {{#if liveObstacle.cleared}}is-cleared{{/if}}">
+        <span class="pfai-label">
+          {{localize 'PFAI.Chase.CurrentObstacle'}} {{liveObstacle.number}}
+          {{#if liveObstacle.offscreen}}
+            <button type="button" class="pfai-jump-live" data-action="obstacleJump"
+                    data-index="{{pfaiSubtract liveObstacle.number 1}}"
+                    data-tooltip="{{localize 'PFAI.Chase.JumpToLive'}}">
+              <i class="fa-solid fa-location-arrow"></i>
+            </button>
+          {{/if}}
+        </span>
+        <span class="pfai-live-points">
+          <strong>{{liveObstacle.current}} / {{liveObstacle.goal}}</strong>
+          <span class="pfai-live-name">{{liveObstacle.name}}</span>
+        </span>
+        <div class="pfai-progress"><div class="pfai-progress-bar" style="width: {{liveObstacle.percent}}%"></div></div>
+      </div>
+    {{/if}}
+    {{#if complete}}<div class="pfai-flag pfai-flag-good">{{localize 'PFAI.Chase.Complete'}}</div>{{/if}}
+    {{#if outOfTime}}<div class="pfai-flag pfai-flag-bad">{{localize 'PFAI.Chase.OutOfTime'}}</div>{{/if}}
+    {{#if ../isGM}}
+      <div class="pfai-status-actions">
+        <button type="button" data-action="nextRound" data-chase-id="{{id}}">
+          <i class="fa-solid fa-forward-step"></i> {{localize 'PFAI.Chase.NextRound'}}
+        </button>
+        {{#unless img}}
+          <button type="button" data-action="generateImage" data-chase-id="{{id}}"
+                  data-tooltip="{{localize 'PFAI.Image.ForChaseHint'}}">
+            <i class="fa-solid fa-image"></i> {{localize 'PFAI.Image.AddArt'}}
+          </button>
+        {{/unless}}
+        <button type="button" data-action="toggleStarted" data-chase-id="{{id}}">
+          <i class="fa-solid {{#if started}}fa-pause{{else}}fa-play{{/if}}"></i>
+          {{#if started}}{{localize 'PFAI.Chase.Pause'}}{{else}}{{localize 'PFAI.Chase.Start'}}{{/if}}
+        </button>
+      </div>
+    {{/if}}
+  </section>
+
+  <section class="pfai-panel">
+    <h3>
+      {{localize 'PFAI.Chase.Premise'}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-icon" data-action="editText" data-chase-id="{{id}}" data-field="premise"
+                data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+      {{/if}}
+    </h3>
+    <div class="pfai-prose">{{{enrichedPremise}}}</div>
+  </section>
+
+  {{#if ../isGM}}
+  <section class="pfai-panel pfai-gm">
+    <h3>
+      {{localize 'PFAI.Chase.GmNotes'}}
+      <button type="button" class="pfai-icon" data-action="editText" data-chase-id="{{id}}" data-field="gmNotes"
+              data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+    </h3>
+    <div class="pfai-prose">{{{enrichedGmNotes}}}</div>
+  </section>
+  {{/if}}
+
+  <section class="pfai-panel">
+    <h3>
+      {{localize 'PFAI.Chase.Obstacles'}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-generate-obstacles" data-action="addObstacle" data-chase-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Chase.AddBlankHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+        <button type="button" class="pfai-generate-obstacles" data-action="generateOneObstacle" data-chase-id="{{id}}"
+                {{#if generatingObstacle}}disabled{{/if}}
+                data-tooltip="{{localize 'PFAI.Chase.AddOneObstacleHint'}}">
+          {{#if generatingObstacle}}
+            <i class="fa-solid fa-spinner fa-spin"></i> {{localize 'PFAI.Generate.Working'}}
+          {{else}}
+            <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.Chase.AddOneObstacle'}}
+          {{/if}}
+        </button>
+        <button type="button" class="pfai-generate-obstacles" data-action="generateObstacles" data-chase-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Chase.GenerateObstaclesHint'}}">
+          <i class="fa-solid fa-rotate"></i> {{localize 'PFAI.Chase.RegenerateAll'}}
+        </button>
+      {{/if}}
+    </h3>
+
+    {{#if currentObstacle}}
+      {{#with currentObstacle as |obstacle|}}
+      <article class="pfai-obstacle {{#if obstacle.cleared}}is-cleared{{/if}} {{#if obstacle.locked}}is-locked{{/if}}">
+        <header>
+          <span class="pfai-obstacle-number">{{obstacle.number}}</span>
+          <h4>{{obstacle.name}}</h4>
+          {{#unless obstacle.isLive}}
+            <span class="pfai-flag pfai-flag-muted">{{localize 'PFAI.Chase.NotLive'}}</span>
+          {{/unless}}
+          {{#if obstacle.outOfRounds}}
+            <span class="pfai-flag pfai-flag-bad">{{localize 'PFAI.Chase.ObstacleOutOfRounds'}}</span>
+          {{/if}}
+          {{#if obstacle.unrouted.length}}
+            <span class="pfai-flag pfai-flag-bad" data-tooltip="{{localize 'PFAI.Chase.UnroutedTooltip'}} {{#each obstacle.unrouted}}{{this}} {{/each}}">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              {{obstacle.unrouted.length}} {{localize 'PFAI.Chase.LeadNowhere'}}
+            </span>
+          {{/if}}
+          {{#if obstacle.route.endsChase}}
+            <span class="pfai-flag pfai-flag-good">{{localize 'PFAI.Chase.EndsChase'}}</span>
+          {{/if}}
+          {{#if obstacle.isBranch}}
+            <span class="pfai-flag pfai-flag-branch" data-tooltip="{{localize 'PFAI.Chase.BranchTooltip'}}">
+              <i class="fa-solid fa-code-branch"></i>
+              {{#each obstacle.branchSiblings as |sibling|}}{{sibling.label}} {{/each}}
+            </span>
+          {{/if}}
+          <div class="pfai-points">
+            {{#if ../../isGM}}
+              <button type="button" class="pfai-step" data-action="chasePointDelta" data-chase-id="{{../id}}"
+                      data-obstacle-id="{{obstacle.id}}" data-delta="-1">&minus;</button>
+            {{/if}}
+            <span class="pfai-points-value" data-tooltip="{{localize 'PFAI.Chase.ChasePoints'}}">
+              {{obstacle.chasePoints.current}} / {{obstacle.chasePoints.goal}}
+            </span>
+            {{#if ../../isGM}}
+              <button type="button" class="pfai-step" data-action="chasePointDelta" data-chase-id="{{../id}}"
+                      data-obstacle-id="{{obstacle.id}}" data-delta="1">+</button>
+            {{/if}}
+          </div>
+          {{#if obstacle.rounds.max}}
+            <div class="pfai-points pfai-obstacle-rounds {{#if obstacle.outOfRounds}}is-spent{{/if}}"
+                 data-tooltip="{{localize 'PFAI.Chase.ObstacleRounds'}}">
+              {{#if ../../isGM}}
+                <button type="button" class="pfai-step" data-action="obstacleRoundDelta" data-chase-id="{{../id}}"
+                        data-obstacle-id="{{obstacle.id}}" data-delta="-1">&minus;</button>
+              {{/if}}
+              <span class="pfai-points-value"><i class="fa-solid fa-hourglass-half"></i>
+                {{obstacle.rounds.current}} / {{obstacle.rounds.max}}</span>
+              {{#if ../../isGM}}
+                <button type="button" class="pfai-step" data-action="obstacleRoundDelta" data-chase-id="{{../id}}"
+                        data-obstacle-id="{{obstacle.id}}" data-delta="1">+</button>
+              {{/if}}
+            </div>
+          {{/if}}
+          {{#if ../../isGM}}
+            <div class="pfai-obstacle-actions">
+              <button type="button" class="pfai-icon {{#if obstacle.isPinned}}pfai-toggle-on{{/if}}"
+                      data-action="setActiveObstacle" data-chase-id="{{../id}}" data-obstacle-id="{{obstacle.id}}"
+                      data-tooltip="{{#if obstacle.isPinned}}{{localize 'PFAI.Chase.UnsetActive'}}{{else}}{{localize 'PFAI.Chase.SetActive'}}{{/if}}">
+                <i class="fa-solid fa-location-crosshairs"></i>
+              </button>
+              <button type="button" class="pfai-icon" data-action="generateImage" data-chase-id="{{../id}}"
+                      data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.Image.ForObstacleHint'}}">
+                <i class="fa-solid fa-image"></i>
+              </button>
+              <button type="button" class="pfai-icon" data-action="toggleObstacleLock" data-chase-id="{{../id}}"
+                      data-obstacle-id="{{obstacle.id}}"
+                      data-tooltip="{{#if obstacle.locked}}{{localize 'PFAI.Chase.Unlock'}}{{else}}{{localize 'PFAI.Chase.Lock'}}{{/if}}">
+                <i class="fa-solid {{#if obstacle.locked}}fa-lock{{else}}fa-lock-open{{/if}}"></i>
+              </button>
+              <button type="button" class="pfai-icon" data-action="regenerateObstacle" data-chase-id="{{../id}}"
+                      data-obstacle-id="{{obstacle.id}}" {{#if ../generatingObstacle}}disabled{{/if}}
+                      data-tooltip="{{localize 'PFAI.Chase.RegenerateObstacleHint'}}">
+                {{#if ../generatingObstacle}}
+                  <i class="fa-solid fa-spinner fa-spin"></i>
+                {{else}}
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                {{/if}}
+              </button>
+              <button type="button" class="pfai-icon" data-action="editObstacle" data-chase-id="{{../id}}"
+                      data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.Edit'}}">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              {{#if obstacle.canFork}}
+                <button type="button" class="pfai-icon" data-action="addBranch" data-chase-id="{{../id}}"
+                        data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.Chase.AddBranchHint'}}">
+                  <i class="fa-solid fa-code-branch"></i>
+                </button>
+                <button type="button" class="pfai-icon" data-action="generateBranch" data-chase-id="{{../id}}"
+                        data-obstacle-id="{{obstacle.id}}" {{#if ../generatingObstacle}}disabled{{/if}}
+                        data-tooltip="{{localize 'PFAI.Chase.GenerateBranchHint'}}">
+                  {{#if ../generatingObstacle}}
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                  {{else}}
+                    <i class="fa-solid fa-shuffle"></i>
+                  {{/if}}
+                </button>
+              {{/if}}
+              <button type="button" class="pfai-icon pfai-danger" data-action="deleteObstacle" data-chase-id="{{../id}}"
+                      data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.View.Delete'}}">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          {{/if}}
+        </header>
+        <div class="pfai-progress"><div class="pfai-progress-bar" style="width: {{obstacle.percent}}%"></div></div>
+        {{#if obstacle.img}}
+          <figure class="pfai-obstacle-art">
+            <img src="{{obstacle.img}}" alt="{{obstacle.name}}">
+            {{#if ../../isGM}}
+              <figcaption>
+                <button type="button" class="pfai-icon" data-action="generateImage" data-chase-id="{{../id}}"
+                        data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.Image.Regenerate'}}">
+                  <i class="fa-solid fa-arrows-rotate"></i></button>
+                <button type="button" class="pfai-icon pfai-danger" data-action="clearImage" data-chase-id="{{../id}}"
+                        data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.Image.Remove'}}">
+                  <i class="fa-solid fa-trash"></i></button>
+              </figcaption>
+            {{/if}}
+          </figure>
+        {{/if}}
+        <div class="pfai-prose">{{{obstacle.enrichedOvercome}}}</div>
+      </article>
+      {{/with}}
+
+      {{#if ../isGM}}
+        <nav class="pfai-carousel">
+          <button type="button" class="pfai-icon" data-action="obstaclePrev"
+                  {{#unless currentObstacle.canPrev}}disabled{{/unless}}
+                  data-tooltip="{{localize 'PFAI.Chase.PrevObstacle'}}"><i class="fa-solid fa-chevron-left"></i></button>
+          <ol class="pfai-dots">
+            {{#each obstacleDots as |dot|}}
+              <li>
+                <button type="button" data-action="obstacleJump" data-index="{{dot.index}}"
+                        class="pfai-dot {{#if dot.active}}is-active{{/if}} {{#if dot.live}}is-live{{/if}} {{#if dot.cleared}}is-cleared{{/if}} {{#if dot.locked}}is-locked{{/if}}"
+                        data-tooltip="{{localize 'PFAI.Chase.Obstacle'}} {{dot.number}}">{{dot.number}}</button>
+              </li>
+            {{/each}}
+          </ol>
+          <button type="button" class="pfai-icon" data-action="obstacleNext"
+                  {{#unless currentObstacle.canNext}}disabled{{/unless}}
+                  data-tooltip="{{localize 'PFAI.Chase.NextObstacle'}}"><i class="fa-solid fa-chevron-right"></i></button>
+          <span class="pfai-carousel-count">{{obstaclePosition}} / {{obstacleTotal}}</span>
+        </nav>
+      {{/if}}
+    {{else}}
+      <p class="pfai-empty">{{localize 'PFAI.Chase.NoObstacles'}}</p>
+    {{/if}}
+  </section>
+
+  <section class="pfai-panel">
+    <h3>
+      {{localize 'PFAI.Chase.Participants'}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-icon" data-action="addParticipants" data-chase-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>
+      {{/if}}
+    </h3>
+    <div class="pfai-roster">
+      <div class="pfai-roster-head">
+        <span class="pfai-col-who">{{localize 'PFAI.Chase.Participant'}}</span>
+        <span class="pfai-col-points">{{localize 'PFAI.Chase.Points'}}</span>
+        <span class="pfai-col-at">{{localize 'PFAI.Chase.At'}}</span>
+        <span class="pfai-col-turn">{{localize 'PFAI.Chase.Turn'}}</span>
+        <span class="pfai-col-end"></span>
+      </div>
+
+    {{#each participants as |participant|}}
+      <div class="pfai-participant {{#if participant.hasActed}}has-acted{{/if}}">
+
+        <span class="pfai-p-who">
+          <img src="{{participant.img}}" alt="">
+          <span class="pfai-p-name">{{participant.name}}</span>
+          {{#if participant.hasActed}}
+            <i class="fa-solid fa-check pfai-acted-mark"
+               data-tooltip="{{localize 'PFAI.Chase.ActedTooltip'}}"
+               aria-label="{{localize 'PFAI.Chase.Acted'}}"></i>
+          {{/if}}
+          {{#if ../hasBranches}}
+            <span class="pfai-branch-picker" data-tooltip="{{localize 'PFAI.Chase.ParticipantBranch'}}">
+              {{#each participant.branchChoices as |choice|}}
+                {{#if ../../../isGM}}
+                  <button type="button" class="pfai-branch {{#if choice.active}}is-active{{/if}}"
+                          data-action="setParticipantBranch" data-chase-id="{{../../id}}"
+                          data-participant-id="{{participant.id}}" data-branch="{{choice.value}}"
+                          data-tooltip="{{choice.name}}">{{choice.label}}</button>
+                {{else if choice.active}}
+                  <span class="pfai-branch is-active">{{choice.label}}</span>
+                {{/if}}
+              {{/each}}
+            </span>
+          {{/if}}
+        </span>
+
+        <span class="pfai-p-points" data-tooltip="{{localize 'PFAI.Chase.ContributionTooltip'}} {{participant.successCount}}/{{participant.rollCount}}">
+          {{#if participant.canAward}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="awardContribution"
+                    data-chase-id="{{../id}}" data-obstacle-id="{{participant.rollObstacleId}}"
+                    data-participant-id="{{participant.id}}" data-delta="-1"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveSuccess'}}">&minus;</button>
+          {{/if}}
+          <span class="pfai-tally {{#unless participant.hasContributed}}is-empty{{/unless}}">
+            <i class="fa-solid fa-star"></i><strong>{{participant.contributedHere}}</strong><small>/{{participant.contributedTotal}}</small>
+          </span>
+          {{#if participant.canAward}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="awardContribution"
+                    data-chase-id="{{../id}}" data-obstacle-id="{{participant.rollObstacleId}}"
+                    data-participant-id="{{participant.id}}" data-delta="1"
+                    data-tooltip="{{localize 'PFAI.Chase.AwardSuccess'}}">+</button>
+          {{/if}}
+        </span>
+
+        <span class="pfai-p-at" data-tooltip="{{localize 'PFAI.Chase.AtObstacle'}} {{participant.obstacle}}">
+          {{#if ../../isGM}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="participantDelta"
+                    data-chase-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-delta="-1">&minus;</button>
+          {{/if}}
+          <strong>{{participant.obstacle}}</strong>
+          {{#if ../../isGM}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="participantDelta"
+                    data-chase-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-delta="1">+</button>
+          {{/if}}
+        </span>
+
+        <span class="pfai-p-turn">
+          {{#if participant.canRoll}}
+            <select class="pfai-roll-option" aria-label="{{localize 'PFAI.Roll.PickSkill'}}">
+              {{#each participant.rollOptions as |option|}}
+                <option value="{{option.id}}">{{option.label}} DC {{option.dc}}{{option.routeSuffix}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="pfai-roll-button {{#if participant.isReroll}}pfai-reroll{{/if}}"
+                    data-action="rollCheck" data-chase-id="{{../id}}"
+                    data-obstacle-id="{{participant.rollObstacleId}}"
+                    data-participant-id="{{participant.id}}"
+                    data-tooltip="{{#if participant.isReroll}}{{localize 'PFAI.Roll.RerollHint'}}{{else}}{{localize 'PFAI.Roll.Roll'}}{{/if}}">
+              <i class="fa-solid fa-dice-d20"></i>
+            </button>
+          {{else if participant.noActor}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NoActorLinked'}}</span>
+          {{else if participant.missingActor}}
+            <span class="pfai-p-note is-bad">{{localize 'PFAI.Roll.ActorMissing'}}</span>
+          {{else if participant.hasActed}}
+            <span class="pfai-p-note">{{localize 'PFAI.Chase.Acted'}}</span>
+          {{else if participant.owned}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NothingToRoll'}}</span>
+          {{else}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NotYours'}}</span>
+          {{/if}}
+
+          {{#if participant.canPass}}
+            <button type="button" class="pfai-pass-button" data-action="passTurn"
+                    data-chase-id="{{../id}}" data-obstacle-id="{{participant.rollObstacleId}}"
+                    data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Roll.PassHint'}}">
+              <i class="fa-solid fa-forward"></i>
+            </button>
+          {{/if}}
+        </span>
+
+        <span class="pfai-p-end">
+          {{#if ../../isGM}}
+            <button type="button" class="pfai-icon pfai-hover-only" data-action="toggleActed"
+                    data-chase-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.ToggleActed'}}">
+              <i class="fa-solid {{#if participant.hasActed}}fa-circle-check{{else}}fa-circle{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-danger pfai-hover-only" data-action="removeParticipant"
+                    data-chase-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.View.Delete'}}">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          {{/if}}
+        </span>
+      </div>
+    {{/each}}
+    </div>
+    {{#unless participants.length}}
+      <p class="pfai-empty">{{localize 'PFAI.Chase.NoParticipants'}}</p>
+    {{/unless}}
+  </section>
+  {{/with}}
+
+{{else}}
+  <header class="pfai-list-header">
+    <h2>{{localize 'PFAI.View.Chases'}}</h2>
+    {{#if isGM}}
+      <div class="pfai-header-actions">
+        <button type="button" class="pfai-primary" data-action="generate">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
+        </button>
+        <button type="button" data-action="createBlank">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.View.CreateBlank'}}
+        </button>
+        <button type="button" data-action="importChase">
+          <i class="fa-solid fa-file-import"></i> {{localize 'PFAI.View.Import'}}
+        </button>
+      </div>
+    {{/if}}
+  </header>
+
+  <div class="pfai-list">
+    {{#each chases as |chase|}}
+      <article class="pfai-card {{#if chase.hidden}}is-hidden{{/if}}" data-action="openChase" data-chase-id="{{chase.id}}">
+        <h3>
+          {{chase.name}}
+          {{#if chase.ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
+        </h3>
+        <div class="pfai-card-meta">
+          <span>{{localize 'PFAI.Chase.BaseDC'}} {{chase.baseDC}}</span>
+          <span>{{chase.obstacleCount}} {{localize 'PFAI.Chase.ObstaclesShort'}}</span>
+          {{#if chase.started}}<span class="pfai-flag pfai-flag-good">{{localize 'PFAI.Chase.Running'}}</span>{{/if}}
+          {{#if chase.hidden}}<span class="pfai-flag">{{localize 'PFAI.Chase.HiddenFlag'}}</span>{{/if}}
+        </div>
+      </article>
+    {{else}}
+      <p class="pfai-empty">{{localize 'PFAI.View.NoChases'}}</p>
+    {{/each}}
+  </div>
+{{/if}}
+
+</div>

@@ -1,0 +1,1042 @@
+/* PF2e Alternative Subsystems (AI Generator) */
+
+/* ApplicationV2 gives .window-content no scroll container of its own, so a tall
+   chase simply ran off the bottom of the window. Make the content a flex column
+   and let the module root be the thing that scrolls. */
+.pfai .window-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  padding: 0;
+}
+
+.pfai .pfai-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Dialogs size to content, so cap them against the viewport instead. */
+.pfai-generate .window-content {
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
+}
+
+/* ---------- Shared ---------- */
+
+.pfai .pfai-empty {
+  opacity: 0.7;
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+.pfai .pfai-label {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+}
+
+.pfai .pfai-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  flex: 0 0 1.9rem;
+  line-height: 1;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.pfai .pfai-danger:hover {
+  color: #b4231f;
+}
+
+.pfai .pfai-primary {
+  font-weight: 600;
+}
+
+.pfai .pfai-step {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 1.5rem;
+  padding: 0;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.pfai .pfai-ai-badge {
+  font-size: 0.8em;
+  opacity: 0.7;
+  margin-left: 0.35rem;
+}
+
+.pfai .pfai-flag {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  opacity: 0.85;
+}
+
+.pfai .pfai-flag-good { color: #2f7d43; }
+.pfai .pfai-flag-bad { color: #b4231f; }
+
+.pfai .pfai-prose {
+  line-height: 1.5;
+}
+
+.pfai .pfai-prose ul {
+  margin: 0.35rem 0 0.35rem 1.1rem;
+  padding: 0;
+}
+
+/* ---------- Chase list ---------- */
+
+.pfai .pfai-list-header,
+.pfai .pfai-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  padding-bottom: 0.5rem;
+}
+
+.pfai .pfai-list-header h2,
+.pfai .pfai-title {
+  flex: 1;
+  margin: 0;
+  border: none;
+}
+
+.pfai .pfai-header-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.pfai .pfai-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.6rem;
+}
+
+.pfai .pfai-card {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.pfai .pfai-card:hover {
+  border-color: var(--color-shadow-primary, #782e22);
+  transform: translateY(-1px);
+}
+
+.pfai .pfai-card.is-hidden {
+  opacity: 0.6;
+}
+
+.pfai .pfai-card h3 {
+  margin: 0 0 0.35rem;
+  border: none;
+}
+
+.pfai .pfai-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+/* ---------- Chase detail ---------- */
+
+.pfai .pfai-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+}
+
+.pfai .pfai-status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pfai .pfai-round {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pfai .pfai-status-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.pfai .pfai-panel {
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+}
+
+.pfai .pfai-panel > h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  border: none;
+}
+
+/* GM-only panels get a tint so nobody reads them aloud by accident. */
+.pfai .pfai-gm {
+  background: rgba(120, 46, 34, 0.06);
+  border-color: rgba(120, 46, 34, 0.3);
+}
+
+.pfai .pfai-obstacle {
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.5rem 0;
+}
+
+.pfai .pfai-obstacle:first-of-type {
+  border-top: none;
+}
+
+.pfai .pfai-obstacle.is-locked {
+  opacity: 0.72;
+}
+
+.pfai .pfai-obstacle.is-cleared .pfai-obstacle-number {
+  background: #2f7d43;
+  color: #fff;
+}
+
+.pfai .pfai-obstacle > header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pfai .pfai-obstacle > header h4 {
+  flex: 1;
+  margin: 0;
+}
+
+.pfai .pfai-obstacle-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.pfai .pfai-points,
+.pfai .pfai-obstacle-actions,
+.pfai .pfai-participant-obstacle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pfai .pfai-points-value {
+  min-width: 3.2rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pfai .pfai-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.12);
+  margin: 0.4rem 0;
+  overflow: hidden;
+}
+
+.pfai .pfai-progress-bar {
+  height: 100%;
+  background: #2f7d43;
+  transition: width 160ms ease;
+}
+
+/* ---------- Forms ---------- */
+
+.pfai .pfai-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem;
+}
+
+.pfai .pfai-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.pfai .pfai-field > span {
+  font-weight: 600;
+}
+
+.pfai .pfai-field small {
+  opacity: 0.75;
+}
+
+.pfai .pfai-field-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.pfai .pfai-warning {
+  border: 1px solid #b4231f;
+  background: rgba(180, 35, 31, 0.08);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  margin: 0;
+}
+
+.pfai .pfai-generate-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  padding-top: 0.6rem;
+}
+
+.pfai .pfai-model {
+  flex: 1;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.pfai .pfai-busy {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Sidebar entry point, sized to sit inline with the directory search row. */
+.pfai-open-button {
+  width: 100%;
+  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+/* Generation entry point inside the obstacles panel header. */
+.pfai .pfai-generate-obstacles {
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+/* The title's edit affordance stays quiet until the header is hovered. */
+.pfai .pfai-title-edit {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.pfai .pfai-detail-header:hover .pfai-title-edit,
+.pfai .pfai-title-edit:focus-visible {
+  opacity: 1;
+}
+
+.pfai .pfai-field-wide {
+  flex: 2;
+}
+
+.pfai .pfai-note {
+  border: 1px solid rgba(47, 125, 67, 0.5);
+  background: rgba(47, 125, 67, 0.08);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+
+/* ---------- Obstacle carousel ---------- */
+
+.pfai .pfai-carousel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.pfai .pfai-dots {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  justify-content: center;
+}
+
+.pfai .pfai-dot {
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  line-height: 1;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+.pfai .pfai-dot.is-active {
+  opacity: 1;
+  border-color: var(--color-shadow-primary, #782e22);
+  box-shadow: 0 0 0 2px rgba(120, 46, 34, 0.35);
+}
+
+.pfai .pfai-dot.is-cleared {
+  background: #2f7d43;
+  color: #fff;
+  opacity: 0.85;
+}
+
+/* Locked obstacles are GM-only, so mark them rather than hiding them here. */
+.pfai .pfai-dot.is-locked::after {
+  content: '\f023';
+  font-family: 'Font Awesome 6 Free', 'Font Awesome 5 Free';
+  font-weight: 900;
+  font-size: 0.5rem;
+  position: absolute;
+  transform: translate(0.55rem, -0.55rem);
+}
+
+.pfai .pfai-carousel-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  opacity: 0.75;
+  min-width: 3rem;
+  text-align: right;
+}
+
+.pfai .pfai-flag-muted {
+  opacity: 0.6;
+  font-size: 0.7rem;
+}
+
+/* The obstacle panel header now carries two generation buttons. */
+.pfai .pfai-panel > h3 {
+  flex-wrap: wrap;
+}
+
+/* ---------- Artwork ---------- */
+
+.pfai .pfai-chase-art,
+.pfai .pfai-obstacle-art {
+  position: relative;
+  margin: 0 0 0.5rem;
+  border-radius: 6px;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.pfai .pfai-chase-art img,
+.pfai .pfai-obstacle-art img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: none;
+}
+
+.pfai .pfai-chase-art figcaption,
+.pfai .pfai-obstacle-art figcaption {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.pfai .pfai-chase-art:hover figcaption,
+.pfai .pfai-obstacle-art:hover figcaption {
+  opacity: 1;
+}
+
+/* ---------- Reference picker ---------- */
+
+.pfai .pfai-references {
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+}
+
+.pfai .pfai-references-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.pfai .pfai-references-header > span {
+  font-weight: 600;
+}
+
+.pfai .pfai-reference-buttons {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.pfai .pfai-reference-buttons button {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.pfai .pfai-reference-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.35rem;
+}
+
+.pfai .pfai-reference {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  padding: 0.2rem 0.3rem;
+}
+
+.pfai .pfai-reference img {
+  width: 2rem;
+  height: 2rem;
+  object-fit: cover;
+  border-radius: 3px;
+  border: none;
+  flex: 0 0 2rem;
+}
+
+.pfai .pfai-reference-label {
+  flex: 1;
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pfai .pfai-current-image img {
+  max-height: 8rem;
+  width: auto;
+  border-radius: 4px;
+}
+
+/* ---------- Player preview ---------- */
+
+.pfai .pfai-preview-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  border: 1px dashed var(--color-shadow-primary, #782e22);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.pfai .pfai-preview-banner button {
+  margin-left: auto;
+  width: auto;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+}
+
+.pfai .pfai-toggle-on {
+  color: var(--color-shadow-primary, #782e22);
+  border-color: currentColor;
+}
+
+/* The pinned obstacle reads differently from merely "selected". */
+.pfai .pfai-dot.is-live {
+  border-width: 2px;
+  font-weight: 800;
+}
+
+/* ---------- Image dialog extras ---------- */
+
+.pfai .pfai-optional {
+  font-weight: 400;
+  font-size: 0.75rem;
+  opacity: 0.65;
+  font-style: italic;
+}
+
+/* Collapsed by default: useful when tuning a prompt, noise the rest of the time. */
+.pfai .pfai-prompt-preview {
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.pfai .pfai-prompt-preview summary {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.pfai .pfai-prompt-preview pre {
+  margin: 0.4rem 0 0;
+  padding: 0.4rem;
+  max-height: 11rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 3px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.pfai .pfai-own-image {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  border: 1px dashed rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+}
+
+.pfai .pfai-own-image > span {
+  font-weight: 600;
+}
+
+.pfai .pfai-own-image button {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.pfai .pfai-own-image small {
+  flex: 1 1 100%;
+  opacity: 0.75;
+}
+
+/* Pushing to players is the loudest action in the header, so give it weight. */
+.pfai .pfai-show-players {
+  color: var(--color-shadow-primary, #782e22);
+  border-color: currentColor;
+}
+
+/* ---------- Rolling ---------- */
+
+.pfai .pfai-roll-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pfai .pfai-roll-option {
+  max-width: 11rem;
+  font-size: 0.78rem;
+  height: 1.7rem;
+  padding: 0 0.3rem;
+}
+
+.pfai .pfai-roll-button {
+  width: auto;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  padding: 0.1rem 0.5rem;
+  white-space: nowrap;
+}
+
+.pfai .pfai-obstacle-rounds .pfai-points-value {
+  min-width: 3.6rem;
+  font-size: 0.85rem;
+}
+
+.pfai .pfai-obstacle-rounds.is-spent {
+  color: #b4231f;
+}
+
+/* Nobody has rolled yet, so keep it quiet rather than showing a row of zeroes. */
+.pfai .pfai-contribution.is-empty {
+  opacity: 0.4;
+}
+
+/* GM award controls sit either side of the tally they change. */
+.pfai .pfai-contribution-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+/* A re-roll is deliberate, so mark it apart from a first roll. */
+.pfai .pfai-roll-button.pfai-reroll {
+  opacity: 0.8;
+  font-style: italic;
+}
+
+/* ---------- Live obstacle readout ---------- */
+
+/* Chase points are per-obstacle by the rules, so the status bar mirrors the
+   obstacle in play rather than inventing a chase-wide total. */
+.pfai .pfai-live-obstacle {
+  min-width: 11rem;
+  flex: 1 1 11rem;
+}
+
+.pfai .pfai-live-obstacle .pfai-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pfai .pfai-live-points {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.pfai .pfai-live-name {
+  font-size: 0.78rem;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pfai .pfai-live-obstacle .pfai-progress {
+  margin: 0.2rem 0 0;
+}
+
+.pfai .pfai-live-obstacle.is-cleared .pfai-progress-bar {
+  background: #2f7d43;
+}
+
+.pfai .pfai-jump-live {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex: 0 0 1.2rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.65rem;
+  border-radius: 3px;
+}
+
+/* ---------- Pass and branches ---------- */
+
+.pfai .pfai-pass-button {
+  width: auto;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.pfai .pfai-branch-picker {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+
+.pfai .pfai-branch {
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.3rem;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5rem;
+  text-align: center;
+  border-radius: 3px;
+  opacity: 0.55;
+}
+
+.pfai .pfai-branch.is-active {
+  opacity: 1;
+  color: var(--color-shadow-primary, #782e22);
+  border: 1px solid currentColor;
+}
+
+.pfai .pfai-flag-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ---------- Route editor ---------- */
+
+.pfai .pfai-route-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.pfai .pfai-route-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  padding-bottom: 0.2rem;
+}
+
+.pfai .pfai-route-table td {
+  padding: 0.15rem 0.25rem 0.15rem 0;
+  vertical-align: middle;
+}
+
+.pfai .pfai-route-table td:first-child {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.pfai .pfai-route-table input[type="number"] {
+  width: 4rem;
+}
+
+.pfai .pfai-route-cell select {
+  min-width: 9rem;
+}
+
+
+/* ---------- Participant roster ---------- */
+
+/*
+ * A grid, not a flex row. Every participant lines up on the same columns even
+ * when a control is absent for them, which is what stopped the rows reading as
+ * a table before.
+ */
+.pfai .pfai-roster {
+  display: grid;
+  grid-template-columns:
+    minmax(9rem, 1fr)   /* who */
+    auto                /* points */
+    auto                /* at */
+    minmax(0, auto)     /* turn */
+    auto;               /* row controls */
+  align-items: center;
+  column-gap: 0.9rem;
+  row-gap: 0.1rem;
+}
+
+.pfai .pfai-roster-head,
+.pfai .pfai-participant {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+}
+
+.pfai .pfai-roster-head {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.5;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+  margin-bottom: 0.2rem;
+}
+
+.pfai .pfai-roster-head .pfai-col-points,
+.pfai .pfai-roster-head .pfai-col-at {
+  text-align: center;
+}
+
+.pfai .pfai-participant {
+  padding: 0.28rem 0.35rem;
+  border-radius: 5px;
+  transition: background-color 120ms ease;
+}
+
+.pfai .pfai-participant:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.pfai .pfai-participant.has-acted {
+  opacity: 0.55;
+}
+
+/* --- who --- */
+
+.pfai .pfai-p-who {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.pfai .pfai-p-who img {
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 1.8rem;
+  object-fit: cover;
+  border: none;
+  border-radius: 4px;
+}
+
+.pfai .pfai-p-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* --- numeric columns --- */
+
+.pfai .pfai-p-points,
+.pfai .pfai-p-at {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pfai .pfai-tally {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  min-width: 3.1rem;
+  justify-content: center;
+}
+
+.pfai .pfai-tally i {
+  font-size: 0.62rem;
+  opacity: 0.65;
+}
+
+.pfai .pfai-tally small {
+  opacity: 0.55;
+  font-size: 0.72rem;
+}
+
+.pfai .pfai-tally.is-empty {
+  opacity: 0.35;
+}
+
+.pfai .pfai-p-at strong {
+  min-width: 1rem;
+  text-align: center;
+}
+
+/* --- the turn column --- */
+
+.pfai .pfai-p-turn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-content: flex-end;
+}
+
+.pfai .pfai-p-turn .pfai-roll-option {
+  max-width: 13rem;
+  height: 1.6rem;
+  font-size: 0.75rem;
+}
+
+/* Roll and Pass are icon-only here; their labels live in tooltips, which keeps
+   the column from stretching and the rows from going ragged. */
+.pfai .pfai-roll-button,
+.pfai .pfai-pass-button {
+  width: 1.9rem;
+  height: 1.7rem;
+  flex: 0 0 1.9rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+}
+
+.pfai .pfai-roll-button.pfai-reroll {
+  opacity: 0.75;
+}
+
+.pfai .pfai-p-note {
+  font-size: 0.72rem;
+  opacity: 0.5;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.pfai .pfai-p-note.is-bad {
+  color: #b4231f;
+  opacity: 0.85;
+}
+
+/* --- row controls --- */
+
+.pfai .pfai-p-end {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  justify-content: flex-end;
+}
+
+/*
+ * Steppers and row controls stay out of the way until the row is hovered, so a
+ * roster at rest reads as data rather than a wall of buttons.
+ */
+.pfai .pfai-hover-only {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.pfai .pfai-participant:hover .pfai-hover-only,
+.pfai .pfai-hover-only:focus-visible {
+  opacity: 1;
+}
+
+/* Touch and keyboard users never hover, so never hide the controls there. */
+@media (hover: none) {
+  .pfai .pfai-hover-only { opacity: 1; }
+}
+
+.pfai .pfai-participant .pfai-branch-picker {
+  margin-left: 0.1rem;
+}
+
+@media (max-width: 640px) {
+  .pfai .pfai-roster { grid-template-columns: 1fr auto auto; }
+  .pfai .pfai-roster-head { display: none; }
+  .pfai .pfai-participant { grid-template-columns: 1fr auto auto; row-gap: 0.25rem; }
+  .pfai .pfai-p-turn { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* Acted is shown on the name, not in the turn column, because a GM always keeps
+   roll controls there and would otherwise lose the signal entirely. */
+.pfai .pfai-acted-mark {
+  font-size: 0.7rem;
+  color: #2f7d43;
+  flex: 0 0 auto;
+}
