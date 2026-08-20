@@ -52,7 +52,7 @@ Hooks.once('setup', () => registerPartials());
 Hooks.once('ready', async () => {
   await migrateChases();
   registerSocket({
-    onShowChase: (chaseId) => SubsystemView.open(chaseId),
+    onShowChase: ({ subsystem, eventId }) => SubsystemView.open(eventId, subsystem),
     onApplyRoll: (data) => applyRollResult(data),
     onApplyPass: (data) => applyPassResult(data),
     onApplyInfluence: (data) => applyInfluenceResult(data),

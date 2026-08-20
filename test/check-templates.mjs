@@ -268,4 +268,32 @@ for (const isGM of [true, false]) {
   console.log(`influence isGM=${isGM}: bytes=${out.length} reveal=${revealBtns} apply=${applyBtns} rolls=${rollBtns} gmProse=${leaks.length}`);
 }
 
+// The two subsystems must offer the same operations on an event, or the UI
+// teaches one set of habits on one tab and another on the other.
+{
+  const chaseHeader = view({ isGM: true, isRealGM: true, previewAsPlayer: false, isChaseTab: true,
+                             chases: [], selected });
+  const influenceHeader = view(influenceCtx(true));
+  const SHARED = ['togglePlayerPreview', 'showToPlayers', 'toggleHidden', 'exportEvent',
+                  'editTitle', 'toggleStarted'];
+  for (const action of SHARED) {
+    const inChase = chaseHeader.includes(`data-action="${action}"`);
+    const inInfluence = influenceHeader.includes(`data-action="${action}"`);
+    if (!inChase || !inInfluence) {
+      failed = 1;
+      console.error(`  "${action}" present in chase=${inChase} influence=${inInfluence} - must be both`);
+    }
+  }
+  // Shared actions must say which subsystem they act on, or they default to chases.
+  for (const out of [chaseHeader, influenceHeader]) {
+    for (const tag of out.match(/<[^>]*data-action="(?:showToPlayers|toggleHidden|exportEvent|editTitle|toggleStarted)"[^>]*>/g) ?? []) {
+      if (!/data-subsystem="/.test(tag) || !/data-event-id="/.test(tag)) {
+        failed = 1;
+        console.error(`  shared action missing subsystem/event-id: ${tag.slice(0, 90)}`);
+      }
+    }
+  }
+  console.log(`shared-header: ${SHARED.length} operations present on both subsystems`);
+}
+
 process.exit(failed);

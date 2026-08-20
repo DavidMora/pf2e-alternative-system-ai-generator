@@ -21,7 +21,8 @@ export const SOCKET_ACTIONS = {
 export function shouldHandle(data, userId) {
   if (!data || typeof data !== 'object') return false;
   if (data.action !== SOCKET_ACTIONS.showChase) return false;
-  if (!data.chaseId) return false;
+  // `chaseId` is still accepted so a client on an older build is not confused.
+  if (!(data.eventId ?? data.chaseId)) return false;
   // No explicit recipients means everyone; otherwise this user must be listed.
   if (data.userIds === undefined || data.userIds === null) return true;
   if (!Array.isArray(data.userIds)) return false;
@@ -83,10 +84,11 @@ export function shouldApplyPass(data, context) {
  * Foundry does not echo a socket emit back to its sender, so the GM's own
  * window is left exactly as they had it.
  */
-export function emitShowChase(chaseId, userIds) {
+export function emitShowEvent({ subsystem, eventId, userIds }) {
   game.socket.emit(SOCKET_EVENT, {
     action: SOCKET_ACTIONS.showChase,
-    chaseId,
+    subsystem,
+    eventId,
     userIds,
   });
 }
@@ -119,7 +121,10 @@ export function emitApplyPass({ chaseId, obstacleId, participantId }) {
 export function registerSocket({ onShowChase, onApplyRoll, onApplyPass, onApplyInfluence }) {
   game.socket.on(SOCKET_EVENT, (data) => {
     if (shouldHandle(data, game.user.id)) {
-      onShowChase(data.chaseId);
+      onShowChase({
+        subsystem: data.subsystem ?? 'chase',
+        eventId: data.eventId ?? data.chaseId,
+      });
       return;
     }
     const context = {

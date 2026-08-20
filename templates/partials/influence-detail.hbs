@@ -5,6 +5,11 @@
   </button>
   <h2 class="pfai-title">
     {{name}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-title-edit" data-action="editTitle"
+              data-subsystem="influence" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.EditTitle'}}"><i class="fa-solid fa-pen"></i></button>
+    {{/if}}
     {{#if showNpcSubtitle}}<span class="pfai-subtitle">{{npc.name}}</span>{{/if}}
     {{#if ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
   </h2>
@@ -16,9 +21,20 @@
       </button>
     {{/if}}
     {{#if ../isGM}}
-      <button type="button" class="pfai-icon" data-action="toggleInfluenceHidden" data-influence-id="{{id}}"
+      <button type="button" class="pfai-icon pfai-show-players" data-action="showToPlayers"
+              data-subsystem="influence" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.ShowToPlayersHint'}}">
+        <i class="fa-solid fa-tv"></i>
+      </button>
+      <button type="button" class="pfai-icon" data-action="toggleHidden"
+              data-subsystem="influence" data-event-id="{{id}}"
               data-tooltip="{{#if hidden}}{{localize 'PFAI.View.ShowToPlayers'}}{{else}}{{localize 'PFAI.View.HideFromPlayers'}}{{/if}}">
         <i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+      </button>
+      <button type="button" class="pfai-icon" data-action="exportEvent"
+              data-subsystem="influence" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Export'}}">
+        <i class="fa-solid fa-file-export"></i>
       </button>
       <button type="button" class="pfai-icon pfai-danger" data-action="deleteInfluence" data-influence-id="{{id}}"
               data-tooltip="{{localize 'PFAI.View.Delete'}}">
@@ -82,6 +98,10 @@
     <div class="pfai-status-actions">
       <button type="button" data-action="influenceNextRound" data-influence-id="{{id}}">
         <i class="fa-solid fa-forward-step"></i> {{localize 'PFAI.Chase.NextRound'}}
+      </button>
+      <button type="button" data-action="toggleStarted" data-subsystem="influence" data-event-id="{{id}}">
+        <i class="fa-solid {{#if started}}fa-pause{{else}}fa-play{{/if}}"></i>
+        {{#if started}}{{localize 'PFAI.Chase.Pause'}}{{else}}{{localize 'PFAI.Chase.Start'}}{{/if}}
       </button>
     </div>
   {{/if}}

@@ -28,7 +28,7 @@ import { GenerateChaseDialog } from './generate-chase-dialog.js';
 import { GenerateInfluenceDialog } from './generate-influence-dialog.js';
 import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
 import { GenerateImageDialog } from './generate-image-dialog.js';
-import { emitShowChase } from '../socket.js';
+import { emitShowEvent } from '../socket.js';
 import { adjustContribution, passTurn, rollChaseCheck, rollInfluenceCheck } from '../rolls.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
 
@@ -84,7 +84,6 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       openInfluence: SubsystemView.#onOpenInfluence,
       backInfluence: SubsystemView.#onBackInfluence,
       deleteInfluence: SubsystemView.#onDeleteInfluence,
-      toggleInfluenceHidden: SubsystemView.#onToggleInfluenceHidden,
       influencePointDelta: SubsystemView.#onInfluencePointDelta,
       influenceRoundDelta: SubsystemView.#onInfluenceRoundDelta,
       influenceNextRound: SubsystemView.#onInfluenceNextRound,
@@ -128,8 +127,8 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       setParticipantBranch: SubsystemView.#onSetParticipantBranch,
       obstacleRoundDelta: SubsystemView.#onObstacleRoundDelta,
       nextRound: SubsystemView.#onNextRound,
-      exportChase: SubsystemView.#onExportChase,
-      importChase: SubsystemView.#onImportChase,
+      exportEvent: SubsystemView.#onExportEvent,
+      importEvent: SubsystemView.#onImportEvent,
     },
   };
 
@@ -138,13 +137,17 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   };
 
   /** Open the window, optionally jumping straight to one chase. */
-  static async open(chaseId = null) {
+  static async open(eventId = null, subsystemKey = 'chase') {
     const existing = foundry.applications.instances.get('pfai-subsystem-view');
     const app = existing instanceof SubsystemView ? existing : new SubsystemView();
-    if (chaseId) {
-      app.#selectedId = chaseId;
-      // Start on the active obstacle rather than wherever this user last browsed.
-      app.#obstacleIndex = null;
+    if (eventId) {
+      app.#subsystem = subsystem(subsystemKey).key;
+      if (app.#subsystem === 'influence') app.#selectedInfluenceId = eventId;
+      else {
+        app.#selectedId = eventId;
+        // Start on the active obstacle rather than wherever this user last browsed.
+        app.#obstacleIndex = null;
+      }
     }
     await app.render({ force: true });
     // A window that is already open but minimised or behind others would
@@ -538,12 +541,6 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     await deleteInfluence(event.id);
   }
 
-  static async #onToggleInfluenceHidden(_event, target) {
-    await updateInfluence(target.dataset.influenceId, (event) => {
-      event.hidden = !event.hidden;
-    });
-  }
-
   static async #onInfluencePointDelta(_event, target) {
     const delta = Number(target.dataset.delta);
     await updateInfluence(target.dataset.influenceId, (event) => {
@@ -643,11 +640,11 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     this.render();
   }
 
-  /** Open this chase on every connected player's screen. */
+  /** Open this event on every connected player's screen, in either subsystem. */
   static async #onShowToPlayers(_event, target) {
-    const chaseId = target.dataset.chaseId;
-    const chase = getChase(chaseId);
-    if (!chase) return;
+    const { key, id, api } = eventTarget(target.dataset);
+    const event = api.get(id);
+    if (!event) return;
 
     const players = game.users.filter((user) => user.active && !user.isGM);
     if (!players.length) {
@@ -655,23 +652,23 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
 
-    // Pushing a hidden chase would open an empty window on their screens.
-    if (chase.hidden) {
+    // Pushing something hidden would open an empty window on their screens.
+    if (event.hidden) {
       const confirmed = await DialogV2.confirm({
         window: { title: game.i18n.localize('PFAI.View.RevealAndShowTitle') },
-        content: `<p>${game.i18n.format('PFAI.View.RevealAndShow', { name: chase.name })}</p>`,
+        content: `<p>${game.i18n.format('PFAI.View.RevealAndShow', { name: event.name })}</p>`,
       });
       if (!confirmed) return;
-      await updateChase(chaseId, (draft) => {
+      await api.update(id, (draft) => {
         draft.hidden = false;
       });
     }
 
-    emitShowChase(chaseId, players.map((user) => user.id));
+    emitShowEvent({ subsystem: key, eventId: id, userIds: players.map((u) => u.id) });
     ui.notifications.info(
       game.i18n.format('PFAI.View.ShownToPlayers', {
         count: players.length,
-        names: players.map((user) => user.name).join(', '),
+        names: players.map((u) => u.name).join(', '),
       }),
     );
   }
@@ -796,8 +793,8 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async #onEditTitle(_event, target) {
-    const chaseId = target.dataset.chaseId;
-    const chase = getChase(chaseId);
+    const { id: chaseId, api } = eventTarget(target.dataset);
+    const chase = api.get(chaseId);
     if (!chase) return;
 
     const result = await DialogV2.prompt({
@@ -816,7 +813,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const name = String(result.name ?? '').trim();
     if (!name) return;
-    await updateChase(chaseId, (draft) => {
+    await api.update(chaseId, (draft) => {
       draft.name = name;
     });
   }
@@ -842,14 +839,16 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async #onToggleHidden(_event, target) {
-    await updateChase(target.dataset.chaseId, (chase) => {
-      chase.hidden = !chase.hidden;
+    const { id, api } = eventTarget(target.dataset);
+    await api.update(id, (event) => {
+      event.hidden = !event.hidden;
     });
   }
 
   static async #onToggleStarted(_event, target) {
-    await updateChase(target.dataset.chaseId, (chase) => {
-      chase.started = !chase.started;
+    const { id, api } = eventTarget(target.dataset);
+    await api.update(id, (event) => {
+      event.started = !event.started;
     });
   }
 
@@ -1466,18 +1465,18 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     });
   }
 
-  static #onExportChase(_event, target) {
-    const chase = getChase(target.dataset.chaseId);
-    if (!chase) return;
-    const payload = { module: MODULE_ID, type: 'chase', version: 1, data: chase };
+  static #onExportEvent(_event, target) {
+    const { key, id, api } = eventTarget(target.dataset);
+    const event = api.get(id);
+    if (!event) return;
     foundry.utils.saveDataToFile(
-      JSON.stringify(payload, null, 2),
+      JSON.stringify(exportPayload(key, event), null, 2),
       'text/json',
-      `${chase.name.slugify({ strict: true }) || 'chase'}.json`,
+      `${event.name.slugify({ strict: true }) || key}.json`,
     );
   }
 
-  static async #onImportChase() {
+  static async #onImportEvent() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json,.json';
@@ -1499,17 +1498,20 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications.error(game.i18n.localize('PFAI.Errors.BadImport'));
       return;
     }
-    if (payload?.type !== 'chase' || !payload.data) {
+    const imported = await importPayload(payload);
+    if (!imported) {
       ui.notifications.error(game.i18n.localize('PFAI.Errors.BadImport'));
       return;
     }
 
-    const chases = getChases();
-    // Always re-key on import so a re-imported file never overwrites the original.
-    const id = foundry.utils.randomID();
-    chases.events[id] = { ...payload.data, id, position: nextPosition(chases.events) };
-    await setChases(chases);
-    this.select(id);
+    // Land the user on whatever they imported, whichever subsystem it belongs to.
+    this.#subsystem = imported.key;
+    const id = imported.id;
+    if (imported.key === 'chase') this.select(id);
+    else {
+      this.#selectedInfluenceId = id;
+      this.render();
+    }
   }
 }
 
