@@ -181,6 +181,60 @@ function promptLines(options) {
   return lines;
 }
 
+/** One further approach for an encounter already in play. */
+export const APPROACH_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['approach'],
+  properties: { approach: skillItem({ reveals: { type: 'string', description: 'For a discovery, what a success tells the party; otherwise an empty string.' } }, ['reveals']) },
+};
+
+/**
+ * Generate one more way to reach this person, for a conversation that has
+ * opened up. The existing approaches are passed so it does not repeat them.
+ */
+export async function generateApproach(options, { signal } = {}) {
+  const lines = promptLines(options);
+  lines.push('');
+  if (options.existingLabels?.length) {
+    lines.push(`These approaches already exist: ${options.existingLabels.join('; ')}. Do not repeat them.`);
+  }
+  if (options.kind === 'discovery') {
+    lines.push('Produce exactly one further discovery check: a new way to learn something about this person, and what it tells the party.');
+  } else {
+    lines.push('Produce exactly one further way to win them over. Leave "reveals" as an empty string.');
+  }
+  if (options.becauseOf) {
+    lines.push(`It becomes available because: ${options.becauseOf}. Let that show in how it reads.`);
+  }
+
+  const result = await requestStructured({
+    schemaName: 'pf2e_influence_approach',
+    schema: APPROACH_SCHEMA,
+    system: SYSTEM_PROMPT,
+    user: lines.join('\n'),
+    signal,
+  });
+  return result.approach;
+}
+
+/** Map one generated approach onto the stored entry shape. */
+export function toApproachEntry(item, baseDC, { position = 0, hidden = true, revealAt = null } = {}) {
+  const id = foundry.utils.randomID();
+  const isLore = item.skill === 'lore' && item.loreName;
+  return {
+    id,
+    position,
+    slug: isLore ? loreSlug(item.loreName) : item.skill,
+    label: isLore ? `${item.loreName} Lore` : capitalize(item.skill),
+    dc: dcFromBase(baseDC, item.dcAdjustment),
+    description: String(item.description ?? ''),
+    hidden,
+    revealAt,
+    ...(item.reveals ? { reveals: `<p>${item.reveals}</p>` } : {}),
+  };
+}
+
 export async function generateInfluence(options, { signal } = {}) {
   const result = await requestStructured({
     schemaName: 'pf2e_influence',

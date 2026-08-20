@@ -3,6 +3,25 @@
   <h3>
     {{title}}
     {{#if hiddenCount}}<span class="pfai-hidden-count">{{hiddenCount}} {{localize 'PFAI.Influence.Undiscovered'}}</span>{{/if}}
+    {{#if isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addApproach"
+                data-influence-id="{{influenceId}}" data-collection="{{collection}}"
+                data-tooltip="{{localize 'PFAI.Influence.AddApproachHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+        <button type="button" class="pfai-generate-obstacles" data-action="generateApproach"
+                data-influence-id="{{influenceId}}" data-collection="{{collection}}"
+                {{#if generating}}disabled{{/if}}
+                data-tooltip="{{localize 'PFAI.Influence.GenerateApproachHint'}}">
+          {{#if generating}}
+            <i class="fa-solid fa-spinner fa-spin"></i> {{localize 'PFAI.Generate.Working'}}
+          {{else}}
+            <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.Influence.AIApproach'}}
+          {{/if}}
+        </button>
+      </span>
+    {{/if}}
   </h3>
   <p class="pfai-panel-hint">{{hint}}</p>
 
@@ -12,6 +31,11 @@
         <span class="pfai-check-dc">DC {{entry.effectiveDC}}</span>
         <div class="pfai-check-body">
           <strong>{{entry.label}}</strong>
+          {{#if entry.lockedUntil}}
+            <span class="pfai-unlock-badge" data-tooltip="{{localize 'PFAI.Influence.UnlocksAtHint'}}">
+              <i class="fa-solid fa-lock"></i> {{localize 'PFAI.Influence.UnlocksAt'}} {{entry.revealAt}}
+            </span>
+          {{/if}}
           <span class="pfai-check-desc">{{entry.description}}</span>
           {{#if entry.enrichedReveals}}
             <div class="pfai-check-reveals">
@@ -23,11 +47,21 @@
 
         <span class="pfai-check-actions">
           {{#if ../isGM}}
-            <button type="button" class="pfai-icon pfai-hover-only" data-action="toggleReveal"
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleReveal"
                     data-influence-id="{{../influenceId}}" data-collection="{{../collection}}"
                     data-entry-id="{{entry.id}}"
                     data-tooltip="{{#if entry.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
               <i class="fa-solid {{#if entry.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="editApproach"
+                    data-influence-id="{{../influenceId}}" data-collection="{{../collection}}"
+                    data-entry-id="{{entry.id}}" data-tooltip="{{localize 'PFAI.Edit'}}">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteApproach"
+                    data-influence-id="{{../influenceId}}" data-collection="{{../collection}}"
+                    data-entry-id="{{entry.id}}" data-tooltip="{{localize 'PFAI.View.Delete'}}">
+              <i class="fa-solid fa-xmark"></i>
             </button>
           {{/if}}
         </span>

@@ -216,8 +216,10 @@ for (const targetKind of ['chase', 'obstacle']) {
 
 // The influence view must render in both roles without leaking GM content.
 const INFLUENCE_ROLL_OPTIONS = [
-  { id: 'd1', kind: 'discovery', label: 'Society', dc: 16 },
-  { id: 's1', kind: 'influence', label: 'Diplomacy', dc: 18 },
+  { id: 'd1', kind: 'discovery', label: 'Society', dc: 16, hidden: false },
+  { id: 's1', kind: 'influence', label: 'Diplomacy', dc: 18, hidden: false },
+  // Visible to a GM but not yet earned by the party; must be marked in the picker.
+  { id: 's3', kind: 'influence', label: '\u{1F512} Intimidation', dc: 22, hidden: true },
 ];
 
 const influenceCtx = (isGM) => ({
@@ -236,7 +238,11 @@ const influenceCtx = (isGM) => ({
                     hidden: false, enrichedReveals: '<p>Her bias.</p>' }],
     influenceSkills: isGM
       ? [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false },
-         { id: 's2', label: 'Deception', dc: 22, effectiveDC: 20, description: 'Lie.', hidden: true }]
+         { id: 's2', label: 'Deception', dc: 22, effectiveDC: 20, description: 'Lie.', hidden: true },
+         // Locked until the encounter advances, which reads differently from
+         // merely undiscovered.
+         { id: 's3', label: 'Intimidation', dc: 24, effectiveDC: 22, description: 'Threaten.',
+           hidden: true, revealAt: 6, lockedUntil: 6 }]
       : [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false }],
     thresholds: isGM
       ? [{ id: 't1', points: 2, name: 'Listens', reached: true, hidden: false, enrichedDescription: '<p>x</p>' },
@@ -399,6 +405,39 @@ for (const isGM of [true, false]) {
     }
     console.log(`remove-participant ${label}: buttons=${removes.length} gmOnly=true`);
   }
+}
+
+// A GM must be able to grow an encounter: add approaches by hand or with AI,
+// edit them, delete them, and set one to surface as the party makes progress.
+{
+  const out = view(influenceCtx(true));
+  const controls = {
+    addBlank: (out.match(/data-action="addApproach"/g) ?? []).length,
+    addAI: (out.match(/data-action="generateApproach"/g) ?? []).length,
+    edit: (out.match(/data-action="editApproach"/g) ?? []).length,
+    remove: (out.match(/data-action="deleteApproach"/g) ?? []).length,
+    unlockBadge: out.includes('pfai-unlock-badge'),
+  };
+  // One add pair per list: discoveries and influence skills.
+  if (controls.addBlank !== 2 || controls.addAI !== 2) {
+    failed = 1;
+    console.error(`  expected add controls on both lists, got blank=${controls.addBlank} ai=${controls.addAI}`);
+  }
+  if (!controls.edit || !controls.remove) { failed = 1; console.error('  approaches cannot be edited or removed'); }
+  if (!controls.unlockBadge) { failed = 1; console.error('  a progress-gated approach is not marked as such'); }
+
+  // None of this reaches players.
+  const playerOut = view(influenceCtx(false));
+  const leaked = ['addApproach', 'generateApproach', 'editApproach', 'deleteApproach']
+    .filter((a) => playerOut.includes(`data-action="${a}"`));
+  if (leaked.length) { failed = 1; console.error(`  approach authoring leaked to players: ${leaked}`); }
+
+  // The GM's picker must distinguish an approach the party has not unlocked.
+  if (!out.includes('\u{1F512} Intimidation')) {
+    failed = 1;
+    console.error('  locked approach is not marked in the GM picker');
+  }
+  console.log(`approach-authoring: ${JSON.stringify(controls)} playerLeaks=${leaked.length}`);
 }
 
 process.exit(failed);

@@ -28,8 +28,14 @@ function skillEntryField(extra = {}) {
       label: new fields.StringField({ required: true }),
       dc: new fields.NumberField({ required: true, integer: true, initial: 15 }),
       description: new fields.StringField({ required: true, initial: '' }),
-      /** Hidden entries are GM-only until a discovery reveals them. */
+      /** Hidden entries are GM-only until a discovery or progress reveals them. */
       hidden: new fields.BooleanField({ required: true, initial: true }),
+      /**
+       * Influence points at which this surfaces on its own, letting an
+       * encounter open up as it advances. Null means it only appears when a
+       * discovery check finds it or the GM reveals it by hand.
+       */
+      revealAt: new fields.NumberField({ integer: true, nullable: true, initial: null }),
       ...extra,
     }),
   );

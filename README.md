@@ -357,7 +357,25 @@ soft spots, resistances and blunders.
   tally — the spell-and-hero-point case, credited but not counted as a roll.
 
 Players see only what has been discovered. The GM sees everything, marked, with
-a count of what is still hidden.
+a count of what is still hidden. In the GM's roll picker an approach the party
+has not unlocked is prefixed with a padlock, so rolling one is never an accident.
+
+### Letting an encounter open up
+
+A conversation should not show all its cards at the start. Any approach can
+carry an **Unlocks at** point total: it stays hidden until the party's influence
+reaches it, then surfaces on its own with a notice. Hidden approaches that will
+unlock are badged `🔒 unlocks at 5`, which reads differently from one that is
+merely undiscovered.
+
+Both lists — Discovery and Ways to win them over — have **Blank** and **AI
+approach** buttons, so you can grow an encounter mid-session. The AI option is
+told what already exists so it does not repeat itself, is told how far the party
+has got so a later approach reads like a conversation that has warmed, and
+defaults its unlock point to the next concession.
+
+Each approach has a pencil for its name, statistic, DC, description, what it
+reveals, and its unlock point.
 
 ## Fidelity to the published rules
 

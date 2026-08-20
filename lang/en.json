@@ -330,5 +330,21 @@
   "PFAI.Influence.Adjusted": "{name}: {points} influence — now {current}",
   "PFAI.Chase.RemoveParticipant": "Remove from this encounter",
   "PFAI.Chase.RemoveParticipantTitle": "Remove Participant",
-  "PFAI.Chase.RemoveParticipantConfirm": "Remove “{name}”? What they have contributed so far is discarded."
+  "PFAI.Chase.RemoveParticipantConfirm": "Remove “{name}”? What they have contributed so far is discarded.",
+  "PFAI.Influence.NewApproach": "New Approach",
+  "PFAI.Influence.AddApproachHint": "Add an empty approach you write yourself",
+  "PFAI.Influence.GenerateApproachHint": "Generate one more approach, aware of the ones already here",
+  "PFAI.Influence.AIApproach": "AI approach",
+  "PFAI.Influence.ApproachAdded": "Added a new approach.",
+  "PFAI.Influence.EditApproach": "Edit Approach",
+  "PFAI.Influence.ApproachLabel": "Name",
+  "PFAI.Influence.Statistic": "Statistic",
+  "PFAI.Influence.StatisticHint": "PF2e slug, e.g. sailing-lore",
+  "PFAI.Influence.RevealAt": "Unlocks at",
+  "PFAI.Influence.RevealAtHint": "Influence points; blank for never",
+  "PFAI.Influence.UnlocksAt": "unlocks at",
+  "PFAI.Influence.UnlocksAtHint": "Appears on its own once the party reaches this many influence points.",
+  "PFAI.Influence.Unlocked": "New options opened up: {what}",
+  "PFAI.Influence.BecauseProgress": "the party has already earned {points} influence and the conversation has warmed",
+  "PFAI.Influence.LockedPrefix": "🔒"
 }

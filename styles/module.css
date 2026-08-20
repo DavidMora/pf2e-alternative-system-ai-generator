@@ -1371,3 +1371,24 @@
 .pfai .pfai-roster-influence {
   grid-template-columns: minmax(9rem, 1fr) auto minmax(0, auto) auto;
 }
+
+/* An approach that will surface on its own reads differently from one that is
+   merely undiscovered, so mark the difference. */
+.pfai .pfai-unlock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.4rem;
+  font-size: 0.68rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+.pfai .pfai-panel-actions {
+  display: flex;
+  gap: 0.3rem;
+  margin-left: auto;
+}

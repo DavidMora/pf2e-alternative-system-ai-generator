@@ -1,10 +1,12 @@
-import { MODULE_ID } from '../constants.js';
+import { MODULE_ID, PF2E_SKILLS } from '../constants.js';
 import {
+  capitalize,
   deleteChase,
   deleteInfluence,
   enrich,
   getInfluence,
   getInfluences,
+  setInfluences,
   updateInfluence,
   escapeHTML,
   guessPartyLevel,
@@ -27,6 +29,7 @@ import {
 import { GenerateChaseDialog } from './generate-chase-dialog.js';
 import { GenerateInfluenceDialog } from './generate-influence-dialog.js';
 import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
+import { generateApproach, toApproachEntry } from '../ai/influence.js';
 import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowEvent } from '../socket.js';
 import { eventTarget, exportPayload, importPayload, subsystem } from '../subsystems.js';
@@ -34,6 +37,7 @@ import {
   adjustContribution,
   adjustInfluenceContribution,
   passTurn,
+  revealByProgress,
   rollChaseCheck,
   rollInfluenceCheck,
 } from '../rolls.js';
@@ -98,6 +102,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleModifierUsed: SubsystemView.#onToggleModifierUsed,
       rollInfluence: SubsystemView.#onRollInfluence,
       awardInfluence: SubsystemView.#onAwardInfluence,
+      addApproach: SubsystemView.#onAddApproach,
+      generateApproach: SubsystemView.#onGenerateApproach,
+      editApproach: SubsystemView.#onEditApproach,
+      deleteApproach: SubsystemView.#onDeleteApproach,
       generateObstacles: SubsystemView.#onGenerateObstacles,
       generateOneObstacle: SubsystemView.#onGenerateOneObstacle,
       obstaclePrev: SubsystemView.#onObstaclePrev,
@@ -432,6 +440,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           ...entry,
           // The live DC includes whatever the party has uncovered and applied.
           effectiveDC: entry.dc + modifier,
+          lockedUntil:
+            entry.hidden && entry.revealAt !== null && entry.revealAt !== undefined
+              ? entry.revealAt
+              : null,
           enrichedDescription: await enrich(entry.description),
           ...(extraKey ? { [`enriched${extraKey}`]: await enrich(entry[extraKey.toLowerCase()]) } : {}),
         })),
@@ -449,18 +461,26 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const next = enrichedThresholds.find((t) => !t.reached) ?? null;
 
     // One list for the row picker: discoveries first, then ways to win them over.
+    // A GM sees hidden entries, so the picker must say which ones the party has
+    // not reached yet - otherwise rolling one is an easy accident.
+    const optionLabel = (entry, prefix = '') => {
+      const lock = entry.hidden ? `${game.i18n.localize('PFAI.Influence.LockedPrefix')} ` : '';
+      return `${lock}${prefix}${entry.label}`;
+    };
     const rollOptions = [
       ...visible(event.discoveries).map((entry) => ({
         id: entry.id,
         kind: 'discovery',
-        label: `${game.i18n.localize('PFAI.Influence.DiscoveryPrefix')} ${entry.label}`,
+        label: optionLabel(entry, `${game.i18n.localize('PFAI.Influence.DiscoveryPrefix')} `),
         dc: entry.dc + modifier,
+        hidden: entry.hidden,
       })),
       ...visible(event.influenceSkills).map((entry) => ({
         id: entry.id,
         kind: 'influence',
-        label: entry.label,
+        label: optionLabel(entry),
         dc: entry.dc + modifier,
+        hidden: entry.hidden,
       })),
     ];
 
@@ -503,6 +523,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       penalties: await withEnriched(visible(event.penalties)),
       participants,
       rollOptions,
+      generatingObstacle: this.#generatingObstacle,
       enrichedPremise: await enrich(event.premise),
       enrichedGoal: await enrich(event.goal),
       enrichedNpcDescription: await enrich(event.npc?.description),
@@ -534,6 +555,151 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const kind = select?.selectedOptions?.[0]?.dataset.kind ?? target.dataset.kind;
     if (!entryId) return;
     await rollInfluenceCheck({ influenceId, participantId, entryId, kind, force: game.user.isGM });
+  }
+
+  /** Add an empty approach for the GM to write. */
+  static async #onAddApproach(_event, target) {
+    const { influenceId, collection } = target.dataset;
+    await updateInfluence(influenceId, (event) => {
+      const id = foundry.utils.randomID();
+      event[collection][id] = {
+        id,
+        position: nextPosition(event[collection]),
+        slug: 'diplomacy',
+        label: game.i18n.localize('PFAI.Influence.NewApproach'),
+        dc: event.baseDC,
+        description: '',
+        hidden: true,
+        revealAt: null,
+        ...(collection === 'discoveries' ? { reveals: '' } : {}),
+      };
+    });
+  }
+
+  /** Generate one further approach, aware of the ones already present. */
+  static async #onGenerateApproach(_event, target) {
+    if (this.#generatingObstacle) return;
+    const { influenceId, collection } = target.dataset;
+    const event = getInfluence(influenceId);
+    if (!event) return;
+
+    if (!hasApiKey()) {
+      ui.notifications.error(game.i18n.localize('PFAI.Errors.NoApiKey'));
+      return;
+    }
+
+    this.#generatingObstacle = true;
+    await this.render();
+    try {
+      const kind = collection === 'discoveries' ? 'discovery' : 'influence';
+      const existingLabels = [
+        ...Object.values(event.discoveries ?? {}),
+        ...Object.values(event.influenceSkills ?? {}),
+      ].map((e) => e.label);
+
+      const approach = await generateApproach({
+        premise: htmlToText(event.premise),
+        npcName: event.npc?.name ?? '',
+        npcDescription: htmlToText(event.npc?.description),
+        goal: htmlToText(event.goal),
+        baseDC: event.baseDC,
+        level: event.level,
+        partySize: event.partySize,
+        roundLimit: event.rounds?.max ?? 0,
+        language: game.settings.get(MODULE_ID, 'outputLanguage')?.trim() || game.i18n.lang,
+        kind,
+        existingLabels,
+        // Later approaches should read as a conversation that has moved on.
+        becauseOf: event.influencePoints > 0
+          ? game.i18n.format('PFAI.Influence.BecauseProgress', { points: event.influencePoints })
+          : '',
+      });
+
+      await updateInfluence(influenceId, (draft) => {
+        const entry = toApproachEntry(approach, draft.baseDC, {
+          position: nextPosition(draft[collection]),
+          hidden: true,
+          // Default it to unlock at the next concession, which is the usual intent.
+          revealAt:
+            Object.values(draft.thresholds)
+              .map((t) => t.points)
+              .sort((a, b) => a - b)
+              .find((p) => p > draft.influencePoints) ?? null,
+        });
+        draft[collection][entry.id] = entry;
+      });
+      ui.notifications.info(game.i18n.format('PFAI.Influence.ApproachAdded', { name: approach.description || '' }));
+    } catch (error) {
+      console.error(`${MODULE_ID} | approach generation failed`, error);
+      ui.notifications.error(error.message, { permanent: true });
+    } finally {
+      this.#generatingObstacle = false;
+      await this.render();
+    }
+  }
+
+  /** Edit an approach, including when it should surface on its own. */
+  static async #onEditApproach(_event, target) {
+    const { influenceId, collection, entryId } = target.dataset;
+    const event = getInfluence(influenceId);
+    const entry = event?.[collection]?.[entryId];
+    if (!entry) return;
+
+    const skillOptions = PF2E_SKILLS.filter((skill) => skill !== 'lore')
+      .map((skill) => `<option value="${skill}" ${skill === entry.slug ? 'selected' : ''}>${capitalize(skill)}</option>`)
+      .join('');
+    const isDiscovery = collection === 'discoveries';
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Influence.EditApproach') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.ApproachLabel')}</span>
+          <input type="text" name="label" value="${escapeHTML(entry.label)}"></label>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Statistic')}</span>
+            <select name="slug">${skillOptions}
+              <option value="${escapeHTML(entry.slug)}" selected>${escapeHTML(entry.slug)}</option>
+            </select>
+            <small>${game.i18n.localize('PFAI.Influence.StatisticHint')}</small></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.DC')}</span>
+            <input type="number" name="dc" min="1" step="1" value="${entry.dc}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.RevealAt')}</span>
+            <input type="number" name="revealAt" min="0" step="1" value="${entry.revealAt ?? ''}">
+            <small>${game.i18n.localize('PFAI.Influence.RevealAtHint')}</small></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.ApproachDescription')}</span>
+          <input type="text" name="description" value="${escapeHTML(entry.description)}"></label>
+        ${isDiscovery ? `<label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Reveals')}</span>
+          <textarea name="reveals" rows="3">${escapeHTML(entry.reveals ?? '')}</textarea></label>` : ''}
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await updateInfluence(influenceId, (draft) => {
+      const edited = draft[collection][entryId];
+      if (!edited) return;
+      edited.label = String(result.label ?? edited.label);
+      edited.slug = String(result.slug ?? edited.slug);
+      edited.dc = Math.max(1, Number(result.dc) || edited.dc);
+      edited.description = String(result.description ?? '');
+      if (isDiscovery) edited.reveals = String(result.reveals ?? '');
+      const at = String(result.revealAt ?? '').trim();
+      edited.revealAt = at === '' ? null : Math.max(0, Number(at) || 0);
+      // Setting a threshold already passed should surface it immediately.
+      if (edited.revealAt !== null && draft.influencePoints >= edited.revealAt) edited.hidden = false;
+    });
+  }
+
+  static async #onDeleteApproach(_event, target) {
+    const { influenceId, collection, entryId } = target.dataset;
+    const store = getInfluences();
+    const event = store.events[influenceId];
+    if (!event) return;
+    const { [entryId]: _removed, ...remaining } = event[collection];
+    event[collection] = remaining;
+    await setInfluences(store);
   }
 
   static async #onAwardInfluence(_event, target) {
@@ -584,10 +750,18 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async #onInfluencePointDelta(_event, target) {
     const delta = Number(target.dataset.delta);
+    let unlocked = [];
     await updateInfluence(target.dataset.influenceId, (event) => {
       // Points can fall on a critical failure, but never below zero.
       event.influencePoints = Math.max(0, event.influencePoints + delta);
+      for (const threshold of Object.values(event.thresholds)) {
+        if (event.influencePoints >= threshold.points) threshold.hidden = false;
+      }
+      unlocked = revealByProgress(event);
     });
+    if (unlocked.length) {
+      ui.notifications.info(game.i18n.format('PFAI.Influence.Unlocked', { what: unlocked.join(', ') }));
+    }
   }
 
   static async #onInfluenceRoundDelta(_event, target) {

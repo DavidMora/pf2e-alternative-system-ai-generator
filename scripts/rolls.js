@@ -391,10 +391,13 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
       participant.contribution.total += applied;
     }
 
+    const unlocked = revealByProgress(event);
+
     summary = {
       participant: participant.name,
       points,
       revealed,
+      unlocked,
       current: event.influencePoints,
       next: Object.values(event.thresholds)
         .sort((a, b) => a.points - b.points)
@@ -440,6 +443,32 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
   for (const threshold of summary.justReached ?? []) {
     ui.notifications.info(game.i18n.format('PFAI.Influence.ThresholdReached', { name: threshold.name }));
   }
+  if (summary.unlocked?.length) {
+    ui.notifications.info(
+      game.i18n.format('PFAI.Influence.Unlocked', { what: summary.unlocked.join(', ') }),
+    );
+  }
+}
+
+/**
+ * Surface anything the party has now earned the right to see.
+ *
+ * An approach with a revealAt appears once the influence total reaches it, so a
+ * conversation can open up as it goes rather than showing everything at once.
+ *
+ * @returns {string[]} labels of what became visible
+ */
+export function revealByProgress(event) {
+  const revealed = [];
+  for (const key of ['discoveries', 'influenceSkills']) {
+    for (const entry of Object.values(event[key] ?? {})) {
+      if (!entry.hidden || entry.revealAt === null || entry.revealAt === undefined) continue;
+      if (event.influencePoints < entry.revealAt) continue;
+      entry.hidden = false;
+      revealed.push(entry.label);
+    }
+  }
+  return revealed;
 }
 
 /**
@@ -500,8 +529,9 @@ export async function adjustInfluenceContribution({ influenceId, participantId, 
       .sort((a, b) => a.points - b.points)
       .filter((t) => event.influencePoints >= t.points && t.hidden);
     for (const threshold of justReached) threshold.hidden = false;
+    const unlocked = revealByProgress(event);
 
-    summary = { participant: participant.name, applied, current: event.influencePoints, justReached };
+    summary = { participant: participant.name, applied, current: event.influencePoints, justReached, unlocked };
   });
 
   if (!summary) return null;
@@ -514,6 +544,11 @@ export async function adjustInfluenceContribution({ influenceId, participantId, 
   );
   for (const threshold of summary.justReached) {
     ui.notifications.info(game.i18n.format('PFAI.Influence.ThresholdReached', { name: threshold.name }));
+  }
+  if (summary.unlocked?.length) {
+    ui.notifications.info(
+      game.i18n.format('PFAI.Influence.Unlocked', { what: summary.unlocked.join(', ') }),
+    );
   }
   return summary;
 }
