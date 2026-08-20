@@ -296,4 +296,43 @@ for (const isGM of [true, false]) {
   console.log(`shared-header: ${SHARED.length} operations present on both subsystems`);
 }
 
+// The text inviting a drop must be inside the element that accepts it, and an
+// empty roster must still be a target - that exact mismatch made drag-and-drop
+// silently impossible.
+{
+  /* Slice out the drop zone by balancing <div> tags; a plain regex stops at the
+     first </div>, which closes the header row rather than the zone. */
+  const emptyRoster = (ctx) => {
+    const out = view(ctx);
+    const start = out.indexOf('pfai-dropzone');
+    if (start === -1) return { out, zone: '' };
+    const open = out.lastIndexOf('<div', start);
+    let depth = 0;
+    const tag = /<\/?div\b/g;
+    tag.lastIndex = open;
+    let match;
+    while ((match = tag.exec(out))) {
+      depth += match[0] === '<div' ? 1 : -1;
+      if (depth === 0) return { out, zone: out.slice(open, match.index) };
+    }
+    return { out, zone: out.slice(open) };
+  };
+
+  const chaseEmpty = { ...selected, participants: [] };
+  for (const [label, ctx] of [
+    ['chase', { isGM: true, isRealGM: true, previewAsPlayer: false, isChaseTab: true, chases: [], selected: chaseEmpty }],
+    ['influence', { ...influenceCtx(true), selectedInfluence: { ...influenceCtx(true).selectedInfluence, participants: [] } }],
+  ]) {
+    const { out, zone } = emptyRoster(ctx);
+    const hasZone = out.includes('pfai-dropzone');
+    const hintInside = zone.includes('pfai-drop-hint');
+    const wired = /data-subsystem="[^"]+"[^>]*data-event-id="/.test(zone) ||
+                  /data-event-id="[^"]+"[^>]*data-subsystem="/.test(zone);
+    if (!hasZone) { failed = 1; console.error(`  ${label}: no drop zone`); }
+    if (!hintInside) { failed = 1; console.error(`  ${label}: drop hint is outside the drop zone`); }
+    if (!wired) { failed = 1; console.error(`  ${label}: drop zone missing subsystem/event id`); }
+    console.log(`dropzone ${label}: present=${hasZone} hintInside=${hintInside} wired=${wired}`);
+  }
+}
+
 process.exit(failed);

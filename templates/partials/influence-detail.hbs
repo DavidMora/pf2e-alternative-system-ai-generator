@@ -192,7 +192,8 @@
               data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>
     {{/if}}
   </h3>
-  <div class="pfai-roster pfai-roster-influence">
+  <div class="pfai-roster pfai-roster-influence pfai-dropzone"
+       data-subsystem="influence" data-event-id="{{id}}">
     <div class="pfai-roster-head">
       <span>{{localize 'PFAI.Chase.Participant'}}</span>
       <span>{{localize 'PFAI.Influence.Contributed'}}</span>
@@ -234,9 +235,16 @@
           {{/if}}
         </span>
       </div>
-    {{else}}
-      <p class="pfai-empty">{{localize 'PFAI.Chase.NoParticipants'}}</p>
     {{/each}}
+    {{#unless participants.length}}
+      <p class="pfai-empty pfai-drop-hint">
+        {{#if ../isGM}}
+          <i class="fa-solid fa-hand-pointer"></i> {{localize 'PFAI.Chase.DropHint'}}
+        {{else}}
+          {{localize 'PFAI.Chase.NoParticipants'}}
+        {{/if}}
+      </p>
+    {{/unless}}
   </div>
 </section>
 {{/with}}

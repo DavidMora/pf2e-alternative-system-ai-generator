@@ -13,7 +13,7 @@ Hooks.once('init', () => {
   registerHandlebarsHelpers();
 
   game.modules.get(MODULE_ID).api = {
-    open: (chaseId) => SubsystemView.open(chaseId),
+    open: (eventId, subsystemKey) => SubsystemView.open(eventId, subsystemKey),
     generate: (options) => new GenerateChaseDialog(options).render({ force: true }),
     generateChase,
     generateImage: (options) => new GenerateImageDialog(options).render({ force: true }),

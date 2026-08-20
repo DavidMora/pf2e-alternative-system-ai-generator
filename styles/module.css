@@ -1049,7 +1049,15 @@
   border: 1px dashed transparent;
   border-radius: 6px;
   padding: 0.25rem;
+  /* An empty roster is otherwise a thin header strip, which is far too small a
+     target to drop an actor onto. */
+  min-height: 4.5rem;
   transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+/* The hint sits inside the zone, so it must span the roster grid. */
+.pfai .pfai-dropzone .pfai-drop-hint {
+  grid-column: 1 / -1;
 }
 
 .pfai .pfai-dropzone.is-dragover {

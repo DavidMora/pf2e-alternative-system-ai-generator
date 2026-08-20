@@ -1032,9 +1032,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
    * Add actors to a chase as participants, skipping ones already present.
    * @returns {number} how many were actually added
    */
-  async #addActors(chaseId, actors) {
+  async #addActors(chaseId, actors, api = subsystem('chase')) {
     let added = 0;
-    await updateChase(chaseId, (chase) => {
+    await api.update(chaseId, (chase) => {
       for (const actor of actors) {
         if (!actor) continue;
         // Match on uuid so the same actor cannot join twice.
@@ -1050,7 +1050,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           hasActed: false,
           obstacle: 1,
           branch: '',
-          contribution: { total: 0, byObstacle: {}, successes: 0, rolls: 0 },
+          // Unknown fields are dropped by whichever DataModel receives this,
+          // so one shape serves both subsystems.
+          contribution: { total: 0, byObstacle: {}, successes: 0, rolls: 0, discoveries: 0 },
         };
         added += 1;
       }
@@ -1064,9 +1066,14 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   _onRender(context, options) {
     super._onRender?.(context, options);
-    const zone = this.element?.querySelector('.pfai-dropzone');
-    if (!zone || !this.isGM) return;
+    if (!this.isGM) return;
+    for (const zone of this.element?.querySelectorAll('.pfai-dropzone') ?? []) {
+      this.#wireDropZone(zone);
+    }
+  }
 
+  /** Attach drop handling to one roster. */
+  #wireDropZone(zone) {
     let depth = 0;
     zone.addEventListener('dragenter', (event) => {
       event.preventDefault();
@@ -1086,13 +1093,14 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       event.preventDefault();
       depth = 0;
       zone.classList.remove('is-dragover');
-      await this.#handleDrop(event, zone.dataset.chaseId);
+      await this.#handleDrop(event, zone.dataset);
     });
   }
 
   /** Resolve a dropped Actor or Actor folder into participants. */
-  async #handleDrop(event, chaseId) {
-    if (!this.isGM || !chaseId) return;
+  async #handleDrop(event, dataset) {
+    const { id, api } = eventTarget(dataset);
+    if (!this.isGM || !id) return;
 
     let data;
     try {
@@ -1116,7 +1124,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
 
-    const added = await this.#addActors(chaseId, actors);
+    const added = await this.#addActors(id, actors, api);
     if (added) {
       ui.notifications.info(game.i18n.format('PFAI.Chase.ParticipantsAdded', { count: added }));
     } else {
@@ -1132,7 +1140,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
 
-    const added = await this.#addActors(chaseId, actors);
+    const added = await this.#addActors(id, actors, api);
     if (!added) ui.notifications.info(game.i18n.localize('PFAI.Chase.ParticipantsAlreadyPresent'));
   }
 

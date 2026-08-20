@@ -91,6 +91,11 @@ the case.
   `degreeOfSuccess` (0–3). Lore slugs end in `-lore`.
 - The images endpoint rejects SVG, and Foundry ships SVG icons — rasterise
   references to PNG first.
+- A drop zone must **contain** the text inviting the drop. An empty roster whose
+  hint sits outside it is a thin header strip, and dropping is silently
+  impossible. Give zones a `min-height` too.
+- When you widen a method's signature, check the `api` wrappers in `module.js`
+  and the socket handlers forward the new argument.
 
 ## Local Foundry
 
