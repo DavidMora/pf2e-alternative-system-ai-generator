@@ -41,7 +41,7 @@
   "PFAI.Chase.Lock": "Hide from players",
   "PFAI.Chase.Unlock": "Reveal to players",
   "PFAI.Chase.Participants": "Participants",
-  "PFAI.Chase.AddParticipantsHint": "Add selected tokens, or the whole active party",
+  "PFAI.Chase.AddParticipantsHint": "Add selected tokens, or the whole active party — or drag actors in",
   "PFAI.Chase.NoParticipants": "No participants yet.",
   "PFAI.Chase.AtObstacle": "At obstacle",
   "PFAI.Chase.ToggleActed": "Toggle acted this round",
@@ -258,5 +258,9 @@
   "PFAI.Chase.At": "At",
   "PFAI.Chase.Turn": "This turn",
   "PFAI.Chase.ActedTooltip": "Has acted this round",
-  "PFAI.Roll.NoActorLinked": "no actor"
+  "PFAI.Roll.NoActorLinked": "no actor",
+  "PFAI.Chase.DropHint": "Drag actors here from the sidebar, or use the button above to add selected tokens.",
+  "PFAI.Chase.DropNotAnActor": "Only actors and actor folders can be dropped here.",
+  "PFAI.Chase.ParticipantsAdded": "Added {count} participant(s).",
+  "PFAI.Chase.ParticipantsAlreadyPresent": "Those actors are already in this chase."
 }

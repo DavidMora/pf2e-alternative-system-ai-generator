@@ -799,17 +799,16 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     });
   }
 
-  static async #onAddParticipants(_event, target) {
-    const chaseId = target.dataset.chaseId;
-    const actors = collectCandidateActors();
-    if (!actors.length) {
-      ui.notifications.warn(game.i18n.localize('PFAI.Errors.NoParticipants'));
-      return;
-    }
-
+  /**
+   * Add actors to a chase as participants, skipping ones already present.
+   * @returns {number} how many were actually added
+   */
+  async #addActors(chaseId, actors) {
+    let added = 0;
     await updateChase(chaseId, (chase) => {
       for (const actor of actors) {
-        // Skip actors already in the chase rather than duplicating them.
+        if (!actor) continue;
+        // Match on uuid so the same actor cannot join twice.
         if (Object.values(chase.participants).some((p) => p.uuid === actor.uuid)) continue;
         const id = foundry.utils.randomID();
         chase.participants[id] = {
@@ -821,9 +820,91 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           hidden: false,
           hasActed: false,
           obstacle: 1,
+          branch: '',
+          contribution: { total: 0, byObstacle: {}, successes: 0, rolls: 0 },
         };
+        added += 1;
       }
     });
+    return added;
+  }
+
+  /**
+   * Wire drag-and-drop by hand: ApplicationV2 ships no drag-drop support of its
+   * own, unlike the v1 sheets.
+   */
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+    const zone = this.element?.querySelector('.pfai-dropzone');
+    if (!zone || !this.isGM) return;
+
+    let depth = 0;
+    zone.addEventListener('dragenter', (event) => {
+      event.preventDefault();
+      depth += 1;
+      zone.classList.add('is-dragover');
+    });
+    zone.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    });
+    // dragleave fires for child elements too, so count nesting depth.
+    zone.addEventListener('dragleave', () => {
+      depth = Math.max(0, depth - 1);
+      if (!depth) zone.classList.remove('is-dragover');
+    });
+    zone.addEventListener('drop', async (event) => {
+      event.preventDefault();
+      depth = 0;
+      zone.classList.remove('is-dragover');
+      await this.#handleDrop(event, zone.dataset.chaseId);
+    });
+  }
+
+  /** Resolve a dropped Actor or Actor folder into participants. */
+  async #handleDrop(event, chaseId) {
+    if (!this.isGM || !chaseId) return;
+
+    let data;
+    try {
+      data = foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
+    } catch {
+      return;
+    }
+
+    let actors = [];
+    if (data?.type === 'Actor') {
+      const actor = await Actor.implementation.fromDropData(data);
+      if (actor) actors = [actor];
+    } else if (data?.type === 'Folder') {
+      const folder = await fromUuid(data.uuid);
+      // Dragging a party folder should bring everyone in it, nesting included.
+      if (folder?.type === 'Actor') actors = folder.contents ?? [];
+    }
+
+    if (!actors.length) {
+      ui.notifications.warn(game.i18n.localize('PFAI.Chase.DropNotAnActor'));
+      return;
+    }
+
+    const added = await this.#addActors(chaseId, actors);
+    if (added) {
+      ui.notifications.info(game.i18n.format('PFAI.Chase.ParticipantsAdded', { count: added }));
+    } else {
+      ui.notifications.info(game.i18n.localize('PFAI.Chase.ParticipantsAlreadyPresent'));
+    }
+  }
+
+  static async #onAddParticipants(_event, target) {
+    const chaseId = target.dataset.chaseId;
+    const actors = collectCandidateActors();
+    if (!actors.length) {
+      ui.notifications.warn(game.i18n.localize('PFAI.Errors.NoParticipants'));
+      return;
+    }
+
+    const added = await this.#addActors(chaseId, actors);
+    if (!added) ui.notifications.info(game.i18n.localize('PFAI.Chase.ParticipantsAlreadyPresent'));
   }
 
   static async #onRemoveParticipant(_event, target) {

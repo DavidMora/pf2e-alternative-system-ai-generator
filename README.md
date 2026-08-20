@@ -303,6 +303,11 @@ Foundry's world-setting broadcast — no socket handshake, no refresh.
 - The **lock** icon reveals an obstacle to players
 - **Next Round** advances the counter and clears everyone's "acted" flag
 - **Add participants** pulls in selected tokens, or the whole active party
+- Or **drag actors straight onto the roster** from the sidebar. Dropping an
+  actor folder adds everyone in it. Actors already in the chase are skipped
+  rather than duplicated, and anything that is not an actor is refused with a
+  message. ApplicationV2 ships no drag-drop support of its own, so this is wired
+  by hand in `_onRender`.
 
 Chases export and import as JSON, so you can share a generated one or keep it
 between worlds.

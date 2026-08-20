@@ -1040,3 +1040,35 @@
   color: #2f7d43;
   flex: 0 0 auto;
 }
+
+/* ---------- Actor drop target ---------- */
+
+/* The roster is always a drop target; it only announces itself mid-drag so the
+   panel does not carry a permanent dashed box. */
+.pfai .pfai-dropzone {
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  padding: 0.25rem;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.pfai .pfai-dropzone.is-dragover {
+  border-color: var(--color-shadow-primary, #782e22);
+  background: rgba(120, 46, 34, 0.08);
+}
+
+/* Children must not swallow the drop, or dragleave/drop fire on the wrong node. */
+.pfai .pfai-dropzone.is-dragover * {
+  pointer-events: none;
+}
+
+.pfai .pfai-drop-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.9rem 0.5rem;
+  font-style: normal;
+  opacity: 0.55;
+  font-size: 0.85rem;
+}
