@@ -29,6 +29,7 @@ import { GenerateInfluenceDialog } from './generate-influence-dialog.js';
 import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
 import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowEvent } from '../socket.js';
+import { eventTarget, exportPayload, importPayload, subsystem } from '../subsystems.js';
 import { adjustContribution, passTurn, rollChaseCheck, rollInfluenceCheck } from '../rolls.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
 

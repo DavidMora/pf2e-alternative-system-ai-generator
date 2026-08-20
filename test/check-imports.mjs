@@ -89,6 +89,42 @@ for (const file of files) {
 if (!failed) console.log(`ok  ${checked} named imports across ${files.length} files all resolve`);
 
 /*
+ * Catch a helper that is used but never imported.
+ *
+ * Resolving imports is not enough: a forgotten import line leaves the
+ * identifier simply undefined, which only fails at runtime, in Foundry, as a
+ * ReferenceError deep inside a click handler.
+ */
+const exportedBy = new Map();
+for (const [file, names] of exportCache) {
+  for (const name of names) if (!exportedBy.has(name)) exportedBy.set(name, file);
+}
+for (const file of files) {
+  const source = readFileSync(file, 'utf8');
+  const imported = new Set(
+    importsOf(source).flatMap(({ names }) => names),
+  );
+  // Anything declared locally is obviously not a missing import.
+  const declared = new Set([
+    ...[...source.matchAll(/(?:function|class)\s+([A-Za-z0-9_$]+)/g)].map((m) => m[1]),
+    ...[...source.matchAll(/(?:const|let|var)\s+([A-Za-z0-9_$]+)/g)].map((m) => m[1]),
+    ...exportsOf(source),
+  ]);
+
+  for (const [name, from] of exportedBy) {
+    if (from === file || imported.has(name) || declared.has(name)) continue;
+    // Only flag a real bare reference. A preceding dot or quote means it is a
+    // property access or part of a string such as 'PFAI.Influence.Tab', not a
+    // use of the imported binding.
+    if (!new RegExp(`(?<![.\\w'"\`])${name}\\s*[(.]`).test(source)) continue;
+    failed = 1;
+    console.error(
+      `FAIL ${path.relative(root, file)} uses "${name}" but never imports it (exported by ${path.relative(root, from)})`,
+    );
+  }
+}
+
+/*
  * ApplicationV2 registers actions by referencing private static methods. If one
  * is registered but never defined, the class body itself is a SyntaxError and
  * the whole module fails to load — so check the two lists agree.
