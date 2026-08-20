@@ -1072,3 +1072,271 @@
   opacity: 0.55;
   font-size: 0.85rem;
 }
+
+/* ---------- Grouped form sections ---------- */
+
+.pfai .pfai-fieldset {
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem 0.7rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pfai .pfai-fieldset legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.35rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.pfai .pfai-inline-button {
+  width: auto;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  padding: 0.05rem 0.4rem;
+  font-weight: 400;
+}
+
+/* ---------- Subsystem tabs ---------- */
+
+.pfai .pfai-subsystem-tabs {
+  display: flex;
+  gap: 0.3rem;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+  padding-bottom: 0.4rem;
+}
+
+.pfai .pfai-tab {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0.2rem 0.75rem;
+  opacity: 0.6;
+  font-weight: 600;
+}
+
+.pfai .pfai-tab.is-active {
+  opacity: 1;
+  border-color: var(--color-shadow-primary, #782e22);
+}
+
+/* ---------- Influence ---------- */
+
+.pfai .pfai-subtitle {
+  font-size: 0.75em;
+  opacity: 0.65;
+  font-weight: 400;
+  margin-left: 0.4rem;
+}
+
+.pfai .pfai-points-big {
+  font-size: 1.15rem;
+}
+
+.pfai .pfai-good { color: #2f7d43; }
+.pfai .pfai-bad { color: #b4231f; }
+
+.pfai .pfai-npc-panel .pfai-npc-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.pfai .pfai-disposition {
+  font-weight: 400;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.pfai .pfai-gm-inset {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 2px solid rgba(120, 46, 34, 0.5);
+  background: rgba(120, 46, 34, 0.06);
+  border-radius: 0 4px 4px 0;
+}
+
+.pfai .pfai-panel-hint {
+  margin: -0.2rem 0 0.5rem;
+  font-size: 0.78rem;
+  opacity: 0.65;
+}
+
+.pfai .pfai-hidden-count {
+  font-size: 0.68rem;
+  font-weight: 400;
+  opacity: 0.6;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+/* Checks */
+
+.pfai .pfai-check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.pfai .pfai-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 5px;
+}
+
+.pfai .pfai-check:hover { background: rgba(128, 128, 128, 0.1); }
+
+/* Hidden means the party has not discovered it, so mark it clearly for the GM. */
+.pfai .pfai-check.is-hidden,
+.pfai .pfai-trait.is-hidden,
+.pfai .pfai-threshold.is-hidden {
+  opacity: 0.5;
+  border-left: 2px dashed rgba(128, 128, 128, 0.6);
+}
+
+.pfai .pfai-check-dc {
+  flex: 0 0 3.6rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding-top: 0.1rem;
+}
+
+.pfai .pfai-check-body { flex: 1; min-width: 0; }
+
+.pfai .pfai-check-desc {
+  display: block;
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.pfai .pfai-check-reveals {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+.pfai .pfai-check-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 0 0 auto;
+}
+
+/* Rolling as a specific character: their portrait is the button. */
+.pfai .pfai-check-actions .pfai-roll-button {
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: 0 0 1.7rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pfai .pfai-check-actions .pfai-roll-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+}
+
+/* Thresholds */
+
+.pfai .pfai-thresholds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pfai .pfai-threshold {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 5px;
+}
+
+.pfai .pfai-threshold-points {
+  flex: 0 0 1.9rem;
+  height: 1.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.pfai .pfai-threshold.is-reached .pfai-threshold-points {
+  background: #2f7d43;
+  color: #fff;
+  border-color: #2f7d43;
+}
+
+.pfai .pfai-threshold-body { flex: 1; min-width: 0; }
+
+/* Traits */
+
+.pfai .pfai-traits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.8rem;
+}
+
+.pfai .pfai-trait-group h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pfai .pfai-trait {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.25rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+
+.pfai .pfai-trait.is-used {
+  background: rgba(128, 128, 128, 0.12);
+}
+
+.pfai .pfai-trait-mod {
+  flex: 0 0 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pfai .pfai-trait-body { flex: 1; min-width: 0; }
+
+.pfai .pfai-trait-actions {
+  display: flex;
+  gap: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.pfai .pfai-empty-small {
+  font-size: 0.78rem;
+  margin: 0;
+}
+
+.pfai .pfai-roster-influence {
+  grid-template-columns: minmax(9rem, 1fr) auto minmax(0, auto);
+}

@@ -13,6 +13,35 @@ export async function setChases(chases) {
   return game.settings.set(MODULE_ID, SETTINGS.chases, chases);
 }
 
+/** Current influence events as a plain, safely-mutable object. */
+export function getInfluences() {
+  return game.settings.get(MODULE_ID, SETTINGS.influences).toObject();
+}
+
+export async function setInfluences(influences) {
+  return game.settings.set(MODULE_ID, SETTINGS.influences, influences);
+}
+
+export function getInfluence(id) {
+  return getInfluences().events[id] ?? null;
+}
+
+/** Apply a mutation to one influence event and save. */
+export async function updateInfluence(id, mutate) {
+  const influences = getInfluences();
+  const event = influences.events[id];
+  if (!event) return null;
+  mutate(event);
+  await setInfluences(influences);
+  return event;
+}
+
+export async function deleteInfluence(id) {
+  const influences = getInfluences();
+  delete influences.events[id];
+  await setInfluences({ events: { ...influences.events } });
+}
+
 /** Read a single chase as a plain object, or null. */
 export function getChase(id) {
   return getChases().events[id] ?? null;
@@ -145,6 +174,17 @@ export function obstacleForParticipant(obstacles, position, branch) {
     atStep.sort((a, b) => (a.branch ?? '').localeCompare(b.branch ?? ''))[0] ??
     null
   );
+}
+
+/** Wrap plain-typed premise text in paragraphs, leaving existing HTML alone. */
+export function premiseToHTML(premise) {
+  const text = String(premise ?? '').trim();
+  if (!text) return '';
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  return text
+    .split(/\n{2,}/)
+    .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+    .join('');
 }
 
 /** Next free sort position in an id-keyed map. */

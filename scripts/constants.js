@@ -3,6 +3,7 @@ export const MODULE_ID = 'pf2e-alternative-system-ai-generator';
 /** World/client setting keys. */
 export const SETTINGS = {
   chases: 'chases',
+  influences: 'influences',
   apiKey: 'openaiApiKey',
   model: 'openaiModel',
   modelOverride: 'openaiModelOverride',

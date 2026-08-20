@@ -13,6 +13,17 @@ Handlebars.registerHelper('pfaiAdd', (a, b) => Number(a) + Number(b));
 Handlebars.registerHelper('pfaiOr', (...a) => a.slice(0, -1).some(Boolean));
 Handlebars.registerHelper('pfaiSubtract', (a, b) => Number(a) - Number(b));
 
+// Partials must be registered before the templates that use them compile.
+const partialsDir = path.join(dir, 'partials');
+for (const [name, file] of [
+  ['pfaiInfluenceDetail', 'influence-detail.hbs'],
+  ['pfaiInfluenceChecks', 'influence-checks.hbs'],
+  ['pfaiInfluenceTraits', 'influence-traits.hbs'],
+]) {
+  Handlebars.registerPartial(name, readFileSync(path.join(partialsDir, file), 'utf8'));
+}
+Handlebars.registerHelper('pfaiLt', (a, b) => Number(a) < Number(b));
+
 for (const file of readdirSync(dir).filter((f) => f.endsWith('.hbs'))) {
   const src = readFileSync(path.join(dir, file), 'utf8');
   try {
@@ -201,6 +212,60 @@ for (const targetKind of ['chase', 'obstacle']) {
   const refs = (out.match(/class="pfai-reference"/g) ?? []).length;
   if (refs !== 2) { failed = 1; console.error(`  expected 2 reference chips, got ${refs}`); }
   console.log(`image dialog ${targetKind}: refs=${refs} context=${out.includes('name="context"')} size=${out.includes('name="size"')}`);
+}
+
+// The influence view must render in both roles without leaking GM content.
+const influenceCtx = (isGM) => ({
+  isGM, isRealGM: isGM, previewAsPlayer: false, isInfluenceTab: true, isChaseTab: false,
+  influences: [], chases: [],
+  selectedInfluence: {
+    id: 'i1', name: 'The Consul', hidden: false, influencePoints: 3, baseDC: 20,
+    perception: 12, will: 14, rounds: { current: 1, max: 4 }, outOfTime: false,
+    npc: { name: 'Consul Venn', disposition: 'guarded' },
+    ai: { generated: true }, dcModifier: -2,
+    enrichedPremise: '<p>A ball.</p>', enrichedGoal: '<p>Her vote.</p>',
+    enrichedNpcDescription: '<p>A diplomat.</p>',
+    enrichedNpcWants: '<p>SECRET-WANTS</p>',
+    enrichedGmNotes: '<p>SECRET-NOTES</p>',
+    discoveries: [{ id: 'd1', label: 'Society', dc: 18, effectiveDC: 16, description: 'Ask around.',
+                    hidden: false, enrichedReveals: '<p>Her bias.</p>' }],
+    influenceSkills: isGM
+      ? [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false },
+         { id: 's2', label: 'Deception', dc: 22, effectiveDC: 20, description: 'Lie.', hidden: true }]
+      : [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false }],
+    thresholds: isGM
+      ? [{ id: 't1', points: 2, name: 'Listens', reached: true, hidden: false, enrichedDescription: '<p>x</p>' },
+         { id: 't2', points: 6, name: 'Votes', reached: false, hidden: true, enrichedDescription: '<p>y</p>' }]
+      : [{ id: 't1', points: 2, name: 'Listens', reached: true, hidden: false, enrichedDescription: '<p>x</p>' }],
+    nextThreshold: { id: 't2', points: 6, name: 'Votes' }, allThresholdsReached: false,
+    weaknesses: [{ id: 'w1', name: 'Vanity', modifier: -5, used: true, hidden: false, enrichedDescription: '<p>z</p>' }],
+    resistances: isGM
+      ? [{ id: 'r1', name: 'Duty', modifier: 2, used: false, hidden: true, enrichedDescription: '<p>z</p>' }]
+      : [],
+    penalties: [],
+    participants: [{ id: 'p1', name: 'Kyra', img: 'a.png', hasActed: false, canRoll: true, owned: true,
+                     noActor: false, contribution: { total: 2, successes: 2, rolls: 3, discoveries: 1 } }],
+    hiddenCounts: isGM ? { influenceSkills: 1, weaknesses: 0, resistances: 1, thresholds: 1 } : null,
+  },
+});
+
+for (const isGM of [true, false]) {
+  const out = view(influenceCtx(isGM));
+  const leaks = ['SECRET-WANTS', 'SECRET-NOTES'].filter((t) => out.includes(t));
+  if (isGM !== (leaks.length === 2)) { failed = 1; console.error(`  influence GM content leak: ${leaks}`); }
+
+  const revealBtns = (out.match(/data-action="toggleReveal"/g) ?? []).length;
+  const applyBtns = (out.match(/data-action="toggleModifierUsed"/g) ?? []).length;
+  if (!isGM && (revealBtns || applyBtns)) { failed = 1; console.error('  influence GM controls leaked to player'); }
+  if (isGM && !revealBtns) { failed = 1; console.error('  GM cannot reveal anything'); }
+
+  // Rolling happens from the check lists, one button per able participant.
+  const rollBtns = (out.match(/data-action="rollInfluence"/g) ?? []).length;
+  // 1 discovery + 2 influence skills for a GM (who sees the hidden one), 1 + 1 for a player.
+  const expected = isGM ? 3 : 2;
+  if (rollBtns !== expected) { failed = 1; console.error(`  expected ${expected} influence roll buttons, got ${rollBtns}`); }
+
+  console.log(`influence isGM=${isGM}: bytes=${out.length} reveal=${revealBtns} apply=${applyBtns} rolls=${rollBtns} gmProse=${leaks.length}`);
 }
 
 process.exit(failed);

@@ -1,0 +1,49 @@
+{{! Shared by discoveries and influence skills: both are a list of skill checks. }}
+<section class="pfai-panel">
+  <h3>
+    {{title}}
+    {{#if hiddenCount}}<span class="pfai-hidden-count">{{hiddenCount}} {{localize 'PFAI.Influence.Undiscovered'}}</span>{{/if}}
+  </h3>
+  <p class="pfai-panel-hint">{{hint}}</p>
+
+  <ul class="pfai-check-list">
+    {{#each entries as |entry|}}
+      <li class="pfai-check {{#if entry.hidden}}is-hidden{{/if}}">
+        <span class="pfai-check-dc">DC {{entry.effectiveDC}}</span>
+        <div class="pfai-check-body">
+          <strong>{{entry.label}}</strong>
+          <span class="pfai-check-desc">{{entry.description}}</span>
+          {{#if entry.enrichedReveals}}
+            <div class="pfai-check-reveals">
+              <span class="pfai-label">{{localize 'PFAI.Influence.Reveals'}}</span>
+              <div class="pfai-prose">{{{entry.enrichedReveals}}}</div>
+            </div>
+          {{/if}}
+        </div>
+
+        <span class="pfai-check-actions">
+          {{#each ../participants as |participant|}}
+            {{#if participant.canRoll}}
+              <button type="button" class="pfai-roll-button" data-action="rollInfluence"
+                      data-influence-id="{{../../influenceId}}" data-entry-id="{{entry.id}}"
+                      data-kind="{{../../kind}}" data-participant-id="{{participant.id}}"
+                      data-tooltip="{{localize 'PFAI.Influence.RollAs'}} {{participant.name}}">
+                <img src="{{participant.img}}" alt="{{participant.name}}">
+              </button>
+            {{/if}}
+          {{/each}}
+          {{#if ../isGM}}
+            <button type="button" class="pfai-icon pfai-hover-only" data-action="toggleReveal"
+                    data-influence-id="{{../influenceId}}" data-collection="{{../collection}}"
+                    data-entry-id="{{entry.id}}"
+                    data-tooltip="{{#if entry.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+              <i class="fa-solid {{#if entry.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+            </button>
+          {{/if}}
+        </span>
+      </li>
+    {{else}}
+      <p class="pfai-empty">{{localize 'PFAI.Influence.NothingDiscovered'}}</p>
+    {{/each}}
+  </ul>
+</section>

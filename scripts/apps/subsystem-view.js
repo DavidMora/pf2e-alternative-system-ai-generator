@@ -1,7 +1,11 @@
 import { MODULE_ID } from '../constants.js';
 import {
   deleteChase,
+  deleteInfluence,
   enrich,
+  getInfluence,
+  getInfluences,
+  updateInfluence,
   escapeHTML,
   guessPartyLevel,
   suggestedBaseDC,
@@ -21,10 +25,11 @@ import {
   updateChase,
 } from '../helpers.js';
 import { GenerateChaseDialog } from './generate-chase-dialog.js';
+import { GenerateInfluenceDialog } from './generate-influence-dialog.js';
 import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
 import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowChase } from '../socket.js';
-import { adjustContribution, passTurn, rollChaseCheck } from '../rolls.js';
+import { adjustContribution, passTurn, rollChaseCheck, rollInfluenceCheck } from '../rolls.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -57,6 +62,12 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   /** GM-only: render the whole view as a player would see it. */
   #previewAsPlayer = false;
 
+  /** Which subsystem tab is open. */
+  #subsystem = 'chase';
+
+  /** Selected influence encounter, independent of the chase selection. */
+  #selectedInfluenceId = null;
+
   static DEFAULT_OPTIONS = {
     id: 'pfai-subsystem-view',
     classes: ['pfai', 'pfai-view'],
@@ -68,6 +79,18 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     position: { width: 860, height: 720 },
     actions: {
       generate: SubsystemView.#onGenerate,
+      switchSubsystem: SubsystemView.#onSwitchSubsystem,
+      generateInfluence: SubsystemView.#onGenerateInfluence,
+      openInfluence: SubsystemView.#onOpenInfluence,
+      backInfluence: SubsystemView.#onBackInfluence,
+      deleteInfluence: SubsystemView.#onDeleteInfluence,
+      toggleInfluenceHidden: SubsystemView.#onToggleInfluenceHidden,
+      influencePointDelta: SubsystemView.#onInfluencePointDelta,
+      influenceRoundDelta: SubsystemView.#onInfluenceRoundDelta,
+      influenceNextRound: SubsystemView.#onInfluenceNextRound,
+      toggleReveal: SubsystemView.#onToggleReveal,
+      toggleModifierUsed: SubsystemView.#onToggleModifierUsed,
+      rollInfluence: SubsystemView.#onRollInfluence,
       generateObstacles: SubsystemView.#onGenerateObstacles,
       generateOneObstacle: SubsystemView.#onGenerateOneObstacle,
       obstaclePrev: SubsystemView.#onObstaclePrev,
@@ -162,9 +185,32 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     // Real GMs previewing keep their place; actual players do not.
     if (hiddenFromPlayers && !this.#previewAsPlayer) this.#selectedId = null;
 
+    const influences = getInfluences().events;
+    const visibleInfluences = Object.values(influences)
+      .filter((event) => isGM || !event.hidden)
+      .sort((a, b) => a.position - b.position);
+
+    const selectedInfluenceRaw = this.#selectedInfluenceId
+      ? influences[this.#selectedInfluenceId]
+      : null;
+    if (!selectedInfluenceRaw) this.#selectedInfluenceId = null;
+    const selectedInfluence =
+      selectedInfluenceRaw && (isGM || !selectedInfluenceRaw.hidden) ? selectedInfluenceRaw : null;
+
     return {
       isGM,
       isRealGM: game.user.isGM,
+      subsystem: this.#subsystem,
+      isChaseTab: this.#subsystem === 'chase',
+      isInfluenceTab: this.#subsystem === 'influence',
+      influences: visibleInfluences.map((event) => ({
+        ...event,
+        thresholdCount: Object.keys(event.thresholds).length,
+        npcName: event.npc?.name ?? '',
+      })),
+      selectedInfluence: selectedInfluence
+        ? await this.#prepareInfluence(selectedInfluence, isGM)
+        : null,
       previewAsPlayer: this.#previewAsPlayer,
       // Preview of a chase players cannot see yet.
       previewHiddenChase: hiddenFromPlayers && this.#previewAsPlayer,
@@ -354,9 +400,192 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
+  /** Shape one influence encounter for display. */
+  async #prepareInfluence(event, isGM) {
+    // Hidden entries are ones the party has not discovered yet.
+    const visible = (record) =>
+      Object.values(record ?? {})
+        .filter((entry) => isGM || !entry.hidden)
+        .sort((a, b) => a.position - b.position);
+
+    const modifier = ['weaknesses', 'resistances', 'penalties'].reduce(
+      (acc, key) =>
+        acc +
+        Object.values(event[key] ?? {}).reduce((sum, e) => sum + (e.used ? e.modifier : 0), 0),
+      0,
+    );
+
+    const withEnriched = async (entries, extraKey) =>
+      Promise.all(
+        entries.map(async (entry) => ({
+          ...entry,
+          // The live DC includes whatever the party has uncovered and applied.
+          effectiveDC: entry.dc + modifier,
+          enrichedDescription: await enrich(entry.description),
+          ...(extraKey ? { [`enriched${extraKey}`]: await enrich(entry[extraKey.toLowerCase()]) } : {}),
+        })),
+      );
+
+    const thresholds = visible(event.thresholds)
+      .sort((a, b) => a.points - b.points);
+    const enrichedThresholds = await Promise.all(
+      thresholds.map(async (threshold) => ({
+        ...threshold,
+        reached: event.influencePoints >= threshold.points,
+        enrichedDescription: await enrich(threshold.description),
+      })),
+    );
+    const next = enrichedThresholds.find((t) => !t.reached) ?? null;
+
+    const participants = Object.values(event.participants)
+      .filter((p) => isGM || !p.hidden)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((participant) => {
+        const actor = participant.uuid ? fromUuidSync(participant.uuid) : null;
+        const owned = Boolean(actor?.isOwner);
+        return {
+          ...participant,
+          owned,
+          noActor: !participant.uuid,
+          missingActor: Boolean(participant.uuid) && !actor,
+          canRoll: isGM ? Boolean(actor) : owned && !participant.hasActed,
+          isReroll: isGM && participant.hasActed,
+          canAward: isGM,
+        };
+      });
+
+    return {
+      ...event,
+      dcModifier: modifier,
+      // An untitled encounter falls back to the NPC's name, so don't print it twice.
+      showNpcSubtitle: Boolean(event.npc?.name) && event.npc.name !== event.name,
+      discoveries: await withEnriched(visible(event.discoveries), 'Reveals'),
+      influenceSkills: await withEnriched(visible(event.influenceSkills)),
+      thresholds: enrichedThresholds,
+      nextThreshold: next,
+      allThresholdsReached: enrichedThresholds.length > 0 && !next,
+      weaknesses: await withEnriched(visible(event.weaknesses)),
+      resistances: await withEnriched(visible(event.resistances)),
+      penalties: await withEnriched(visible(event.penalties)),
+      participants,
+      enrichedPremise: await enrich(event.premise),
+      enrichedGoal: await enrich(event.goal),
+      enrichedNpcDescription: await enrich(event.npc?.description),
+      enrichedNpcWants: isGM ? await enrich(event.npc?.wants) : '',
+      enrichedGmNotes: isGM ? await enrich(event.gmNotes, { secrets: true }) : '',
+      outOfTime: event.rounds.max !== null && event.rounds.current >= event.rounds.max,
+      // Hidden counts tell the GM how much is still undiscovered.
+      hiddenCounts: isGM
+        ? {
+            influenceSkills: Object.values(event.influenceSkills).filter((e) => e.hidden).length,
+            weaknesses: Object.values(event.weaknesses).filter((e) => e.hidden).length,
+            resistances: Object.values(event.resistances).filter((e) => e.hidden).length,
+            thresholds: Object.values(event.thresholds).filter((e) => e.hidden).length,
+          }
+        : null,
+    };
+  }
+
   /* -------------------------------------------- */
   /*  Actions                                     */
   /* -------------------------------------------- */
+
+  static async #onRollInfluence(_event, target) {
+    const { influenceId, participantId, entryId, kind } = target.dataset;
+    await rollInfluenceCheck({
+      influenceId,
+      participantId,
+      entryId,
+      kind,
+      force: game.user.isGM,
+    });
+  }
+
+  static #onSwitchSubsystem(_event, target) {
+    this.#subsystem = target.dataset.subsystem ?? 'chase';
+    this.render();
+  }
+
+  static #onGenerateInfluence() {
+    new GenerateInfluenceDialog({
+      onGenerated: (id) => {
+        this.#subsystem = 'influence';
+        this.#selectedInfluenceId = id;
+        this.render();
+      },
+    }).render({ force: true });
+  }
+
+  static #onOpenInfluence(_event, target) {
+    this.#selectedInfluenceId = target.dataset.influenceId;
+    this.render();
+  }
+
+  static #onBackInfluence() {
+    this.#selectedInfluenceId = null;
+    this.render();
+  }
+
+  static async #onDeleteInfluence(_event, target) {
+    const event = getInfluence(target.dataset.influenceId);
+    if (!event) return;
+    const confirmed = await DialogV2.confirm({
+      window: { title: game.i18n.localize('PFAI.Influence.DeleteTitle') },
+      content: `<p>${game.i18n.format('PFAI.Influence.DeleteConfirm', { name: event.name })}</p>`,
+    });
+    if (!confirmed) return;
+    if (this.#selectedInfluenceId === event.id) this.#selectedInfluenceId = null;
+    await deleteInfluence(event.id);
+  }
+
+  static async #onToggleInfluenceHidden(_event, target) {
+    await updateInfluence(target.dataset.influenceId, (event) => {
+      event.hidden = !event.hidden;
+    });
+  }
+
+  static async #onInfluencePointDelta(_event, target) {
+    const delta = Number(target.dataset.delta);
+    await updateInfluence(target.dataset.influenceId, (event) => {
+      // Points can fall on a critical failure, but never below zero.
+      event.influencePoints = Math.max(0, event.influencePoints + delta);
+    });
+  }
+
+  static async #onInfluenceRoundDelta(_event, target) {
+    const delta = Number(target.dataset.delta);
+    await updateInfluence(target.dataset.influenceId, (event) => {
+      event.rounds.current = Math.max(0, event.rounds.current + delta);
+    });
+  }
+
+  static async #onInfluenceNextRound(_event, target) {
+    await updateInfluence(target.dataset.influenceId, (event) => {
+      event.rounds.current += 1;
+      for (const participant of Object.values(event.participants)) participant.hasActed = false;
+    });
+  }
+
+  /** Reveal or re-hide any discovered element: a skill, threshold or trait. */
+  static async #onToggleReveal(_event, target) {
+    const { influenceId, collection, entryId } = target.dataset;
+    await updateInfluence(influenceId, (event) => {
+      const entry = event[collection]?.[entryId];
+      if (entry) entry.hidden = !entry.hidden;
+    });
+  }
+
+  /** Apply or lift a weakness, resistance or penalty's effect on the DC. */
+  static async #onToggleModifierUsed(_event, target) {
+    const { influenceId, collection, entryId } = target.dataset;
+    await updateInfluence(influenceId, (event) => {
+      const entry = event[collection]?.[entryId];
+      if (!entry) return;
+      entry.used = !entry.used;
+      // Something in play is necessarily something the party knows about.
+      if (entry.used) entry.hidden = false;
+    });
+  }
 
   static #onGenerate() {
     new GenerateChaseDialog({ onGenerated: (id) => this.select(id) }).render({ force: true });

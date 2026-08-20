@@ -5,7 +5,7 @@ import { GenerateChaseDialog } from './apps/generate-chase-dialog.js';
 import { GenerateImageDialog } from './apps/generate-image-dialog.js';
 import { generateChase } from './ai/chase.js';
 import { registerSocket } from './socket.js';
-import { applyPassResult, applyRollResult } from './rolls.js';
+import { applyInfluenceResult, applyPassResult, applyRollResult } from './rolls.js';
 import { migrateChases } from './migrate.js';
 
 Hooks.once('init', () => {
@@ -27,20 +27,35 @@ Hooks.once('init', () => {
  * Namespaced helpers so the templates never depend on which comparison helpers
  * a given Foundry version happens to ship.
  */
+/** Partials keep the influence view out of the already-large shell template. */
+async function registerPartials() {
+  await foundry.applications.handlebars.loadTemplates({
+    pfaiInfluenceDetail: `modules/${MODULE_ID}/templates/partials/influence-detail.hbs`,
+    pfaiInfluenceChecks: `modules/${MODULE_ID}/templates/partials/influence-checks.hbs`,
+    pfaiInfluenceTraits: `modules/${MODULE_ID}/templates/partials/influence-traits.hbs`,
+  });
+}
+
 function registerHandlebarsHelpers() {
   Handlebars.registerHelper('pfaiEq', (a, b) => a === b);
   Handlebars.registerHelper('pfaiAdd', (a, b) => Number(a) + Number(b));
   Handlebars.registerHelper('pfaiOr', (...args) => args.slice(0, -1).some(Boolean));
   Handlebars.registerHelper('pfaiSubtract', (a, b) => Number(a) - Number(b));
+  Handlebars.registerHelper('pfaiLt', (a, b) => Number(a) < Number(b));
 }
 
 // The socket is only live once the game is ready.
+// Partials must exist before the window first renders, and the window can only
+// be opened after setup, so registering here is early enough.
+Hooks.once('setup', () => registerPartials());
+
 Hooks.once('ready', async () => {
   await migrateChases();
   registerSocket({
     onShowChase: (chaseId) => SubsystemView.open(chaseId),
     onApplyRoll: (data) => applyRollResult(data),
     onApplyPass: (data) => applyPassResult(data),
+    onApplyInfluence: (data) => applyInfluenceResult(data),
   });
 });
 

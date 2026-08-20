@@ -6,6 +6,7 @@ export const SOCKET_ACTIONS = {
   showChase: 'showChase',
   applyRoll: 'applyRoll',
   applyPass: 'applyPass',
+  applyInfluence: 'applyInfluence',
 };
 
 /**
@@ -46,6 +47,28 @@ export function shouldApplyRoll(data, context) {
   if (data.action !== SOCKET_ACTIONS.applyRoll) return false;
   if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
   return targetsThisGM(data, context);
+}
+
+/** Influence results are relayed exactly like chase rolls, to one GM only. */
+export function shouldApplyInfluence(data, context) {
+  if (!data || typeof data !== 'object') return false;
+  if (data.action !== SOCKET_ACTIONS.applyInfluence) return false;
+  if (!data.influenceId || !data.participantId || !data.entryId) return false;
+  if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
+  if (!context.isGM) return false;
+  return data.gmId ? data.gmId === context.userId : context.activeGMId === context.userId;
+}
+
+export function emitApplyInfluence({ influenceId, participantId, entryId, kind, degree }) {
+  game.socket.emit(SOCKET_EVENT, {
+    action: SOCKET_ACTIONS.applyInfluence,
+    influenceId,
+    participantId,
+    entryId,
+    kind,
+    degree,
+    gmId: game.users.activeGM?.id ?? null,
+  });
 }
 
 /** A passed turn carries no degree; everything else is validated the same. */
@@ -93,7 +116,7 @@ export function emitApplyPass({ chaseId, obstacleId, participantId }) {
   });
 }
 
-export function registerSocket({ onShowChase, onApplyRoll, onApplyPass }) {
+export function registerSocket({ onShowChase, onApplyRoll, onApplyPass, onApplyInfluence }) {
   game.socket.on(SOCKET_EVENT, (data) => {
     if (shouldHandle(data, game.user.id)) {
       onShowChase(data.chaseId);
@@ -106,5 +129,6 @@ export function registerSocket({ onShowChase, onApplyRoll, onApplyPass }) {
     };
     if (shouldApplyRoll(data, context)) onApplyRoll(data);
     else if (shouldApplyPass(data, context)) onApplyPass(data);
+    else if (shouldApplyInfluence(data, context)) onApplyInfluence(data);
   });
 }

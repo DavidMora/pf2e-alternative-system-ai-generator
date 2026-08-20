@@ -1,6 +1,7 @@
 import { DC_ADJUSTMENTS, PF2E_SKILLS } from '../constants.js';
 import {
   buildOvercomeHTML,
+  premiseToHTML,
   buildSkillOptions,
   chasePointGoal,
   guessPartySize,
@@ -388,18 +389,9 @@ export function toChaseData(result, options) {
   };
 }
 
-/** Wrap plain-typed premise text in paragraphs, leaving existing HTML alone. */
-export function premiseToHTML(premise) {
-  const text = String(premise ?? '').trim();
-  if (!text) return '';
-  if (/<[a-z][\s\S]*>/i.test(text)) return text;
-  return text
-    .split(/\n{2,}/)
-    .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
-    .join('');
-}
-
 /** Position a freshly generated chase at the end of the existing list. */
+export { premiseToHTML };
+
 export function withListPosition(chaseData, existing) {
   return { ...chaseData, position: nextPosition(existing) };
 }

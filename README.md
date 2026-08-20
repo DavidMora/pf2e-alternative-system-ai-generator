@@ -312,6 +312,49 @@ Foundry's world-setting broadcast — no socket handshake, no refresh.
 Chases export and import as JSON, so you can share a generated one or keep it
 between worlds.
 
+## Influence
+
+The second subsystem, on its own tab. [Rules](https://2e.aonprd.com/Rules.aspx?ID=3040).
+
+One encounter is one person to win over — the published subsystem is a stat
+block per NPC, so a gala with three targets is three encounters.
+
+### Generating one
+
+The model cannot invent someone worth persuading, so the dialog asks for the
+things only you know, and stores them verbatim:
+
+| You provide | Example |
+|---|---|
+| **The situation** | A masked ball at the Bloodcove consulate, three days before the trade vote |
+| **Their name** | Consul Aldori Venn |
+| **Who they are** | A career diplomat, vain about her family name, privately terrified of losing the consulate |
+| **What you want** | Her vote against the tariff, or failing that, her absence from the chamber |
+
+**From selected token** fills the name and description straight from an actor's
+biography. Everything else — base DC, party level and size — is pre-filled.
+
+The model returns the Perception and Will modifiers, discovery checks and what
+each reveals, ways to win them over, ascending concession thresholds, and their
+soft spots, resistances and blunders.
+
+### Playing one
+
+- **Discovery** checks reveal, they do not score. A success uncovers the cheapest
+  thing still hidden — the easiest approach first, then a soft spot, then a
+  resistance — and a critical success uncovers two.
+- **Influence** checks score: success 1 point, critical success 2, critical
+  failure −1, never below zero.
+- **Thresholds** reveal themselves as the points reach them.
+- **Soft spots, resistances and blunders** shift every DC once you put them in
+  play with the scales button. Minor ones move it by 2, strong ones by 5, and the
+  current total shows in the status bar. Every listed DC updates live.
+- Roll from the lists: each approach shows a portrait button per participant who
+  can act, so you click the person, not a menu.
+
+Players see only what has been discovered. The GM sees everything, marked, with
+a count of what is still hidden.
+
 ## Fidelity to the published rules
 
 Checked against [Chases (GM Core)](https://2e.aonprd.com/Rules.aspx?ID=3049).
@@ -359,6 +402,8 @@ scripts/
   ai/openai.js                 chat completions + Structured Outputs client
   ai/image.js                  image generation, reference loading, file saving
   ai/chase.js                  chase + obstacles-only schemas, prompts, mapping
+  ai/influence.js              influence schema, prompt, mapping
+  data/influence.js            Influence / Influences DataModels
   apps/subsystem-view.js       the GM/player window
   apps/generate-chase-dialog.js the generation form
 ```

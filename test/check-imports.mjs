@@ -86,7 +86,7 @@ for (const file of files) {
   }
 }
 
-console.log(`ok  ${checked} named imports across ${files.length} files all resolve`);
+if (!failed) console.log(`ok  ${checked} named imports across ${files.length} files all resolve`);
 
 /*
  * ApplicationV2 registers actions by referencing private static methods. If one
@@ -116,6 +116,7 @@ for (const file of files) {
     }
   }
 }
-console.log(`ok  ${actionsChecked} registered actions all have handlers`);
+if (!failed) console.log(`ok  ${actionsChecked} registered actions all have handlers`);
+else console.error(`\nFAILED - fix the above before anything else; a dangling import disables the whole module.`);
 
 process.exit(failed);

@@ -1,6 +1,54 @@
 <div class="pfai-root">
 
-{{#if previewHiddenChase}}
+<nav class="pfai-subsystem-tabs">
+  <button type="button" class="pfai-tab {{#if isChaseTab}}is-active{{/if}}"
+          data-action="switchSubsystem" data-subsystem="chase">
+    <i class="fa-solid fa-person-running"></i> {{localize 'PFAI.View.Chases'}}
+  </button>
+  <button type="button" class="pfai-tab {{#if isInfluenceTab}}is-active{{/if}}"
+          data-action="switchSubsystem" data-subsystem="influence">
+    <i class="fa-solid fa-comments"></i> {{localize 'PFAI.Influence.Tab'}}
+  </button>
+</nav>
+
+{{#if isInfluenceTab}}
+
+  {{#if selectedInfluence}}
+    {{> pfaiInfluenceDetail}}
+  {{else}}
+    <header class="pfai-list-header">
+      <h2>{{localize 'PFAI.Influence.Tab'}}</h2>
+      {{#if isGM}}
+        <div class="pfai-header-actions">
+          <button type="button" class="pfai-primary" data-action="generateInfluence">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
+          </button>
+        </div>
+      {{/if}}
+    </header>
+
+    <div class="pfai-list">
+      {{#each influences as |event|}}
+        <article class="pfai-card {{#if event.hidden}}is-hidden{{/if}}"
+                 data-action="openInfluence" data-influence-id="{{event.id}}">
+          <h3>
+            {{event.name}}
+            {{#if event.ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
+          </h3>
+          <div class="pfai-card-meta">
+            {{#if event.npcName}}<span>{{event.npcName}}</span>{{/if}}
+            <span>{{event.influencePoints}} {{localize 'PFAI.Influence.PointsShort'}}</span>
+            <span>{{event.thresholdCount}} {{localize 'PFAI.Influence.ThresholdsShort'}}</span>
+            {{#if event.hidden}}<span class="pfai-flag">{{localize 'PFAI.Chase.HiddenFlag'}}</span>{{/if}}
+          </div>
+        </article>
+      {{else}}
+        <p class="pfai-empty">{{localize 'PFAI.Influence.NoEvents'}}</p>
+      {{/each}}
+    </div>
+  {{/if}}
+
+{{else if previewHiddenChase}}
   <div class="pfai-preview-hidden">
     <p class="pfai-preview-banner">
       <i class="fa-solid fa-eye"></i> {{localize 'PFAI.View.PreviewBanner'}}

@@ -9,6 +9,7 @@ import {
   SETTINGS,
 } from './constants.js';
 import { Chases } from './data/chase.js';
+import { Influences } from './data/influence.js';
 import { SubsystemView } from './apps/subsystem-view.js';
 
 /** Re-render any open subsystem window when world data changes. */
@@ -29,6 +30,14 @@ export function registerSettings() {
 
   // World scope keeps the key available to every GM on the world without
   // re-entry. It lives in the world database, so treat it as GM-visible.
+  game.settings.register(MODULE_ID, SETTINGS.influences, {
+    scope: 'world',
+    config: false,
+    type: Influences,
+    default: { events: {} },
+    onChange: refreshOpenViews,
+  });
+
   game.settings.register(MODULE_ID, SETTINGS.apiKey, {
     name: 'PFAI.Settings.ApiKey.Name',
     hint: 'PFAI.Settings.ApiKey.Hint',
