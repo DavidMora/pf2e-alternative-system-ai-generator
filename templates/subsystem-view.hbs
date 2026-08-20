@@ -174,7 +174,8 @@
 
   <section class="pfai-status">
     <div class="pfai-status-item">
-      <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}</span>
+      <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}
+        <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Round'}}"></i></span>
       <span class="pfai-round">
         {{#if ../isGM}}
           <button type="button" class="pfai-step" data-action="roundDelta" data-chase-id="{{id}}" data-delta="-1">&minus;</button>
@@ -186,7 +187,8 @@
       </span>
     </div>
     <div class="pfai-status-item">
-      <span class="pfai-label">{{localize 'PFAI.Chase.BaseDC'}}</span>
+      <span class="pfai-label">{{localize 'PFAI.Chase.BaseDC'}}
+        <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.BaseDC'}}"></i></span>
       <strong>{{baseDC}}</strong>
     </div>
     {{#if liveObstacle}}
@@ -232,6 +234,7 @@
   <section class="pfai-panel">
     <h3>
       {{localize 'PFAI.Chase.Premise'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.ChasePremise'}}"></i>
       {{#if ../isGM}}
         <button type="button" class="pfai-icon" data-action="editText" data-subsystem="chase" data-event-id="{{id}}" data-field="premise"
                 data-label="PFAI.Chase.EditPremise"
@@ -245,6 +248,7 @@
   <section class="pfai-panel pfai-gm">
     <h3>
       {{localize 'PFAI.Chase.GmNotes'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.GmNotes'}}"></i>
       <button type="button" class="pfai-icon" data-action="editText" data-subsystem="chase" data-event-id="{{id}}" data-field="gmNotes"
               data-label="PFAI.Chase.EditGmNotes"
               data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
@@ -256,6 +260,7 @@
   <section class="pfai-panel">
     <h3>
       {{localize 'PFAI.Chase.Obstacles'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Obstacles'}}"></i>
       {{#if ../isGM}}
         <button type="button" class="pfai-generate-obstacles" data-action="addObstacle" data-chase-id="{{id}}"
                 data-tooltip="{{localize 'PFAI.Chase.AddBlankHint'}}">
@@ -431,6 +436,7 @@
   <section class="pfai-panel">
     <h3>
       {{localize 'PFAI.Chase.Participants'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Participants'}}"></i>
       {{#if ../isGM}}
         <button type="button" class="pfai-icon" data-action="addParticipants" data-chase-id="{{id}}"
                 data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>

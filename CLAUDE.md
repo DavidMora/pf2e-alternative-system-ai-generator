@@ -31,6 +31,12 @@ add a subsystem, add it to that assertion.
 Shared buttons must carry `data-subsystem` and `data-event-id`. Subsystem-specific
 ones may use their own attributes.
 
+Every section explains itself. Each panel heading carries an **ⓘ** with a
+tooltip saying what that section is and how it scores — a GM meeting "soft
+spot", "chase point" or "source cap" for the first time should not have to go
+and read the rulebook. `check-templates.mjs` asserts every `<h3>` in every
+subsystem has one.
+
 Hover-only is for *adjustment* controls (steppers), never for the only route to
 an operation. A control that is the sole way to do something must be visible at
 rest, quiet if need be — hiding remove-participant until hover made it

@@ -453,5 +453,20 @@
   "PFAI.Research.ContributionTooltip": "Research points found. Successful rolls:",
   "PFAI.Research.BecauseProgress": "the party has already found {points} research points and knows more than they did",
   "PFAI.Research.DeleteTitle": "Delete Research",
-  "PFAI.Research.DeleteConfirm": "Permanently delete “{name}”? This cannot be undone."
+  "PFAI.Research.DeleteConfirm": "Permanently delete “{name}”? This cannot be undone.",
+  "PFAI.Info.GmNotes": "Your own notes. Players never see this, whatever their permissions — it is the one place safe for spoilers, pacing reminders and twists.",
+  "PFAI.Info.Participants": "Who is taking part. Each row rolls for itself: pick a check and press the die. A player only sees roll controls for actors they own. Drag actors in from the sidebar, or use the button above.",
+  "PFAI.Info.Round": "One round is one pass around the table: every participant may act once. Next Round advances the count and clears everyone's acted mark.",
+  "PFAI.Info.BaseDC": "The difficulty anchor you chose. Every generated check is this number plus an adjustment, so raising it makes the whole thing harder at once. Editing it does not retune checks that already exist.",
+  "PFAI.Info.ChasePremise": "What you read to the table: who is chasing whom, why, and what happens if they fail. Written by you and kept word for word — the AI builds obstacles from it but never rewrites it.",
+  "PFAI.Info.Obstacles": "The sequence the party runs. Each needs a number of chase points to clear: success 1, critical success 2, critical failure −1. Only one is shown at a time; players see the active one, and you can browse the rest with the arrows.",
+  "PFAI.Info.ObstacleRounds": "How long the party may spend on this obstacle before you call it. Not a published rule — the rules let rounds run until an obstacle is cleared — so treat it as a pacing aid.",
+  "PFAI.Info.ChasePoints": "Progress on this obstacle. Cleared when it reaches the goal, which comes from party size: half the obstacles need one fewer than the party, half need two fewer.",
+  "PFAI.Info.WhoTheyAre": "The person you are trying to win over, as you described them, plus the Perception and Will the published stat block asks for. The slider edits those numbers.",
+  "PFAI.Info.InfluenceSituation": "Where this conversation happens and what is at stake. Yours, kept word for word.",
+  "PFAI.Info.Discovery": "Checks that reveal rather than score. A success uncovers the cheapest thing still hidden — the easiest approach first, then a soft spot, then a resistance — and a critical success uncovers two. They earn no influence points.",
+  "PFAI.Info.InfluenceSkills": "Checks that score. Success earns 1 influence point, critical success 2, critical failure costs 1. Only revealed approaches can be rolled; reveal one with the eye to put it in play.",
+  "PFAI.Info.ResearchTopic": "The question the party is trying to answer. Yours, kept word for word — the AI works out where they can dig, but not what they are digging for.",
+  "PFAI.Info.ResearchSituation": "Where the work happens and what pressure is on it: a deadline, a rival, a suspicious archivist.",
+  "PFAI.Info.ResearchPoints": "Total found across every source. Findings unlock as this rises, and complications can fire from it."
 }

@@ -468,10 +468,9 @@ for (const isGM of [true, false]) {
   for (const [key, value] of Object.entries(authoring)) {
     if (!value) { failed = 1; console.error(`  missing authoring control: ${key}`); }
   }
-  // One per trait group plus thresholds.
-  if (authoring.traitAdd !== 3 || authoring.infoTips !== 4) {
+  if (authoring.traitAdd !== 3) {
     failed = 1;
-    console.error(`  expected 3 trait add buttons and 4 info tips, got ${authoring.traitAdd} and ${authoring.infoTips}`);
+    console.error(`  expected 3 trait add buttons, got ${authoring.traitAdd}`);
   }
 
   const playerOut = view(influenceCtx(false));
@@ -589,6 +588,33 @@ for (const isGM of [true, false]) {
   const zone = out.includes('pfai-dropzone') && /data-subsystem="research"/.test(out);
   if (!zone) { failed = 1; console.error('  research roster is not a drop target'); }
   console.log(`research parity: shared=${SHARED.length - missing.length}/${SHARED.length} dropzone=${zone}`);
+}
+
+/*
+ * Every section must explain itself. A GM meeting "soft spot" or "source cap"
+ * for the first time should not have to go and read the rulebook, so each
+ * panel heading carries an info tooltip.
+ */
+{
+  const headingsOf = (out) => out.match(/<h3\b[\s\S]*?<\/h3>/g) ?? [];
+  const views = [
+    ['chase', { isGM: true, isRealGM: true, previewAsPlayer: false, isChaseTab: true,
+                chases: [], selected: { ...selected, participants: participantsFor(true) } }],
+    ['influence', influenceCtx(true)],
+    ['research', researchCtx(true)],
+  ];
+
+  for (const [label, ctx] of views) {
+    const headings = headingsOf(view(ctx));
+    const bare = headings
+      .filter((h) => !h.includes('pfai-info'))
+      .map((h) => h.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40));
+    if (bare.length) {
+      failed = 1;
+      console.error(`  ${label}: ${bare.length} section(s) with no explanation: ${bare.join(' | ')}`);
+    }
+    console.log(`explained ${label}: ${headings.length - bare.length}/${headings.length} sections`);
+  }
 }
 
 process.exit(failed);

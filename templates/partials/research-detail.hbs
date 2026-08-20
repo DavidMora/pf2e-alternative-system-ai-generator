@@ -52,7 +52,8 @@
   </div>
 
   <div class="pfai-status-item">
-    <span class="pfai-label">{{localize 'PFAI.Research.Points'}}</span>
+    <span class="pfai-label">{{localize 'PFAI.Research.Points'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.ResearchPoints'}}"></i></span>
     <span class="pfai-round">
       {{#if ../isGM}}
         <button type="button" class="pfai-step" data-action="researchPointDelta" data-research-id="{{id}}" data-delta="-1">&minus;</button>
@@ -110,6 +111,7 @@
 <section class="pfai-panel">
   <h3>
     {{localize 'PFAI.Research.Topic'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.ResearchTopic'}}"></i>
     {{#if ../isGM}}
       <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
               data-subsystem="research" data-event-id="{{id}}" data-field="topic"
@@ -121,6 +123,7 @@
 
   <h3>
     {{localize 'PFAI.Research.Situation'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.ResearchSituation'}}"></i>
     {{#if ../isGM}}
       <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
               data-subsystem="research" data-event-id="{{id}}" data-field="premise"
@@ -145,6 +148,7 @@
   <section class="pfai-panel pfai-gm">
     <h3>
       {{localize 'PFAI.Chase.GmNotes'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.GmNotes'}}"></i>
       <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
               data-subsystem="research" data-event-id="{{id}}" data-field="gmNotes"
               data-label="PFAI.Chase.EditGmNotes" data-tooltip="{{localize 'PFAI.Edit'}}">
@@ -351,6 +355,7 @@
 <section class="pfai-panel">
   <h3>
     {{localize 'PFAI.Chase.Participants'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Participants'}}"></i>
     {{#if ../isGM}}
       <button type="button" class="pfai-icon" data-action="addParticipants"
               data-subsystem="research" data-event-id="{{id}}"

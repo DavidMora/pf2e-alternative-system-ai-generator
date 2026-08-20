@@ -46,7 +46,8 @@
 
 <section class="pfai-status">
   <div class="pfai-status-item">
-    <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}</span>
+    <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Round'}}"></i></span>
     <span class="pfai-round">
       {{#if ../isGM}}
         <button type="button" class="pfai-step" data-action="influenceRoundDelta" data-influence-id="{{id}}" data-delta="-1">&minus;</button>
@@ -110,6 +111,7 @@
 <section class="pfai-panel pfai-npc-panel">
   <h3>
     {{localize 'PFAI.Influence.WhoTheyAre'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.WhoTheyAre'}}"></i>
     {{#if npc.disposition}} <em class="pfai-disposition">{{npc.disposition}}</em>{{/if}}
     {{#if ../isGM}}
       <button type="button" class="pfai-icon pfai-row-control" data-action="editStats"
@@ -136,6 +138,7 @@
 
 <section class="pfai-panel">
   <h3>{{localize 'PFAI.Influence.Situation'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.InfluenceSituation'}}"></i>
     {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="premise" data-label="PFAI.Influence.Situation" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
   </h3>
   <div class="pfai-prose">{{{enrichedPremise}}}</div>
@@ -157,6 +160,7 @@
 {{#if ../isGM}}
   <section class="pfai-panel pfai-gm">
     <h3>{{localize 'PFAI.Chase.GmNotes'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.GmNotes'}}"></i>
       {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="gmNotes" data-label="PFAI.Chase.GmNotes" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
     </h3>
     <div class="pfai-prose">{{{enrichedGmNotes}}}</div>
@@ -165,10 +169,12 @@
 
 {{> pfaiInfluenceChecks entries=discoveries kind="discovery" collection="discoveries"
     title=(localize 'PFAI.Influence.Discoveries') hint=(localize 'PFAI.Influence.DiscoveriesHint')
+    info=(localize 'PFAI.Info.Discovery')
     isGM=../isGM influenceId=id participants=participants generating=../generatingObstacle generating=../generatingObstacle}}
 
 {{> pfaiInfluenceChecks entries=influenceSkills kind="influence" collection="influenceSkills"
     title=(localize 'PFAI.Influence.InfluenceSkills') hint=(localize 'PFAI.Influence.InfluenceSkillsHint')
+    info=(localize 'PFAI.Info.InfluenceSkills')
     isGM=../isGM influenceId=id participants=participants
     hiddenCount=hiddenCounts.influenceSkills}}
 
@@ -231,6 +237,7 @@
 <section class="pfai-panel">
   <h3>
     {{localize 'PFAI.Chase.Participants'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Participants'}}"></i>
     {{#if ../isGM}}
       <button type="button" class="pfai-icon" data-action="addParticipants" data-chase-id="{{id}}"
               data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>

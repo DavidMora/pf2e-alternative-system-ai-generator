@@ -2,6 +2,7 @@
 <section class="pfai-panel">
   <h3>
     {{title}}
+    {{#if info}}<i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{info}}"></i>{{/if}}
     {{#if hiddenCount}}<span class="pfai-hidden-count">{{hiddenCount}} {{localize 'PFAI.Influence.Undiscovered'}}</span>{{/if}}
     {{#if isGM}}
       <span class="pfai-panel-actions">
