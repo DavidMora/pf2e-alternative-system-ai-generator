@@ -377,6 +377,29 @@ defaults its unlock point to the next concession.
 Each approach has a pencil for its name, statistic, DC, description, what it
 reveals, and its unlock point.
 
+### Editing everything else
+
+Every authored section carries a pencil: the situation, who they are, **what
+they actually want** (GM-only), what the party wants, and GM notes. The slider
+icon on the stat block edits the name, disposition, Perception, Will, base DC,
+round limit, party size and level.
+
+Concessions and the three modifier lists can each be added to, edited and
+removed. Each list has an **ⓘ** explaining what it does, because "soft spot",
+"resistance" and "blunder" are not self-evident:
+
+> **Soft spots** — lowers every influence DC once in play, by 2 for a minor one
+> or 5 for a major one.
+> **Resistances** — raises every DC; something they *are*.
+> **Blunders** — raises every DC; something the party *did*.
+
+### Nothing hidden is rollable
+
+The roll picker offers only what the GM has put in play — for everyone,
+including the GM. A GM still sees hidden entries in the lists and reveals them
+with the eye icon, at which point they become rollable. A roll can never get
+ahead of what the party has been shown.
+
 ## Fidelity to the published rules
 
 Checked against [Chases (GM Core)](https://2e.aonprd.com/Rules.aspx?ID=3049).

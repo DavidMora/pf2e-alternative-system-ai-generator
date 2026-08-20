@@ -1392,3 +1392,15 @@
   gap: 0.3rem;
   margin-left: auto;
 }
+
+/* Explain the subsystem's vocabulary where it is used, not in a manual. */
+.pfai .pfai-info {
+  font-size: 0.72em;
+  opacity: 0.45;
+  cursor: help;
+  transition: opacity 120ms ease;
+}
+
+.pfai .pfai-info:hover {
+  opacity: 0.9;
+}

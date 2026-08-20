@@ -190,7 +190,8 @@
     <h3>
       {{localize 'PFAI.Chase.Premise'}}
       {{#if ../isGM}}
-        <button type="button" class="pfai-icon" data-action="editText" data-chase-id="{{id}}" data-field="premise"
+        <button type="button" class="pfai-icon" data-action="editText" data-subsystem="chase" data-event-id="{{id}}" data-field="premise"
+                data-label="PFAI.Chase.EditPremise"
                 data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
       {{/if}}
     </h3>
@@ -201,7 +202,8 @@
   <section class="pfai-panel pfai-gm">
     <h3>
       {{localize 'PFAI.Chase.GmNotes'}}
-      <button type="button" class="pfai-icon" data-action="editText" data-chase-id="{{id}}" data-field="gmNotes"
+      <button type="button" class="pfai-icon" data-action="editText" data-subsystem="chase" data-event-id="{{id}}" data-field="gmNotes"
+              data-label="PFAI.Chase.EditGmNotes"
               data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
     </h3>
     <div class="pfai-prose">{{{enrichedGmNotes}}}</div>

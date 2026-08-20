@@ -130,6 +130,13 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       chasePointDelta: SubsystemView.#onChasePointDelta,
       editObstacle: SubsystemView.#onEditObstacle,
       editText: SubsystemView.#onEditText,
+      editStats: SubsystemView.#onEditStats,
+      addThreshold: SubsystemView.#onAddThreshold,
+      editThreshold: SubsystemView.#onEditThreshold,
+      deleteThreshold: SubsystemView.#onDeleteThreshold,
+      addTrait: SubsystemView.#onAddTrait,
+      editTrait: SubsystemView.#onEditTrait,
+      deleteTrait: SubsystemView.#onDeleteTrait,
       addParticipants: SubsystemView.#onAddParticipants,
       removeParticipant: SubsystemView.#onRemoveParticipant,
       participantDelta: SubsystemView.#onParticipantDelta,
@@ -461,27 +468,27 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const next = enrichedThresholds.find((t) => !t.reached) ?? null;
 
     // One list for the row picker: discoveries first, then ways to win them over.
-    // A GM sees hidden entries, so the picker must say which ones the party has
-    // not reached yet - otherwise rolling one is an easy accident.
-    const optionLabel = (entry, prefix = '') => {
-      const lock = entry.hidden ? `${game.i18n.localize('PFAI.Influence.LockedPrefix')} ` : '';
-      return `${lock}${prefix}${entry.label}`;
-    };
+    /*
+     * The picker offers only what the GM has actually put in play, for everyone
+     * including the GM. A GM still *sees* hidden entries in the lists below and
+     * can reveal one with the eye icon, at which point it becomes rollable -
+     * but nothing hidden is ever rollable, so a roll cannot get ahead of what
+     * the party has been shown.
+     */
+    const rollable = (record, kind, prefix = '') =>
+      Object.values(record ?? {})
+        .filter((entry) => !entry.hidden)
+        .sort((a, b) => a.position - b.position)
+        .map((entry) => ({
+          id: entry.id,
+          kind,
+          label: `${prefix}${entry.label}`,
+          dc: entry.dc + modifier,
+        }));
+
     const rollOptions = [
-      ...visible(event.discoveries).map((entry) => ({
-        id: entry.id,
-        kind: 'discovery',
-        label: optionLabel(entry, `${game.i18n.localize('PFAI.Influence.DiscoveryPrefix')} `),
-        dc: entry.dc + modifier,
-        hidden: entry.hidden,
-      })),
-      ...visible(event.influenceSkills).map((entry) => ({
-        id: entry.id,
-        kind: 'influence',
-        label: optionLabel(entry),
-        dc: entry.dc + modifier,
-        hidden: entry.hidden,
-      })),
+      ...rollable(event.discoveries, 'discovery', `${game.i18n.localize('PFAI.Influence.DiscoveryPrefix')} `),
+      ...rollable(event.influenceSkills, 'influence'),
     ];
 
     const participants = Object.values(event.participants)
@@ -558,6 +565,136 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Add an empty approach for the GM to write. */
+  static async #onAddThreshold(_event, target) {
+    const { influenceId } = target.dataset;
+    await updateInfluence(influenceId, (event) => {
+      const id = foundry.utils.randomID();
+      const highest = Object.values(event.thresholds).reduce((max, t) => Math.max(max, t.points), 0);
+      event.thresholds[id] = {
+        id,
+        position: nextPosition(event.thresholds),
+        // Cost more than the last one, since thresholds ascend.
+        points: highest + 2,
+        name: game.i18n.localize('PFAI.Influence.NewThreshold'),
+        description: '',
+        hidden: true,
+      };
+    });
+  }
+
+  static async #onEditThreshold(_event, target) {
+    const { influenceId, entryId } = target.dataset;
+    const event = getInfluence(influenceId);
+    const threshold = event?.thresholds?.[entryId];
+    if (!threshold) return;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Influence.EditThreshold') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <div class="pfai-field-row">
+          <label class="pfai-field pfai-field-wide"><span>${game.i18n.localize('PFAI.Influence.ConcessionName')}</span>
+            <input type="text" name="name" value="${escapeHTML(threshold.name)}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Points')}</span>
+            <input type="number" name="points" min="1" step="1" value="${threshold.points}"></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.WhatTheyDo')}</span>
+          <textarea name="description" rows="4">${escapeHTML(threshold.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await updateInfluence(influenceId, (draft) => {
+      const edited = draft.thresholds[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.points = Math.max(1, Number(result.points) || edited.points);
+      edited.description = String(result.description ?? '');
+      // Lowering it below the current total means it has already been earned.
+      if (draft.influencePoints >= edited.points) edited.hidden = false;
+    });
+  }
+
+  static async #onDeleteThreshold(_event, target) {
+    const { influenceId, entryId } = target.dataset;
+    const store = getInfluences();
+    const event = store.events[influenceId];
+    if (!event) return;
+    const { [entryId]: _removed, ...remaining } = event.thresholds;
+    event.thresholds = remaining;
+    await setInfluences(store);
+  }
+
+  /** Add a soft spot, resistance or blunder. */
+  static async #onAddTrait(_event, target) {
+    const { influenceId, collection } = target.dataset;
+    await updateInfluence(influenceId, (event) => {
+      const id = foundry.utils.randomID();
+      event[collection][id] = {
+        id,
+        position: nextPosition(event[collection]),
+        name: game.i18n.localize('PFAI.Influence.NewTrait'),
+        description: '',
+        // Weaknesses ease the DC; the other two raise it.
+        modifier: collection === 'weaknesses' ? -2 : 2,
+        used: false,
+        hidden: true,
+      };
+    });
+  }
+
+  static async #onEditTrait(_event, target) {
+    const { influenceId, collection, entryId } = target.dataset;
+    const event = getInfluence(influenceId);
+    const trait = event?.[collection]?.[entryId];
+    if (!trait) return;
+
+    const eases = collection === 'weaknesses';
+    const magnitude = Math.abs(trait.modifier) >= 5 ? 5 : 2;
+    const option = (value, key) =>
+      `<option value="${value}" ${value === magnitude ? 'selected' : ''}>${game.i18n.localize(key)}</option>`;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Influence.EditTrait') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <div class="pfai-field-row">
+          <label class="pfai-field pfai-field-wide"><span>${game.i18n.localize('PFAI.Influence.TraitName')}</span>
+            <input type="text" name="name" value="${escapeHTML(trait.name)}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Strength')}</span>
+            <select name="magnitude">
+              ${option(2, eases ? 'PFAI.Influence.MinorEase' : 'PFAI.Influence.MinorRaise')}
+              ${option(5, eases ? 'PFAI.Influence.MajorEase' : 'PFAI.Influence.MajorRaise')}
+            </select></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.TraitDescription')}</span>
+          <textarea name="description" rows="3">${escapeHTML(trait.description)}</textarea>
+          <small>${game.i18n.localize('PFAI.Influence.TraitDescriptionHint')}</small></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await updateInfluence(influenceId, (draft) => {
+      const edited = draft[collection][entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.description = String(result.description ?? '');
+      edited.modifier = (eases ? -1 : 1) * (Number(result.magnitude) === 5 ? 5 : 2);
+    });
+  }
+
+  static async #onDeleteTrait(_event, target) {
+    const { influenceId, collection, entryId } = target.dataset;
+    const store = getInfluences();
+    const event = store.events[influenceId];
+    if (!event) return;
+    const { [entryId]: _removed, ...remaining } = event[collection];
+    event[collection] = remaining;
+    await setInfluences(store);
+  }
+
   static async #onAddApproach(_event, target) {
     const { influenceId, collection } = target.dataset;
     await updateInfluence(influenceId, (event) => {
@@ -1221,26 +1358,84 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     });
   }
 
+  /**
+   * Edit any prose field on any event, including nested ones such as
+   * `npc.wants`, so every section a GM writes is editable from where it shows.
+   */
   static async #onEditText(_event, target) {
-    const { chaseId, field } = target.dataset;
-    const chase = getChase(chaseId);
-    if (!chase) return;
+    const { field, label } = target.dataset;
+    const { id, api } = eventTarget(target.dataset);
+    const event = api.get(id);
+    if (!event || !field) return;
 
+    const current = foundry.utils.getProperty(event, field) ?? '';
     const result = await DialogV2.prompt({
-      window: { title: game.i18n.localize(`PFAI.Chase.Edit${field === 'gmNotes' ? 'GmNotes' : 'Premise'}`) },
-      position: { width: 620 },
-      content: `<div class="pfai-form"><textarea name="value" rows="12">${escapeHTML(chase[field])}</textarea></div>`,
+      window: { title: label ? game.i18n.localize(label) : game.i18n.localize('PFAI.Edit') },
+      position: { width: 640 },
+      content: `<div class="pfai-form"><textarea name="value" rows="12">${escapeHTML(current)}</textarea></div>`,
       ok: {
         label: game.i18n.localize('PFAI.Save'),
-        callback: (_event, button) => formValues(button),
+        callback: (_e, button) => formValues(button),
       },
     });
     if (!result) return;
 
-    await updateChase(chaseId, (draft) => {
-      draft[field] = String(result.value ?? '');
+    await api.update(id, (draft) => {
+      foundry.utils.setProperty(draft, field, String(result.value ?? ''));
     });
   }
+
+  /** Edit the numbers a GM tunes: the stat block, the DC anchor, the clock. */
+  static async #onEditStats(_event, target) {
+    const { id, api } = eventTarget(target.dataset);
+    const event = api.get(id);
+    if (!event) return;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Influence.EditStats') },
+      position: { width: 520 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.NpcName')}</span>
+          <input type="text" name="npcName" value="${escapeHTML(event.npc?.name ?? '')}"></label>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Disposition')}</span>
+          <input type="text" name="disposition" value="${escapeHTML(event.npc?.disposition ?? '')}"></label>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Perception')}</span>
+            <input type="number" name="perception" step="1" value="${event.perception}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Will')}</span>
+            <input type="number" name="will" step="1" value="${event.will}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.BaseDC')}</span>
+            <input type="number" name="baseDC" min="1" step="1" value="${event.baseDC}">
+            <small>${game.i18n.localize('PFAI.Influence.BaseDCNote')}</small></label>
+        </div>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Generate.RoundLimit')}</span>
+            <input type="number" name="roundMax" min="0" step="1" value="${event.rounds?.max ?? ''}">
+            <small>${game.i18n.localize('PFAI.Influence.BlankForNone')}</small></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.PartySize')}</span>
+            <input type="number" name="partySize" min="1" step="1" value="${event.partySize}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.PartyLevel')}</span>
+            <input type="number" name="level" min="0" step="1" value="${event.level}"></label>
+        </div>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await api.update(id, (draft) => {
+      draft.npc.name = String(result.npcName ?? draft.npc.name);
+      draft.npc.disposition = String(result.disposition ?? '');
+      draft.perception = Number(result.perception) || 0;
+      draft.will = Number(result.will) || 0;
+      // Changing the anchor does not retune existing DCs, which are absolute.
+      draft.baseDC = Math.max(1, Number(result.baseDC) || draft.baseDC);
+      draft.partySize = Math.max(1, Number(result.partySize) || draft.partySize);
+      draft.level = Math.max(0, Number(result.level) || 0);
+      const max = String(result.roundMax ?? '').trim();
+      draft.rounds.max = max === '' ? null : Math.max(0, Number(max) || 0);
+    });
+  }
+
 
   /**
    * Add actors to a chase as participants, skipping ones already present.
@@ -1272,18 +1467,6 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       }
     });
     return added;
-  }
-
-  /**
-   * Wire drag-and-drop by hand: ApplicationV2 ships no drag-drop support of its
-   * own, unlike the v1 sheets.
-   */
-  _onRender(context, options) {
-    super._onRender?.(context, options);
-    if (!this.isGM) return;
-    for (const zone of this.element?.querySelectorAll('.pfai-dropzone') ?? []) {
-      this.#wireDropZone(zone);
-    }
   }
 
   /** Attach drop handling to one roster. */

@@ -218,8 +218,6 @@ for (const targetKind of ['chase', 'obstacle']) {
 const INFLUENCE_ROLL_OPTIONS = [
   { id: 'd1', kind: 'discovery', label: 'Society', dc: 16, hidden: false },
   { id: 's1', kind: 'influence', label: 'Diplomacy', dc: 18, hidden: false },
-  // Visible to a GM but not yet earned by the party; must be marked in the picker.
-  { id: 's3', kind: 'influence', label: '\u{1F512} Intimidation', dc: 22, hidden: true },
 ];
 
 const influenceCtx = (isGM) => ({
@@ -432,12 +430,55 @@ for (const isGM of [true, false]) {
     .filter((a) => playerOut.includes(`data-action="${a}"`));
   if (leaked.length) { failed = 1; console.error(`  approach authoring leaked to players: ${leaked}`); }
 
-  // The GM's picker must distinguish an approach the party has not unlocked.
-  if (!out.includes('\u{1F512} Intimidation')) {
+  // A hidden approach must never reach the picker, for anyone. The GM sees it
+  // in the list below and can reveal it; until then it is not rollable.
+  const pickerOptions = out.match(/<option value="[^"]*" data-kind="[^"]*">([^<]*)</g) ?? [];
+  if (pickerOptions.some((o) => /Intimidation/.test(o))) {
     failed = 1;
-    console.error('  locked approach is not marked in the GM picker');
+    console.error('  a hidden approach reached the GM roll picker');
   }
   console.log(`approach-authoring: ${JSON.stringify(controls)} playerLeaks=${leaked.length}`);
+}
+
+// Every authored section must be editable, and the subsystem's vocabulary
+// explained where it is used rather than left for the GM to infer.
+{
+  const out = view(influenceCtx(true));
+
+  const fields = (out.match(/data-action="editText"[^>]*data-field="([^"]+)"/g) ?? [])
+    .map((m) => m.match(/data-field="([^"]+)"/)[1]);
+  for (const required of ['premise', 'goal', 'gmNotes', 'npc.description', 'npc.wants']) {
+    if (!fields.includes(required)) {
+      failed = 1;
+      console.error(`  "${required}" has no edit control`);
+    }
+  }
+
+  const authoring = {
+    stats: out.includes('data-action="editStats"'),
+    thresholdAdd: out.includes('data-action="addThreshold"'),
+    thresholdEdit: out.includes('data-action="editThreshold"'),
+    thresholdDelete: out.includes('data-action="deleteThreshold"'),
+    traitAdd: (out.match(/data-action="addTrait"/g) ?? []).length,
+    traitEdit: (out.match(/data-action="editTrait"/g) ?? []).length,
+    traitDelete: (out.match(/data-action="deleteTrait"/g) ?? []).length,
+    infoTips: (out.match(/class="fa-solid fa-circle-info pfai-info"/g) ?? []).length,
+  };
+  for (const [key, value] of Object.entries(authoring)) {
+    if (!value) { failed = 1; console.error(`  missing authoring control: ${key}`); }
+  }
+  // One per trait group plus thresholds.
+  if (authoring.traitAdd !== 3 || authoring.infoTips !== 4) {
+    failed = 1;
+    console.error(`  expected 3 trait add buttons and 4 info tips, got ${authoring.traitAdd} and ${authoring.infoTips}`);
+  }
+
+  const playerOut = view(influenceCtx(false));
+  const leaked = ['editText', 'editStats', 'addThreshold', 'editThreshold', 'deleteThreshold',
+                  'addTrait', 'editTrait', 'deleteTrait'].filter((a) => playerOut.includes(`data-action="${a}"`));
+  if (leaked.length) { failed = 1; console.error(`  authoring leaked to players: ${leaked}`); }
+
+  console.log(`authoring: fields=[${fields.join(',')}] ${JSON.stringify(authoring)} leaks=${leaked.length}`);
 }
 
 process.exit(failed);

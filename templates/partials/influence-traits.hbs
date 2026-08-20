@@ -2,7 +2,13 @@
 <div class="pfai-trait-group">
   <h4>
     {{title}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{info}}"></i>
     {{#if hiddenCount}}<span class="pfai-hidden-count">{{hiddenCount}}</span>{{/if}}
+    {{#if isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="addTrait"
+              data-influence-id="{{influenceId}}" data-collection="{{collection}}"
+              data-tooltip="{{localize 'PFAI.Influence.AddTraitHint'}}"><i class="fa-solid fa-plus"></i></button>
+    {{/if}}
   </h4>
   {{#each entries as |entry|}}
     <div class="pfai-trait {{#if entry.used}}is-used{{/if}} {{#if entry.hidden}}is-hidden{{/if}}">
@@ -21,11 +27,21 @@
                   data-tooltip="{{#if entry.used}}{{localize 'PFAI.Influence.StopApplying'}}{{else}}{{localize 'PFAI.Influence.Apply'}}{{/if}}">
             <i class="fa-solid fa-scale-balanced"></i>
           </button>
-          <button type="button" class="pfai-icon pfai-hover-only" data-action="toggleReveal"
+          <button type="button" class="pfai-icon pfai-row-control" data-action="toggleReveal"
                   data-influence-id="{{../influenceId}}" data-collection="{{../collection}}"
                   data-entry-id="{{entry.id}}"
                   data-tooltip="{{#if entry.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
             <i class="fa-solid {{#if entry.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+          </button>
+          <button type="button" class="pfai-icon pfai-row-control" data-action="editTrait"
+                  data-influence-id="{{../influenceId}}" data-collection="{{../collection}}"
+                  data-entry-id="{{entry.id}}" data-tooltip="{{localize 'PFAI.Edit'}}">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteTrait"
+                  data-influence-id="{{../influenceId}}" data-collection="{{../collection}}"
+                  data-entry-id="{{entry.id}}" data-tooltip="{{localize 'PFAI.View.Delete'}}">
+            <i class="fa-solid fa-xmark"></i>
           </button>
         </span>
       {{/if}}

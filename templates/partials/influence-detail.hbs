@@ -108,7 +108,16 @@
 </section>
 
 <section class="pfai-panel pfai-npc-panel">
-  <h3>{{localize 'PFAI.Influence.WhoTheyAre'}}{{#if npc.disposition}} <em class="pfai-disposition">{{npc.disposition}}</em>{{/if}}</h3>
+  <h3>
+    {{localize 'PFAI.Influence.WhoTheyAre'}}
+    {{#if npc.disposition}} <em class="pfai-disposition">{{npc.disposition}}</em>{{/if}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editStats"
+              data-subsystem="influence" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Influence.EditStats'}}"><i class="fa-solid fa-sliders"></i></button>
+    {{/if}}
+    {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="npc.description" data-label="PFAI.Influence.WhoTheyAre" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
+  </h3>
   <div class="pfai-npc-stats">
     <span><span class="pfai-label">{{localize 'PFAI.Influence.Perception'}}</span> <strong>+{{perception}}</strong></span>
     <span><span class="pfai-label">{{localize 'PFAI.Influence.Will'}}</span> <strong>+{{will}}</strong></span>
@@ -117,24 +126,39 @@
   <div class="pfai-prose">{{{enrichedNpcDescription}}}</div>
   {{#if ../isGM}}
     <div class="pfai-gm-inset">
-      <span class="pfai-label">{{localize 'PFAI.Influence.WhatTheyWant'}}</span>
+      <span class="pfai-label">{{localize 'PFAI.Influence.WhatTheyWant'}}
+        {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="npc.wants" data-label="PFAI.Influence.WhatTheyWant" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
+      </span>
       <div class="pfai-prose">{{{enrichedNpcWants}}}</div>
     </div>
   {{/if}}
 </section>
 
 <section class="pfai-panel">
-  <h3>{{localize 'PFAI.Influence.Situation'}}</h3>
+  <h3>{{localize 'PFAI.Influence.Situation'}}
+    {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="premise" data-label="PFAI.Influence.Situation" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
+  </h3>
   <div class="pfai-prose">{{{enrichedPremise}}}</div>
+  {{#if ../isGM}}
+    {{#unless enrichedGoal}}
+      <p class="pfai-goal"><span class="pfai-label">{{localize 'PFAI.Influence.Goal'}}
+        {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="goal" data-label="PFAI.Influence.Goal" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
+      </span></p>
+    {{/unless}}
+  {{/if}}
   {{#if enrichedGoal}}
-    <p class="pfai-goal"><span class="pfai-label">{{localize 'PFAI.Influence.Goal'}}</span></p>
+    <p class="pfai-goal"><span class="pfai-label">{{localize 'PFAI.Influence.Goal'}}
+      {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="goal" data-label="PFAI.Influence.Goal" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
+    </span></p>
     <div class="pfai-prose">{{{enrichedGoal}}}</div>
   {{/if}}
 </section>
 
 {{#if ../isGM}}
   <section class="pfai-panel pfai-gm">
-    <h3>{{localize 'PFAI.Chase.GmNotes'}}</h3>
+    <h3>{{localize 'PFAI.Chase.GmNotes'}}
+      {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="gmNotes" data-label="PFAI.Chase.GmNotes" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
+    </h3>
     <div class="pfai-prose">{{{enrichedGmNotes}}}</div>
   </section>
 {{/if}}
@@ -151,7 +175,16 @@
 <section class="pfai-panel">
   <h3>
     {{localize 'PFAI.Influence.Thresholds'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Influence.ThresholdsInfo'}}"></i>
     {{#if hiddenCounts.thresholds}}<span class="pfai-hidden-count">{{hiddenCounts.thresholds}} {{localize 'PFAI.Influence.Undiscovered'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addThreshold" data-influence-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Influence.AddThresholdHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+      </span>
+    {{/if}}
   </h3>
   <ol class="pfai-thresholds">
     {{#each thresholds as |threshold|}}
@@ -162,11 +195,19 @@
           <div class="pfai-prose">{{{threshold.enrichedDescription}}}</div>
         </div>
         {{#if ../../isGM}}
-          <button type="button" class="pfai-icon pfai-hover-only" data-action="toggleReveal"
-                  data-influence-id="{{../id}}" data-collection="thresholds" data-entry-id="{{threshold.id}}"
-                  data-tooltip="{{#if threshold.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
-            <i class="fa-solid {{#if threshold.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
-          </button>
+          <span class="pfai-trait-actions">
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleReveal"
+                    data-influence-id="{{../id}}" data-collection="thresholds" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{#if threshold.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+              <i class="fa-solid {{#if threshold.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="editThreshold"
+                    data-influence-id="{{../id}}" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteThreshold"
+                    data-influence-id="{{../id}}" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+          </span>
         {{/if}}
       </li>
     {{else}}
@@ -177,11 +218,14 @@
 
 <section class="pfai-panel pfai-traits">
   {{> pfaiInfluenceTraits entries=weaknesses collection="weaknesses" isGM=../isGM influenceId=id
-      title=(localize 'PFAI.Influence.Weaknesses') tone="good" hiddenCount=hiddenCounts.weaknesses}}
+      title=(localize 'PFAI.Influence.Weaknesses') tone="good" hiddenCount=hiddenCounts.weaknesses
+      info=(localize 'PFAI.Influence.WeaknessesInfo')}}
   {{> pfaiInfluenceTraits entries=resistances collection="resistances" isGM=../isGM influenceId=id
-      title=(localize 'PFAI.Influence.Resistances') tone="bad" hiddenCount=hiddenCounts.resistances}}
+      title=(localize 'PFAI.Influence.Resistances') tone="bad" hiddenCount=hiddenCounts.resistances
+      info=(localize 'PFAI.Influence.ResistancesInfo')}}
   {{> pfaiInfluenceTraits entries=penalties collection="penalties" isGM=../isGM influenceId=id
-      title=(localize 'PFAI.Influence.Penalties') tone="bad"}}
+      title=(localize 'PFAI.Influence.Penalties') tone="bad"
+      info=(localize 'PFAI.Influence.PenaltiesInfo')}}
 </section>
 
 <section class="pfai-panel">

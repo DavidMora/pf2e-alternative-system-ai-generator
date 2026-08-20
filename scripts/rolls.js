@@ -304,6 +304,12 @@ export async function rollInfluenceCheck({ influenceId, participantId, entryId, 
   const entry = event?.[collection]?.[entryId];
   if (!event || !participant || !entry) return null;
 
+  // Nothing hidden is rollable, by anyone. Reveal it first.
+  if (entry.hidden) {
+    ui.notifications.warn(game.i18n.format('PFAI.Influence.NotRevealed', { name: entry.label }));
+    return null;
+  }
+
   const override = force && game.user.isGM;
   if (participant.hasActed && !override) {
     ui.notifications.warn(game.i18n.format('PFAI.Roll.AlreadyActed', { name: participant.name }));
