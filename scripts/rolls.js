@@ -468,3 +468,52 @@ function revealHidden(event, count) {
   }
   return revealed;
 }
+
+
+/**
+ * Award or remove influence points on a participant's behalf.
+ *
+ * The chase equivalent scopes credit to an obstacle; influence points are a
+ * single running total, so this is the same idea without that dimension.
+ */
+export async function adjustInfluenceContribution({ influenceId, participantId, delta }) {
+  if (!game.user.isGM) return null;
+  const step = Math.trunc(Number(delta) || 0);
+  if (!step) return null;
+
+  let summary = null;
+  await updateInfluence(influenceId, (event) => {
+    const participant = event.participants[participantId];
+    if (!participant) return;
+
+    const before = event.influencePoints;
+    event.influencePoints = Math.max(0, before + step);
+    const applied = event.influencePoints - before;
+    if (!applied) return;
+
+    participant.contribution ??= { total: 0, successes: 0, rolls: 0, discoveries: 0 };
+    // Credit what the total actually moved, so an award absorbed by the zero
+    // floor is not recorded against anyone.
+    participant.contribution.total += applied;
+
+    const justReached = Object.values(event.thresholds)
+      .sort((a, b) => a.points - b.points)
+      .filter((t) => event.influencePoints >= t.points && t.hidden);
+    for (const threshold of justReached) threshold.hidden = false;
+
+    summary = { participant: participant.name, applied, current: event.influencePoints, justReached };
+  });
+
+  if (!summary) return null;
+  ui.notifications.info(
+    game.i18n.format('PFAI.Influence.Adjusted', {
+      name: summary.participant,
+      points: summary.applied > 0 ? `+${summary.applied}` : String(summary.applied),
+      current: summary.current,
+    }),
+  );
+  for (const threshold of summary.justReached) {
+    ui.notifications.info(game.i18n.format('PFAI.Influence.ThresholdReached', { name: threshold.name }));
+  }
+  return summary;
+}

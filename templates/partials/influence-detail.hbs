@@ -196,7 +196,7 @@
        data-subsystem="influence" data-event-id="{{id}}">
     <div class="pfai-roster-head">
       <span>{{localize 'PFAI.Chase.Participant'}}</span>
-      <span>{{localize 'PFAI.Influence.Contributed'}}</span>
+      <span>{{localize 'PFAI.Chase.Points'}}</span>
       <span>{{localize 'PFAI.Chase.Turn'}}</span>
     </div>
     {{#each participants as |participant|}}
@@ -208,19 +208,44 @@
             <i class="fa-solid fa-check pfai-acted-mark" data-tooltip="{{localize 'PFAI.Chase.ActedTooltip'}}"></i>
           {{/if}}
         </span>
-        <span class="pfai-p-points" data-tooltip="{{localize 'PFAI.Influence.ContributionTooltip'}} {{participant.contribution.successes}}/{{participant.contribution.rolls}}">
-          <span class="pfai-tally {{#unless participant.contribution.rolls}}is-empty{{/unless}}">
-            <i class="fa-solid fa-star"></i><strong>{{participant.contribution.total}}</strong>
-            {{#if participant.contribution.discoveries}}
-              <small><i class="fa-solid fa-magnifying-glass"></i>{{participant.contribution.discoveries}}</small>
+
+        <span class="pfai-p-points"
+              data-tooltip="{{localize 'PFAI.Influence.ContributionTooltip'}} {{participant.successCount}}/{{participant.rollCount}}">
+          {{#if participant.canAward}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="awardInfluence"
+                    data-influence-id="{{../id}}" data-participant-id="{{participant.id}}" data-delta="-1"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveSuccess'}}">&minus;</button>
+          {{/if}}
+          <span class="pfai-tally {{#unless participant.hasContributed}}is-empty{{/unless}}">
+            <i class="fa-solid fa-star"></i><strong>{{participant.contributedTotal}}</strong>
+            {{#if participant.discoveryCount}}
+              <small><i class="fa-solid fa-magnifying-glass"></i>{{participant.discoveryCount}}</small>
             {{/if}}
           </span>
+          {{#if participant.canAward}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="awardInfluence"
+                    data-influence-id="{{../id}}" data-participant-id="{{participant.id}}" data-delta="1"
+                    data-tooltip="{{localize 'PFAI.Chase.AwardSuccess'}}">+</button>
+          {{/if}}
         </span>
+
         <span class="pfai-p-turn">
           {{#if participant.canRoll}}
-            <span class="pfai-p-note">{{localize 'PFAI.Influence.RollFromLists'}}</span>
+            <select class="pfai-roll-option" aria-label="{{localize 'PFAI.Roll.PickSkill'}}">
+              {{#each participant.rollOptions as |option|}}
+                <option value="{{option.id}}" data-kind="{{option.kind}}">{{option.label}} DC {{option.dc}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="pfai-roll-button {{#if participant.isReroll}}pfai-reroll{{/if}}"
+                    data-action="rollInfluence" data-influence-id="{{../id}}"
+                    data-participant-id="{{participant.id}}"
+                    data-tooltip="{{#if participant.isReroll}}{{localize 'PFAI.Roll.RerollHint'}}{{else}}{{localize 'PFAI.Roll.Roll'}}{{/if}}">
+              <i class="fa-solid fa-dice-d20"></i>
+            </button>
           {{else if participant.noActor}}
             <span class="pfai-p-note">{{localize 'PFAI.Roll.NoActorLinked'}}</span>
+          {{else if participant.missingActor}}
+            <span class="pfai-p-note is-bad">{{localize 'PFAI.Roll.ActorMissing'}}</span>
           {{else if participant.hasActed}}
             <span class="pfai-p-note">{{localize 'PFAI.Chase.Acted'}}</span>
           {{else}}

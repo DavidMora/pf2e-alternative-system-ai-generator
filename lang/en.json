@@ -317,7 +317,7 @@
   "PFAI.Influence.Reveals": "Reveals",
   "PFAI.Influence.NothingDiscovered": "Nothing known yet. Try a discovery check.",
   "PFAI.Influence.RollAs": "Roll as",
-  "PFAI.Influence.RollFromLists": "roll from the lists above",
+  "PFAI.Influence.RollFromLists": "roll from the picker",
   "PFAI.Influence.Contributed": "Contributed",
   "PFAI.Influence.ContributionTooltip": "Influence points earned. Successful rolls:",
   "PFAI.Influence.Applied": "{name}: {degree} ({points} influence) — now {current}, next at {next}",
@@ -325,5 +325,7 @@
   "PFAI.Influence.DiscoveredNothing": "{name}: {degree} — nothing new learned.",
   "PFAI.Influence.ThresholdReached": "Threshold reached: “{name}”",
   "PFAI.Influence.DeleteTitle": "Delete Influence Encounter",
-  "PFAI.Influence.DeleteConfirm": "Permanently delete “{name}”? This cannot be undone."
+  "PFAI.Influence.DeleteConfirm": "Permanently delete “{name}”? This cannot be undone.",
+  "PFAI.Influence.DiscoveryPrefix": "🔍",
+  "PFAI.Influence.Adjusted": "{name}: {points} influence — now {current}"
 }

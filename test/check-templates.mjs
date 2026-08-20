@@ -215,6 +215,11 @@ for (const targetKind of ['chase', 'obstacle']) {
 }
 
 // The influence view must render in both roles without leaking GM content.
+const INFLUENCE_ROLL_OPTIONS = [
+  { id: 'd1', kind: 'discovery', label: 'Society', dc: 16 },
+  { id: 's1', kind: 'influence', label: 'Diplomacy', dc: 18 },
+];
+
 const influenceCtx = (isGM) => ({
   isGM, isRealGM: isGM, previewAsPlayer: false, isInfluenceTab: true, isChaseTab: false,
   influences: [], chases: [],
@@ -243,8 +248,15 @@ const influenceCtx = (isGM) => ({
       ? [{ id: 'r1', name: 'Duty', modifier: 2, used: false, hidden: true, enrichedDescription: '<p>z</p>' }]
       : [],
     penalties: [],
-    participants: [{ id: 'p1', name: 'Kyra', img: 'a.png', hasActed: false, canRoll: true, owned: true,
-                     noActor: false, contribution: { total: 2, successes: 2, rolls: 3, discoveries: 1 } }],
+    rollOptions: INFLUENCE_ROLL_OPTIONS,
+    participants: [
+      { id: 'p1', name: 'Kyra', img: 'a.png', hasActed: false, canRoll: true, owned: true, noActor: false,
+        canAward: isGM, isReroll: false, rollOptions: INFLUENCE_ROLL_OPTIONS,
+        contributedTotal: 2, successCount: 2, rollCount: 3, discoveryCount: 1, hasContributed: true },
+      { id: 'p2', name: 'Seelah', img: 'b.png', hasActed: true, canRoll: isGM, owned: true, noActor: false,
+        canAward: isGM, isReroll: isGM, rollOptions: INFLUENCE_ROLL_OPTIONS,
+        contributedTotal: 0, successCount: 0, rollCount: 0, discoveryCount: 0, hasContributed: false },
+    ],
     hiddenCounts: isGM ? { influenceSkills: 1, weaknesses: 0, resistances: 1, thresholds: 1 } : null,
   },
 });
@@ -259,11 +271,30 @@ for (const isGM of [true, false]) {
   if (!isGM && (revealBtns || applyBtns)) { failed = 1; console.error('  influence GM controls leaked to player'); }
   if (isGM && !revealBtns) { failed = 1; console.error('  GM cannot reveal anything'); }
 
-  // Rolling happens from the check lists, one button per able participant.
+  // Rolling works exactly as in chases: one picker + Roll per able participant.
+  // A GM may roll for anyone including someone who has acted; a player may not.
   const rollBtns = (out.match(/data-action="rollInfluence"/g) ?? []).length;
-  // 1 discovery + 2 influence skills for a GM (who sees the hidden one), 1 + 1 for a player.
-  const expected = isGM ? 3 : 2;
-  if (rollBtns !== expected) { failed = 1; console.error(`  expected ${expected} influence roll buttons, got ${rollBtns}`); }
+  const expectedRolls = isGM ? 2 : 1;
+  if (rollBtns !== expectedRolls) { failed = 1; console.error(`  expected ${expectedRolls} influence roll buttons, got ${rollBtns}`); }
+
+  // Each picker must be populated, and carry which list each option came from.
+  const optionTags = (out.match(/<option value="[^"]*" data-kind="/g) ?? []).length;
+  if (optionTags !== rollBtns * INFLUENCE_ROLL_OPTIONS.length) {
+    failed = 1;
+    console.error(`  influence picker wrong: ${optionTags} options for ${rollBtns} button(s)`);
+  }
+
+  // Award steppers are GM-only: two per participant.
+  const awardBtns = (out.match(/data-action="awardInfluence"/g) ?? []).length;
+  const expectedAward = isGM ? 4 : 0;
+  if (awardBtns !== expectedAward) { failed = 1; console.error(`  expected ${expectedAward} influence award buttons, got ${awardBtns}`); }
+
+  // The roster must emit the same cells as the chase one or the columns go ragged.
+  for (const cell of ['pfai-p-who', 'pfai-p-points', 'pfai-p-turn']) {
+    const count = (out.match(new RegExp(`class="${cell}`, 'g')) ?? []).length;
+    if (count !== 2) { failed = 1; console.error(`  expected 2 ${cell} cells, got ${count}`); }
+  }
+  console.log(`  influence roster: rolls=${rollBtns} options=${optionTags} award=${awardBtns}`);
 
   console.log(`influence isGM=${isGM}: bytes=${out.length} reveal=${revealBtns} apply=${applyBtns} rolls=${rollBtns} gmProse=${leaks.length}`);
 }

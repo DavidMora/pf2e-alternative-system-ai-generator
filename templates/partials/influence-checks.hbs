@@ -22,16 +22,6 @@
         </div>
 
         <span class="pfai-check-actions">
-          {{#each ../participants as |participant|}}
-            {{#if participant.canRoll}}
-              <button type="button" class="pfai-roll-button" data-action="rollInfluence"
-                      data-influence-id="{{../../influenceId}}" data-entry-id="{{entry.id}}"
-                      data-kind="{{../../kind}}" data-participant-id="{{participant.id}}"
-                      data-tooltip="{{localize 'PFAI.Influence.RollAs'}} {{participant.name}}">
-                <img src="{{participant.img}}" alt="{{participant.name}}">
-              </button>
-            {{/if}}
-          {{/each}}
           {{#if ../isGM}}
             <button type="button" class="pfai-icon pfai-hover-only" data-action="toggleReveal"
                     data-influence-id="{{../influenceId}}" data-collection="{{../collection}}"

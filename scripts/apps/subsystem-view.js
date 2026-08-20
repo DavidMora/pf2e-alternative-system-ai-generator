@@ -30,7 +30,13 @@ import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.
 import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowEvent } from '../socket.js';
 import { eventTarget, exportPayload, importPayload, subsystem } from '../subsystems.js';
-import { adjustContribution, passTurn, rollChaseCheck, rollInfluenceCheck } from '../rolls.js';
+import {
+  adjustContribution,
+  adjustInfluenceContribution,
+  passTurn,
+  rollChaseCheck,
+  rollInfluenceCheck,
+} from '../rolls.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -91,6 +97,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleReveal: SubsystemView.#onToggleReveal,
       toggleModifierUsed: SubsystemView.#onToggleModifierUsed,
       rollInfluence: SubsystemView.#onRollInfluence,
+      awardInfluence: SubsystemView.#onAwardInfluence,
       generateObstacles: SubsystemView.#onGenerateObstacles,
       generateOneObstacle: SubsystemView.#onGenerateOneObstacle,
       obstaclePrev: SubsystemView.#onObstaclePrev,
@@ -441,20 +448,43 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     );
     const next = enrichedThresholds.find((t) => !t.reached) ?? null;
 
+    // One list for the row picker: discoveries first, then ways to win them over.
+    const rollOptions = [
+      ...visible(event.discoveries).map((entry) => ({
+        id: entry.id,
+        kind: 'discovery',
+        label: `${game.i18n.localize('PFAI.Influence.DiscoveryPrefix')} ${entry.label}`,
+        dc: entry.dc + modifier,
+      })),
+      ...visible(event.influenceSkills).map((entry) => ({
+        id: entry.id,
+        kind: 'influence',
+        label: entry.label,
+        dc: entry.dc + modifier,
+      })),
+    ];
+
     const participants = Object.values(event.participants)
       .filter((p) => isGM || !p.hidden)
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((participant) => {
         const actor = participant.uuid ? fromUuidSync(participant.uuid) : null;
         const owned = Boolean(actor?.isOwner);
+        const contribution = participant.contribution ?? {};
         return {
           ...participant,
           owned,
           noActor: !participant.uuid,
           missingActor: Boolean(participant.uuid) && !actor,
-          canRoll: isGM ? Boolean(actor) : owned && !participant.hasActed,
+          canRoll: rollOptions.length > 0 && (isGM ? Boolean(actor) : owned && !participant.hasActed),
           isReroll: isGM && participant.hasActed,
           canAward: isGM,
+          rollOptions,
+          contributedTotal: contribution.total ?? 0,
+          rollCount: contribution.rolls ?? 0,
+          successCount: contribution.successes ?? 0,
+          discoveryCount: contribution.discoveries ?? 0,
+          hasContributed: (contribution.rolls ?? 0) > 0,
         };
       });
 
@@ -472,6 +502,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       resistances: await withEnriched(visible(event.resistances)),
       penalties: await withEnriched(visible(event.penalties)),
       participants,
+      rollOptions,
       enrichedPremise: await enrich(event.premise),
       enrichedGoal: await enrich(event.goal),
       enrichedNpcDescription: await enrich(event.npc?.description),
@@ -495,13 +526,22 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   /* -------------------------------------------- */
 
   static async #onRollInfluence(_event, target) {
-    const { influenceId, participantId, entryId, kind } = target.dataset;
-    await rollInfluenceCheck({
+    const { influenceId, participantId } = target.dataset;
+    const row = target.closest('.pfai-participant');
+    const select = row?.querySelector('.pfai-roll-option');
+    // The option carries which list it came from, since the two score differently.
+    const entryId = select?.value ?? target.dataset.entryId;
+    const kind = select?.selectedOptions?.[0]?.dataset.kind ?? target.dataset.kind;
+    if (!entryId) return;
+    await rollInfluenceCheck({ influenceId, participantId, entryId, kind, force: game.user.isGM });
+  }
+
+  static async #onAwardInfluence(_event, target) {
+    const { influenceId, participantId } = target.dataset;
+    await adjustInfluenceContribution({
       influenceId,
       participantId,
-      entryId,
-      kind,
-      force: game.user.isGM,
+      delta: Number(target.dataset.delta),
     });
   }
 

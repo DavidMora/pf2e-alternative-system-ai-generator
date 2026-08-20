@@ -349,8 +349,12 @@ soft spots, resistances and blunders.
 - **Soft spots, resistances and blunders** shift every DC once you put them in
   play with the scales button. Minor ones move it by 2, strong ones by 5, and the
   current total shows in the status bar. Every listed DC updates live.
-- Roll from the lists: each approach shows a portrait button per participant who
-  can act, so you click the person, not a menu.
+- **Rolling works exactly as in chases**: each participant row carries a picker
+  of every check available to them and a Roll button. Discovery entries are
+  marked with a magnifier, since the two score differently. The GM can roll for
+  anyone, including someone who has already acted, and can award or remove
+  influence points on a participant's behalf with the `−` / `+` beside their
+  tally — the spell-and-hero-point case, credited but not counted as a roll.
 
 Players see only what has been discovered. The GM sees everything, marked, with
 a count of what is still hidden.

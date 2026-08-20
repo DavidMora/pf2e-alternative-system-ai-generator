@@ -31,6 +31,12 @@ add a subsystem, add it to that assertion.
 Shared buttons must carry `data-subsystem` and `data-event-id`. Subsystem-specific
 ones may use their own attributes.
 
+Rolling is one shape everywhere: the **participant row** owns it. Each row has a
+picker of every check available to that participant and a single Roll button;
+the GM may roll for anyone including someone who has acted, and may award or
+remove points beside the tally. Do not add a second way to roll the same thing —
+a per-entry button next to each check was removed for exactly this reason.
+
 ## Non-negotiables
 
 These exist because getting them wrong produced real bugs:
