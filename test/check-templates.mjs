@@ -290,7 +290,7 @@ for (const isGM of [true, false]) {
   if (awardBtns !== expectedAward) { failed = 1; console.error(`  expected ${expectedAward} influence award buttons, got ${awardBtns}`); }
 
   // The roster must emit the same cells as the chase one or the columns go ragged.
-  for (const cell of ['pfai-p-who', 'pfai-p-points', 'pfai-p-turn']) {
+  for (const cell of ['pfai-p-who', 'pfai-p-points', 'pfai-p-turn', 'pfai-p-end']) {
     const count = (out.match(new RegExp(`class="${cell}`, 'g')) ?? []).length;
     if (count !== 2) { failed = 1; console.error(`  expected 2 ${cell} cells, got ${count}`); }
   }
@@ -363,6 +363,41 @@ for (const isGM of [true, false]) {
     if (!hintInside) { failed = 1; console.error(`  ${label}: drop hint is outside the drop zone`); }
     if (!wired) { failed = 1; console.error(`  ${label}: drop zone missing subsystem/event id`); }
     console.log(`dropzone ${label}: present=${hasZone} hintInside=${hintInside} wired=${wired}`);
+  }
+}
+
+// Managing a participant must be possible, and discoverable, on both
+// subsystems. Hiding these until hover made removal impossible to find.
+{
+  const rosters = [
+    ['chase', { isGM: true, isRealGM: true, previewAsPlayer: false, isChaseTab: true,
+                chases: [], selected: { ...selected, participants: participantsFor(true) } }],
+    ['influence', influenceCtx(true)],
+  ];
+  for (const [label, ctx] of rosters) {
+    const out = view(ctx);
+    const removes = out.match(/<[^>]*data-action="removeParticipant"[^>]*>/g) ?? [];
+    if (!removes.length) { failed = 1; console.error(`  ${label}: no way to remove a participant`); }
+    for (const tag of removes) {
+      if (/pfai-hover-only/.test(tag)) {
+        failed = 1;
+        console.error(`  ${label}: remove button is hover-only, so nobody can find it`);
+      }
+      if (!/data-subsystem="/.test(tag) || !/data-event-id="/.test(tag)) {
+        failed = 1;
+        console.error(`  ${label}: remove button missing subsystem/event id`);
+      }
+    }
+    // Players must not be able to remove anyone.
+    const playerCtx = label === 'chase'
+      ? { ...ctx, isGM: false, selected: { ...ctx.selected, participants: participantsFor(false) } }
+      : influenceCtx(false);
+    const playerOut = view(playerCtx);
+    if (playerOut.includes('data-action="removeParticipant"')) {
+      failed = 1;
+      console.error(`  ${label}: remove button leaked to players`);
+    }
+    console.log(`remove-participant ${label}: buttons=${removes.length} gmOnly=true`);
   }
 }
 

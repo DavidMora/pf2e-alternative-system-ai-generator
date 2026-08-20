@@ -1185,13 +1185,30 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async #onRemoveParticipant(_event, target) {
-    const { chaseId, participantId } = target.dataset;
-    const chases = getChases();
-    const chase = chases.events[chaseId];
-    if (!chase) return;
-    const { [participantId]: _removed, ...remaining } = chase.participants;
-    chase.participants = remaining;
-    await setChases(chases);
+    const { participantId } = target.dataset;
+    const { id, api } = eventTarget(target.dataset);
+    const event = api.get(id);
+    const participant = event?.participants?.[participantId];
+    if (!participant) return;
+
+    // Removing someone discards what they contributed, so confirm once they
+    // have actually done something.
+    const contributed = participant.contribution?.rolls || participant.contribution?.total;
+    if (contributed) {
+      const confirmed = await DialogV2.confirm({
+        window: { title: game.i18n.localize('PFAI.Chase.RemoveParticipantTitle') },
+        content: `<p>${game.i18n.format('PFAI.Chase.RemoveParticipantConfirm', { name: participant.name })}</p>`,
+      });
+      if (!confirmed) return;
+    }
+
+    const store = api.getAll();
+    const stored = store.events[id];
+    if (!stored) return;
+    const { [participantId]: _removed, ...remaining } = stored.participants;
+    // Rebuild rather than delete so the TypedObjectField drops the key cleanly.
+    stored.participants = remaining;
+    await api.save(store);
   }
 
   static async #onParticipantDelta(_event, target) {

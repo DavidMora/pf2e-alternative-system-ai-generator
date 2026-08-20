@@ -497,14 +497,14 @@
 
         <span class="pfai-p-end">
           {{#if ../../isGM}}
-            <button type="button" class="pfai-icon pfai-hover-only" data-action="toggleActed"
-                    data-chase-id="{{../id}}" data-participant-id="{{participant.id}}"
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleActed"
+                    data-subsystem="chase" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
                     data-tooltip="{{localize 'PFAI.Chase.ToggleActed'}}">
               <i class="fa-solid {{#if participant.hasActed}}fa-circle-check{{else}}fa-circle{{/if}}"></i>
             </button>
-            <button type="button" class="pfai-icon pfai-danger pfai-hover-only" data-action="removeParticipant"
-                    data-chase-id="{{../id}}" data-participant-id="{{participant.id}}"
-                    data-tooltip="{{localize 'PFAI.View.Delete'}}">
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="removeParticipant"
+                    data-subsystem="chase" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveParticipant'}}">
               <i class="fa-solid fa-xmark"></i>
             </button>
           {{/if}}

@@ -31,6 +31,11 @@ add a subsystem, add it to that assertion.
 Shared buttons must carry `data-subsystem` and `data-event-id`. Subsystem-specific
 ones may use their own attributes.
 
+Hover-only is for *adjustment* controls (steppers), never for the only route to
+an operation. A control that is the sole way to do something must be visible at
+rest, quiet if need be — hiding remove-participant until hover made it
+undiscoverable, which reads to a user as the feature not existing.
+
 Rolling is one shape everywhere: the **participant row** owns it. Each row has a
 picker of every check available to that participant and a single Roll button;
 the GM may roll for anyone including someone who has acted, and may award or

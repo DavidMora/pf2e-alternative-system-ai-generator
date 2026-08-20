@@ -327,5 +327,8 @@
   "PFAI.Influence.DeleteTitle": "Delete Influence Encounter",
   "PFAI.Influence.DeleteConfirm": "Permanently delete “{name}”? This cannot be undone.",
   "PFAI.Influence.DiscoveryPrefix": "🔍",
-  "PFAI.Influence.Adjusted": "{name}: {points} influence — now {current}"
+  "PFAI.Influence.Adjusted": "{name}: {points} influence — now {current}",
+  "PFAI.Chase.RemoveParticipant": "Remove from this encounter",
+  "PFAI.Chase.RemoveParticipantTitle": "Remove Participant",
+  "PFAI.Chase.RemoveParticipantConfirm": "Remove “{name}”? What they have contributed so far is discarded."
 }

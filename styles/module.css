@@ -1348,3 +1348,26 @@
 .pfai .pfai-roster-influence {
   grid-template-columns: minmax(9rem, 1fr) auto minmax(0, auto);
 }
+
+
+/*
+ * Row controls stay visible, unlike the steppers.
+ *
+ * Hiding them until hover made removing a participant undiscoverable - there
+ * was no way to tell the affordance existed. They are quiet at rest instead.
+ */
+.pfai .pfai-row-control {
+  opacity: 0.4;
+  transition: opacity 120ms ease;
+}
+
+.pfai .pfai-participant:hover .pfai-row-control,
+.pfai .pfai-row-control:hover,
+.pfai .pfai-row-control:focus-visible {
+  opacity: 1;
+}
+
+/* who | points | turn | controls */
+.pfai .pfai-roster-influence {
+  grid-template-columns: minmax(9rem, 1fr) auto minmax(0, auto) auto;
+}

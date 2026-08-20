@@ -198,6 +198,7 @@
       <span>{{localize 'PFAI.Chase.Participant'}}</span>
       <span>{{localize 'PFAI.Chase.Points'}}</span>
       <span>{{localize 'PFAI.Chase.Turn'}}</span>
+      <span></span>
     </div>
     {{#each participants as |participant|}}
       <div class="pfai-participant {{#if participant.hasActed}}has-acted{{/if}}">
@@ -251,11 +252,19 @@
           {{else}}
             <span class="pfai-p-note">{{localize 'PFAI.Roll.NotYours'}}</span>
           {{/if}}
+        </span>
+
+        <span class="pfai-p-end">
           {{#if ../../isGM}}
-            <button type="button" class="pfai-icon pfai-hover-only" data-action="toggleActed"
-                    data-chase-id="{{../id}}" data-participant-id="{{participant.id}}"
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleActed"
+                    data-subsystem="influence" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
                     data-tooltip="{{localize 'PFAI.Chase.ToggleActed'}}">
               <i class="fa-solid {{#if participant.hasActed}}fa-circle-check{{else}}fa-circle{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="removeParticipant"
+                    data-subsystem="influence" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveParticipant'}}">
+              <i class="fa-solid fa-xmark"></i>
             </button>
           {{/if}}
         </span>
