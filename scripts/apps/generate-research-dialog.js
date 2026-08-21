@@ -1,6 +1,7 @@
 import { DEFAULT_BASE_DC, MODULE_ID, SETTINGS } from '../constants.js';
 import { generateResearch, withListPosition } from '../ai/research.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
+import { makeSaveBrief } from '../exchange.js';
 import {
   getResearches,
   guessPartyLevel,
@@ -38,7 +39,7 @@ export class GenerateResearchDialog extends HandlebarsApplicationMixin(Applicati
     },
     position: { width: 640, height: 'auto' },
     form: { handler: GenerateResearchDialog.#onSubmit, closeOnSubmit: false },
-    actions: { cancel: GenerateResearchDialog.#onCancel },
+    actions: { cancel: GenerateResearchDialog.#onCancel, saveBrief: makeSaveBrief('research') },
   };
 
   static PARTS = {

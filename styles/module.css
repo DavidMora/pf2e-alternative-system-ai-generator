@@ -1499,3 +1499,43 @@
 .pfai .pfai-leadership-event.is-trouble .pfai-trait-mod { color: #b4231f; }
 .pfai .pfai-leadership-event.is-windfall .pfai-trait-mod { color: #2f7d43; }
 .pfai .pfai-leadership-event.is-opportunity .pfai-trait-mod { opacity: 0.75; }
+
+/* The import verifier's report. Every line is a path into the file the GM
+   handed over, so the path has to be selectable and readable, not decorative. */
+
+.pfai-import-report p {
+  margin: 0 0 0.6rem;
+}
+
+.pfai-import-report h4 {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 0.9rem;
+}
+
+.pfai-import-errors h4 { color: #b4231f; }
+.pfai-import-warnings h4 { color: #9a6b12; }
+
+.pfai-import-problems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.pfai-import-problems li {
+  display: grid;
+  grid-template-columns: minmax(8rem, 18rem) 1fr;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+  font-size: 0.85rem;
+  align-items: baseline;
+}
+
+.pfai-import-problems code {
+  user-select: all;
+  word-break: break-all;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}

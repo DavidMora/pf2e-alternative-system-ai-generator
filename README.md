@@ -530,6 +530,57 @@ other four.
 No rounds and no point awards, both waived explicitly in the parity audit with
 reasons, because inventing them would misrepresent the subsystem.
 
+## Bringing your own agent
+
+You do not have to spend an OpenAI call here. Every generate dialog has **Save
+brief** beside its Generate button: fill the form in as usual, and instead of
+sending the request the module writes out a JSON file containing
+
+- the prose you wrote, under `given`, which is yours and stays yours;
+- the exact system and user prompts this module would have sent;
+- the full JSON Schema the answer has to match;
+- an empty `payload` for the answer to go in.
+
+Hand that to whatever agent you like. Put its answer in `payload`, change
+`"kind"` from `"brief"` to `"payload"`, and use **Import**. The file goes
+through the same mapping an OpenAI answer does, so the guarantees are the same
+ones: **the agent never writes a DC.** It picks a `dcAdjustment` per check and
+the module computes `baseDC + adjustment` from the number in `given`, because a
+model asked for a level-based DC will confidently get it wrong. Inline check
+syntax is likewise built here, not pasted in.
+
+### The import check
+
+Import verifies before it stores, and tells you where the problem is rather than
+refusing the whole file:
+
+```
+5 problem(s) that must be fixed
+  payload.penalties                 required, but missing
+  payload.perception                expected a whole number, found "high"
+  payload.influenceSkills[0].dc     not part of this format; expected one of:
+                                    skill, loreName, dcAdjustment, description
+  payload.influenceSkills[1].skill  "haggling" is not one of: acrobatics, arcana …
+  payload.influenceSkills[2].loreName  a Lore check needs a subject, e.g. "Sailing"
+
+2 thing(s) worth checking
+  payload.influenceSkills[3].skill  another approach already uses diplomacy at index 0
+  payload.thresholds[1].points      2 comes after 9; concessions are listed cheapest first
+```
+
+Errors stop the import. Warnings do not — they offer **Import anyway**, because
+a GM may well have meant it.
+
+The checks go past the schema to the things that make content unplayable at the
+table: research whose sources cannot between them reach the last finding, an
+objective with no obstacles, a Lore check with no subject, a leadership event
+that surfaces above level 20, fewer approaches than there are characters. Those
+are worth catching, because each of them type-checks perfectly and still ruins a
+session.
+
+A file exported with the **Export** button is a third shape — an event that has
+already been through the mapping — and still imports, so backups keep working.
+
 ## Fidelity to the published rules
 
 Checked against [Chases (GM Core)](https://2e.aonprd.com/Rules.aspx?ID=3049).
@@ -581,6 +632,7 @@ scripts/
   ai/research.js               research schema, prompt, mapping
   ai/infiltration.js           infiltration schema, prompt, mapping
   ai/leadership.js             leadership schema, prompt, mapping
+  exchange.js                  briefs out, agent payloads in, and the verifier
   data/influence.js            Influence / Influences DataModels
   data/research.js             Research / Researches DataModels
   data/infiltration.js         Infiltration / Infiltrations DataModels

@@ -221,6 +221,17 @@ function promptLines(options) {
 }
 
 /** Generate a whole chase around a GM-written premise. */
+/*
+ * The same two halves of the request, exposed so a GM can hand them to an
+ * agent of their own instead of spending an API call here. Kept beside the
+ * prompt rather than copied into the exchange module: one drifting from the
+ * other would mean a brief that no longer describes what this module accepts.
+ */
+export const BRIEF = {
+  system: SYSTEM_PROMPT,
+  user: (options) => promptLines(options).join('\n'),
+};
+
 export async function generateChase(options, { signal } = {}) {
   const lines = promptLines(options);
   if (options.roundLimit > 0) {

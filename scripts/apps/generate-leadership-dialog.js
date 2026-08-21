@@ -1,6 +1,7 @@
 import { DEFAULT_BASE_DC, MODULE_ID, SETTINGS } from '../constants.js';
 import { generateLeadership, withListPosition } from '../ai/leadership.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
+import { makeSaveBrief } from '../exchange.js';
 import {
   getLeaderships,
   guessPartyLevel,
@@ -38,7 +39,7 @@ export class GenerateLeadershipDialog extends HandlebarsApplicationMixin(Applica
     },
     position: { width: 640, height: 'auto' },
     form: { handler: GenerateLeadershipDialog.#onSubmit, closeOnSubmit: false },
-    actions: { cancel: GenerateLeadershipDialog.#onCancel },
+    actions: { cancel: GenerateLeadershipDialog.#onCancel, saveBrief: makeSaveBrief('leadership') },
   };
 
   static PARTS = {

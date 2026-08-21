@@ -11,6 +11,7 @@ import {
   withListPosition,
 } from '../ai/chase.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
+import { makeSaveBrief } from '../exchange.js';
 import {
   getChase,
   getChases,
@@ -66,6 +67,7 @@ export class GenerateChaseDialog extends HandlebarsApplicationMixin(ApplicationV
     },
     actions: {
       cancel: GenerateChaseDialog.#onCancel,
+      saveBrief: makeSaveBrief('chase'),
     },
   };
 

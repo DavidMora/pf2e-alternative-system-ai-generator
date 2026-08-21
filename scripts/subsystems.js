@@ -113,7 +113,9 @@ export function eventTarget(dataset) {
 
 /** Serialise one event for export, tagged so import can route it. */
 export function exportPayload(key, event) {
-  return { module: MODULE_ID, type: key, version: 2, data: event };
+  // `kind` says which of the three exchange shapes this is. Files written
+  // before it existed have no kind and are still recognised by their `data`.
+  return { module: MODULE_ID, kind: 'event', type: key, version: 2, data: event };
 }
 
 /**

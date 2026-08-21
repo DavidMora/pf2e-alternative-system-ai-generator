@@ -21,6 +21,7 @@ writing anything, look for the existing version of it:
 | Image generation, references, saving | `scripts/ai/image.js` | |
 | Rolling, degrees, applying results | `scripts/rolls.js` | `chasePointsForDegree` is shared by chases, influence and research — the published values are identical. Infiltration is the exception and has its own pair, because there a failure costs secrecy rather than progress. |
 | Player→GM relay | `scripts/socket.js` | |
+| Briefs out, agent payloads in, and the import verifier | `scripts/exchange.js` | An outside agent's file goes through the same `to*Data` mapping an OpenAI answer does, so it cannot set a DC either. |
 | Schema migration | `scripts/migrate.js` | |
 
 If you find yourself writing a second copy of something, promote it instead.
@@ -58,7 +59,9 @@ These exist because getting them wrong produced real bugs:
 
 - **The GM owns the DCs.** The model never emits a number. It picks a difficulty
   adjustment; `dcFromBase(baseDC, adjustment)` computes the DC. Models are
-  unreliable at recalling the level-based DC table.
+  unreliable at recalling the level-based DC table. This holds for imported
+  files too: the schema has no DC field, so `additionalProperties: false` turns
+  an agent that tries into a named error rather than a silent one.
 - **The module builds the inline-check syntax**, not the model. One bad token
   produces a dead link.
 - **GM prose is verbatim.** Premises, NPC descriptions and goals the GM writes
@@ -86,6 +89,9 @@ These exist because getting them wrong produced real bugs:
 - `check-openai.mjs` — request shape and every error path.
 - `check-templates.mjs` — renders every template as GM and as player, asserts no
   GM content leaks, and asserts action buttons carry the ids their handlers read.
+- `check-exchange.mjs` — the import verifier. Asserts the *diagnostics*, not
+  just accept/reject: a GM holding a thousand-line file needs the path and a
+  sentence, so the wording is the thing under test.
 - `check-parity.mjs` — **the adversarial audit.** Asserts every capability exists
   in every subsystem and prints a matrix, so a gap is visible rather than
   inferred. Add a capability here when you add one anywhere. A subsystem that

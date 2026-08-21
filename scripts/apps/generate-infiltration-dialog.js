@@ -1,6 +1,7 @@
 import { DEFAULT_BASE_DC, MODULE_ID, SETTINGS } from '../constants.js';
 import { generateInfiltration, withListPosition } from '../ai/infiltration.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
+import { makeSaveBrief } from '../exchange.js';
 import {
   getInfiltrations,
   guessPartyLevel,
@@ -38,7 +39,7 @@ export class GenerateInfiltrationDialog extends HandlebarsApplicationMixin(Appli
     },
     position: { width: 640, height: 'auto' },
     form: { handler: GenerateInfiltrationDialog.#onSubmit, closeOnSubmit: false },
-    actions: { cancel: GenerateInfiltrationDialog.#onCancel },
+    actions: { cancel: GenerateInfiltrationDialog.#onCancel, saveBrief: makeSaveBrief('infiltration') },
   };
 
   static PARTS = {

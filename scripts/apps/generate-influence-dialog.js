@@ -1,6 +1,7 @@
 import { DEFAULT_BASE_DC, MODULE_ID, SETTINGS } from '../constants.js';
 import { generateInfluence, withListPosition } from '../ai/influence.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
+import { makeSaveBrief } from '../exchange.js';
 import {
   getInfluences,
   guessPartyLevel,
@@ -41,6 +42,7 @@ export class GenerateInfluenceDialog extends HandlebarsApplicationMixin(Applicat
     form: { handler: GenerateInfluenceDialog.#onSubmit, closeOnSubmit: false },
     actions: {
       cancel: GenerateInfluenceDialog.#onCancel,
+      saveBrief: makeSaveBrief('influence'),
       useSelectedToken: GenerateInfluenceDialog.#onUseSelectedToken,
     },
   };

@@ -97,6 +97,9 @@
       <button type="button" data-action="cancel">{{localize 'PFAI.Generate.Cancel'}}</button>
     {{else}}
       <button type="button" data-action="cancel">{{localize 'PFAI.Close'}}</button>
+      <button type="button" data-action="saveBrief" data-tooltip="{{localize 'PFAI.Brief.Hint'}}">
+        <i class="fa-solid fa-file-arrow-down"></i> {{localize 'PFAI.Brief.Save'}}
+      </button>
       <button type="submit" class="pfai-primary" {{#unless hasApiKey}}disabled{{/unless}}>
         <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.Influence.Submit'}}
       </button>

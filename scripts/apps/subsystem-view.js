@@ -55,7 +55,8 @@ import { generateObstacle as generateInfiltrationObstacle, toObstacleEntry as to
 import { generateLeadershipEvent, toEventEntry as toLeadershipEvent } from '../ai/leadership.js';
 import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowEvent } from '../socket.js';
-import { eventTarget, exportPayload, importPayload, subsystem } from '../subsystems.js';
+import { eventTarget, exportPayload, subsystem } from '../subsystems.js';
+import { applyExchange, parseExchange } from '../exchange.js';
 import {
   adjustContribution,
   adjustInfluenceContribution,
@@ -3657,6 +3658,14 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     );
   }
 
+  /**
+   * Read a file an agent produced, and say what is wrong with it.
+   *
+   * The old behaviour was a single "that is not an encounter" for everything
+   * from broken JSON to one mistyped skill, which tells a GM holding a
+   * thousand-line file nothing at all. Every problem is now listed with the
+   * path that carries it.
+   */
   static async #onImportEvent() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -3672,14 +3681,11 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     });
     if (!text) return;
 
-    let payload;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      ui.notifications.error(game.i18n.localize('PFAI.Errors.BadImport'));
-      return;
-    }
-    const imported = await importPayload(payload);
+    const parsed = parseExchange(text);
+    if (parsed.problems.length && !(await SubsystemView.#confirmImport(parsed))) return;
+    if (!parsed.ok) return;
+
+    const imported = await applyExchange(parsed);
     if (!imported) {
       ui.notifications.error(game.i18n.localize('PFAI.Errors.BadImport'));
       return;
@@ -3689,6 +3695,68 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#subsystem = imported.key;
     this.#select(imported.key, imported.id);
     this.render();
+  }
+
+  /**
+   * Show what the verifier found.
+   *
+   * Errors end the import; warnings are things a GM may well have meant, so
+   * those offer to carry on.
+   */
+  static async #confirmImport(parsed) {
+    const errors = parsed.problems.filter((p) => p.severity === 'error');
+    const warnings = parsed.problems.filter((p) => p.severity !== 'error');
+
+    const rows = (list) =>
+      list
+        .map(
+          (p) =>
+            `<li><code>${escapeHTML(p.path)}</code><span>${escapeHTML(p.message)}</span></li>`,
+        )
+        .join('');
+
+    const sections = [];
+    if (errors.length) {
+      sections.push(
+        `<section class="pfai-import-errors"><h4>${game.i18n.format('PFAI.Import.Errors', {
+          count: errors.length,
+        })}</h4><ul class="pfai-import-problems">${rows(errors)}</ul></section>`,
+      );
+    }
+    if (warnings.length) {
+      sections.push(
+        `<section class="pfai-import-warnings"><h4>${game.i18n.format('PFAI.Import.Warnings', {
+          count: warnings.length,
+        })}</h4><ul class="pfai-import-problems">${rows(warnings)}</ul></section>`,
+      );
+    }
+
+    const content = `<div class="pfai pfai-import-report">
+      <p>${escapeHTML(
+        errors.length
+          ? game.i18n.localize('PFAI.Import.Refused')
+          : game.i18n.localize('PFAI.Import.WarnOnly'),
+      )}</p>
+      ${sections.join('')}
+    </div>`;
+
+    if (errors.length) {
+      await DialogV2.prompt({
+        window: { title: game.i18n.localize('PFAI.Import.ReportTitle'), icon: 'fa-solid fa-triangle-exclamation' },
+        position: { width: 620 },
+        content,
+        ok: { label: game.i18n.localize('PFAI.Close') },
+      });
+      return false;
+    }
+
+    return DialogV2.confirm({
+      window: { title: game.i18n.localize('PFAI.Import.ReportTitle'), icon: 'fa-solid fa-triangle-exclamation' },
+      position: { width: 620 },
+      content,
+      yes: { label: game.i18n.localize('PFAI.Import.ImportAnyway') },
+      no: { label: game.i18n.localize('PFAI.Cancel') },
+    });
   }
 }
 
