@@ -60,7 +60,7 @@ Three ways to open the window:
 - **A macro**, or the console:
 
 ```js
-game.modules.get('pf2e-alternative-system-ai-generator').api.open();
+game.modules.get('matadragones-subsystems').api.open();
 ```
 
 **You write the premise. The AI writes the obstacles.**
@@ -150,7 +150,7 @@ generation and no API call.
 
 References are converted to PNG before upload, since Foundry ships SVG icons and
 the images endpoint only accepts png/jpeg/webp. Generated images are saved to
-`worlds/<world>/pf2e-alternative-system-ai-generator/` — never inlined as base64
+`worlds/<world>/matadragones-subsystems/` — never inlined as base64
 into the world database, which would bloat it badly.
 
 An external URL only works if that host sends permissive CORS headers. When one

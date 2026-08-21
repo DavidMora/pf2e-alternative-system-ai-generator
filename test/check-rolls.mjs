@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const base = path.join(root, 'scripts');
 
-const MODULE_ID = 'pf2e-alternative-system-ai-generator';
+const MODULE_ID = 'matadragones-subsystems';
 
 // One in-memory store standing in for world settings.
 const store = {};

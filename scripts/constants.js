@@ -1,4 +1,4 @@
-export const MODULE_ID = 'pf2e-alternative-system-ai-generator';
+export const MODULE_ID = 'matadragones-subsystems';
 
 /** World/client setting keys. */
 export const SETTINGS = {
