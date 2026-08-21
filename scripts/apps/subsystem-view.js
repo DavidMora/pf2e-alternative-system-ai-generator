@@ -25,6 +25,7 @@ import {
   updateInfluence,
   escapeHTML,
   guessPartyLevel,
+  guessPartySize,
   suggestedBaseDC,
   getChase,
   getChases,
@@ -263,11 +264,15 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   };
 
   /** Open the window, optionally jumping straight to one chase. */
-  static async open(eventId = null, subsystemKey = 'chase') {
+  static async open(eventId = null, subsystemKey = null) {
     const existing = foundry.applications.instances.get('pfai-subsystem-view');
     const app = existing instanceof SubsystemView ? existing : new SubsystemView();
+    // Naming a subsystem is enough to switch to its tab. It used to take an
+    // event id as well, so there was no way to open the window on, say, the
+    // leadership list; omitting the key leaves the window where it was.
+    if (subsystemKey) app.#subsystem = subsystem(subsystemKey).key;
     if (eventId) {
-      app.#subsystem = subsystem(subsystemKey).key;
+      app.#subsystem = subsystem(subsystemKey ?? 'chase').key;
       app.#select(app.#subsystem, eventId);
     }
     await app.render({ force: true });
@@ -418,6 +423,18 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
         ? await this.#prepareInfluence(selectedInfluence, isGM)
         : null,
       previewAsPlayer: this.#previewAsPlayer,
+      // The same courtesy the chase branch has always had, for the other four:
+      // say the event is dark rather than bouncing to the list without a word.
+      previewHiddenEvent:
+        this.#previewAsPlayer &&
+        Boolean(
+          {
+            influence: selectedInfluenceRaw,
+            research: selectedResearchRaw,
+            infiltration: selectedInfiltrationRaw,
+            leadership: selectedLeadershipRaw,
+          }[this.#subsystem]?.hidden,
+        ),
       // Preview of a chase players cannot see yet.
       previewHiddenChase: hiddenFromPlayers && this.#previewAsPlayer,
       previewChaseName: selectedRaw?.name ?? '',
@@ -2614,27 +2631,38 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     new GenerateChaseDialog({ onGenerated: (id) => this.select(id) }).render({ force: true });
   }
 
-  static async #onCreateBlank() {
-    const chases = getChases();
+  /**
+   * Start an event by hand.
+   *
+   * Only chases had this, so on the other four tabs a GM whose generation
+   * failed, or who simply wanted to write one themselves, had no way to make an
+   * event at all short of importing a file. Everything past the shared fields
+   * is left to the DataModel's own defaults, which is why one factory serves
+   * all five.
+   */
+  static async #onCreateBlank(_event, target) {
+    const key = target?.dataset?.subsystem ?? 'chase';
+    const api = subsystem(key);
+    const all = api.getAll();
     const id = foundry.utils.randomID();
-    chases.events[id] = {
+    all.events[id] = {
       id,
-      name: game.i18n.localize('PFAI.Chase.NewChase'),
-      position: nextPosition(chases.events),
+      name: game.i18n.localize(api.blankName),
+      position: nextPosition(all.events),
       img: '',
-      premise: '',
       gmNotes: '',
       baseDC: suggestedBaseDC(),
       level: guessPartyLevel(),
+      partySize: guessPartySize(),
       hidden: true,
       started: false,
-      rounds: { current: 0, max: null },
-      obstacles: {},
       participants: {},
       ai: { generated: false, model: '', prompt: '', generatedAt: 0 },
     };
-    await setChases(chases);
-    this.select(id);
+    await api.save(all);
+    this.#select(key, id);
+    this.#subsystem = key;
+    await this.render();
   }
 
   static #onGenerateObstacles(_event, target) {
@@ -3179,6 +3207,24 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       }
     });
     return added;
+  }
+
+  /**
+   * Wire drag-and-drop by hand: ApplicationV2 ships no drag-drop support of its
+   * own, unlike the v1 sheets.
+   *
+   * This was lost once already, and nothing noticed: #wireDropZone survived but
+   * its only caller did not, so every roster still *looked* like a drop target
+   * and silently accepted nothing. check-templates asserts a handler is
+   * attached now, not merely that the zone renders.
+   */
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+    if (!this.isGM) return;
+    // Every subsystem's roster is a zone; take them all rather than the first.
+    for (const zone of this.element?.querySelectorAll('.pfai-dropzone') ?? []) {
+      this.#wireDropZone(zone);
+    }
   }
 
   /** Attach drop handling to one roster. */

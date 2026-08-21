@@ -125,7 +125,11 @@ const CAPABILITIES = [
     check: (o) => o.includes('pfai-dropzone'),
   },
   {
-    name: 'Drop target wired',
+    // Named for what it actually proves. It used to read "Drop target wired",
+    // and passed for every subsystem during the whole period when nothing was
+    // listening for a drop at all - the ids were there, the handler was not.
+    // check-imports guards the listener; this guards the ids it reads.
+    name: 'Drop target carries its ids',
     check: (o) => {
       const start = o.indexOf('pfai-dropzone');
       if (start === -1) return false;
@@ -191,6 +195,12 @@ const LIST_CAPABILITIES = [
       has(o, key === 'chase' ? 'generate' : `generate${key[0].toUpperCase()}${key.slice(1)}`),
   },
   { name: 'Import an event', check: (o) => has(o, 'importEvent') },
+  {
+    // Chases had this from the start and nothing noticed the other four did
+    // not: a GM whose generation failed could not start an event by hand.
+    name: 'Create a blank event',
+    check: (o, key) => new RegExp(`data-action="createBlank" data-subsystem="${key}"`).test(o),
+  },
 ];
 
 /** Render a subsystem's list view: same context with nothing selected. */

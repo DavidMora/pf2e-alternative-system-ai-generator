@@ -140,6 +140,7 @@ for (const file of files) {
  * the whole module fails to load — so check the two lists agree.
  */
 let actionsChecked = 0;
+let privateChecked = 0;
 for (const file of files) {
   const source = readFileSync(file, 'utf8');
   const defined = new Set(
@@ -161,8 +162,28 @@ for (const file of files) {
       console.warn(`warn ${path.relative(root, file)} defines ${name} but nothing references it`);
     }
   }
+
+  // Any private method nobody calls, not just action handlers. _onRender was
+  // deleted once while #wireDropZone survived, which left every roster looking
+  // like a drop target and silently accepting nothing: the zone still rendered,
+  // so the template test passed, and no import dangled, so this file passed too.
+  // A private method with exactly one mention is its own definition.
+  // Count in code only: the doc comment above a method mentions it by name,
+  // which would otherwise look like a caller.
+  const body = codeOnly(source);
+  for (const match of body.matchAll(/^ {2}(?:static\s+)?(?:async\s+)?(#[A-Za-z0-9_$]+)\s*\(/gm)) {
+    const name = match[1];
+    if (registered.has(name)) continue;
+    const mentions = body.split(name).length - 1;
+    if (mentions > 1) continue;
+    privateChecked += 1;
+    failed = 1;
+    console.error(
+      `FAIL ${path.relative(root, file)} defines ${name} but never calls it - did its caller get deleted?`,
+    );
+  }
 }
-if (!failed) console.log(`ok  ${actionsChecked} registered actions all have handlers`);
+if (!failed) console.log(`ok  ${actionsChecked} registered actions all have handlers, no orphaned private methods`);
 else console.error(`\nFAILED - fix the above before anything else; a dangling import disables the whole module.`);
 
 process.exit(failed);

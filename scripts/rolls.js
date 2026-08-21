@@ -212,7 +212,12 @@ export async function adjustContribution({ chaseId, obstacleId, participantId, d
       applied,
       current: obstacle.chasePoints.current,
       goal: obstacle.chasePoints.goal,
-      cleared: obstacle.chasePoints.current >= obstacle.chasePoints.goal,
+      // The roll that gets them through says so. Reading the state instead of
+      // the change had every later roll on the same obstacle announce it again,
+      // critical failures included.
+      cleared:
+        before < obstacle.chasePoints.goal &&
+        obstacle.chasePoints.current >= obstacle.chasePoints.goal,
     };
   });
 
@@ -247,9 +252,12 @@ export async function applyRollResult({ chaseId, obstacleId, participantId, degr
     const participant = chase.participants[participantId];
     if (!obstacle || !participant) return;
 
-    // Chase points never go below zero, so a critical failure at 0 costs nothing.
+    // Chase points never go below zero, so a critical failure at 0 costs
+    // nothing, and never above the goal, so a success on an obstacle the party
+    // is already through earns nobody a point it did not actually move. Both
+    // ends matter for the credit below.
     const before = obstacle.chasePoints.current;
-    obstacle.chasePoints.current = Math.max(0, before + points);
+    obstacle.chasePoints.current = Math.clamp(before + points, 0, obstacle.chasePoints.goal);
     participant.hasActed = true;
 
     // Credit what the obstacle actually moved, not the nominal points, so a
@@ -276,7 +284,15 @@ export async function applyRollResult({ chaseId, obstacleId, participantId, degr
       obstacle: obstacle.name,
       current: obstacle.chasePoints.current,
       goal: obstacle.chasePoints.goal,
-      cleared: obstacle.chasePoints.current >= obstacle.chasePoints.goal,
+      // What the obstacle moved, which is what the message should say. The
+      // nominal value read "+1 ... now 2/2" for a point that went nowhere.
+      applied,
+      // The roll that gets them through says so. Reading the state instead of
+      // the change had every later roll on the same obstacle announce it again,
+      // critical failures included.
+      cleared:
+        before < obstacle.chasePoints.goal &&
+        obstacle.chasePoints.current >= obstacle.chasePoints.goal,
     };
   });
 
@@ -288,7 +304,7 @@ export async function applyRollResult({ chaseId, obstacleId, participantId, degr
       name: summary.participant,
       skill: skillLabel ?? '',
       degree: game.i18n.localize(`PFAI.Degree.${degreeKey}`),
-      points: points >= 0 ? `+${points}` : String(points),
+      points: summary.applied >= 0 ? `+${summary.applied}` : String(summary.applied),
       current: summary.current,
       goal: summary.goal,
     }),
@@ -959,7 +975,12 @@ export async function applyInfiltrationResult({
         obstacle.infiltrationPoints.current = Object.values(obstacle.individualPoints).filter(
           (v) => v >= obstacle.infiltrationPoints.goal,
         ).length;
-        cleared = obstacle.individualPoints[participantId] >= obstacle.infiltrationPoints.goal;
+        // Only the roll that gets them through announces it. Reporting the
+        // state instead of the change had a critical failure say "past it"
+        // for someone who had been past it for three rounds already.
+        cleared =
+          before < obstacle.infiltrationPoints.goal &&
+          obstacle.individualPoints[participantId] >= obstacle.infiltrationPoints.goal;
       } else {
         const before = obstacle.infiltrationPoints.current;
         obstacle.infiltrationPoints.current = Math.min(
@@ -967,7 +988,9 @@ export async function applyInfiltrationResult({
           before + points,
         );
         participant.contribution.total += obstacle.infiltrationPoints.current - before;
-        cleared = obstacle.infiltrationPoints.current >= obstacle.infiltrationPoints.goal;
+        cleared =
+          before < obstacle.infiltrationPoints.goal &&
+          obstacle.infiltrationPoints.current >= obstacle.infiltrationPoints.goal;
       }
     } else if (kind === 'complication') {
       // Any success clears a complication and unblocks the job.

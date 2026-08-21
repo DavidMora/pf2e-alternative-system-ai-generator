@@ -40,6 +40,7 @@ import {
 export const SUBSYSTEMS = {
   chase: {
     key: 'chase',
+    blankName: 'PFAI.Chase.NewChase',
     label: 'PFAI.View.Chases',
     icon: 'fa-person-running',
     get: getChase,
@@ -50,6 +51,7 @@ export const SUBSYSTEMS = {
   },
   leadership: {
     key: 'leadership',
+    blankName: 'PFAI.Leadership.NewOrganization',
     label: 'PFAI.Leadership.Tab',
     icon: 'fa-flag',
     get: getLeadership,
@@ -60,6 +62,7 @@ export const SUBSYSTEMS = {
   },
   infiltration: {
     key: 'infiltration',
+    blankName: 'PFAI.Infiltration.NewInfiltration',
     label: 'PFAI.Infiltration.Tab',
     icon: 'fa-user-secret',
     get: getInfiltration,
@@ -70,6 +73,7 @@ export const SUBSYSTEMS = {
   },
   research: {
     key: 'research',
+    blankName: 'PFAI.Research.NewResearch',
     label: 'PFAI.Research.Tab',
     icon: 'fa-book-open-reader',
     get: getResearch,
@@ -80,6 +84,7 @@ export const SUBSYSTEMS = {
   },
   influence: {
     key: 'influence',
+    blankName: 'PFAI.Influence.NewInfluence',
     label: 'PFAI.Influence.Tab',
     icon: 'fa-comments',
     get: getInfluence,

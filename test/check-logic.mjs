@@ -363,6 +363,38 @@ check('a roll is not a pass', shouldApplyPass(roll({ gmId: 'gm1' }), gm), false)
 check('a pass is not a roll', shouldApplyRoll(pass({ gmId: 'gm1' }), gm), false);
 check('a pass still needs ids', shouldApplyPass(pass({ participantId: '', gmId: 'gm1' }), gm), false);
 
+// The same guard for the four subsystems added after chases. Only chase relays
+// were covered, and these are the messages that would double-count a player's
+// points if two GM clients both applied them.
+const { shouldApplyInfluence, shouldApplyResearch, shouldApplyInfiltration, shouldApplyLeadership } =
+  await import(`file://${base}/socket.js`);
+const relays = [
+  ['influence', shouldApplyInfluence, { action: 'applyInfluence', influenceId: 'e', participantId: 'p', entryId: 'x', kind: 'influence', degree: 2 }, 'entryId'],
+  ['research', shouldApplyResearch, { action: 'applyResearch', researchId: 'e', participantId: 'p', sourceId: 's', checkId: 'c', degree: 2 }, 'sourceId'],
+  ['infiltration', shouldApplyInfiltration, { action: 'applyInfiltration', infiltrationId: 'e', participantId: 'p', ownerId: 'o', checkId: 'c', degree: 2 }, 'ownerId'],
+  ['leadership', shouldApplyLeadership, { action: 'applyLeadership', leadershipId: 'e', participantId: 'p', eventId: 'v', checkId: 'c', degree: 2 }, 'eventId'],
+];
+for (const [name, predicate, base_, idField] of relays) {
+  const at = (over = {}) => ({ ...base_, ...over });
+  check(`${name}: designated GM applies`, predicate(at({ gmId: 'gm1' }), gm), true);
+  check(`${name}: other GM does not double-apply`, predicate(at({ gmId: 'gm2' }), gm), false);
+  check(`${name}: falls back to the active GM`, predicate(at(), gm), true);
+  check(`${name}: non-active GM ignores fallback`, predicate(at(), { userId: 'gm2', isGM: true, activeGMId: 'gm1' }), false);
+  check(`${name}: players never apply`, predicate(at({ gmId: 'p1' }), { userId: 'p1', isGM: false, activeGMId: 'gm1' }), false);
+  check(`${name}: rejects out-of-range degree`, predicate(at({ degree: 7, gmId: 'gm1' }), gm), false);
+  check(`${name}: rejects a non-integer degree`, predicate(at({ degree: '2', gmId: 'gm1' }), gm), false);
+  check(`${name}: rejects a missing ${idField}`, predicate(at({ [idField]: '', gmId: 'gm1' }), gm), false);
+  check(`${name}: a chase roll is not one of these`, predicate(roll({ gmId: 'gm1' }), gm), false);
+  check(`${name}: junk is ignored`, [predicate(null, gm), predicate('x', gm)], [false, false]);
+}
+
+// Each relay must also refuse the others, or one player roll could be applied
+// by more than one handler.
+for (const [name, predicate] of relays.map(([n, p]) => [n, p])) {
+  const foreign = relays.filter(([other]) => other !== name).map(([, , payload]) => predicate(payload, { ...gm, gmId: 'gm1' }));
+  check(`${name}: refuses the other subsystems' messages`, foreign, [false, false, false]);
+}
+
 // --- Structured Outputs strict-mode invariants ---
 function assertStrict(node, path = '$') {
   if (node.type === 'object') {

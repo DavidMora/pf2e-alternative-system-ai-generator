@@ -23,10 +23,27 @@
   </button>
 </nav>
 
+{{!-- One banner for the whole window. It used to live inside the chase branch
+      only, so a GM previewing any other subsystem had no indication they were
+      in preview mode and - once the previewed event was hidden and the detail
+      header went with it - no way back out. --}}
+{{#if previewAsPlayer}}
+  <p class="pfai-preview-banner">
+    <i class="fa-solid fa-eye"></i> {{localize 'PFAI.View.PreviewBanner'}}
+    <button type="button" data-action="togglePlayerPreview">{{localize 'PFAI.View.ExitPreview'}}</button>
+  </p>
+{{/if}}
+
 {{#if isLeadershipTab}}
 
   {{#if selectedLeadership}}
     {{> pfaiLeadershipDetail}}
+  {{else if previewHiddenEvent}}
+    {{!-- Held rather than silently dropped, the way a hidden chase is. --}}
+    <p class="pfai-empty">
+      <i class="fa-solid fa-eye-slash"></i>
+      {{localize 'PFAI.View.PreviewHiddenEvent'}}
+    </p>
   {{else}}
     <header class="pfai-list-header">
       <h2>{{localize 'PFAI.Leadership.Tab'}}</h2>
@@ -34,6 +51,9 @@
         <div class="pfai-header-actions">
           <button type="button" class="pfai-primary" data-action="generateLeadership">
             <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
+          </button>
+          <button type="button" data-action="createBlank" data-subsystem="leadership">
+            <i class="fa-solid fa-plus"></i> {{localize 'PFAI.View.CreateBlank'}}
           </button>
           <button type="button" data-action="importEvent">
             <i class="fa-solid fa-file-import"></i> {{localize 'PFAI.View.Import'}}
@@ -67,6 +87,12 @@
 
 {{#if selectedInfiltration}}
     {{> pfaiInfiltrationDetail}}
+  {{else if previewHiddenEvent}}
+    {{!-- Held rather than silently dropped, the way a hidden chase is. --}}
+    <p class="pfai-empty">
+      <i class="fa-solid fa-eye-slash"></i>
+      {{localize 'PFAI.View.PreviewHiddenEvent'}}
+    </p>
   {{else}}
     <header class="pfai-list-header">
       <h2>{{localize 'PFAI.Infiltration.Tab'}}</h2>
@@ -74,6 +100,9 @@
         <div class="pfai-header-actions">
           <button type="button" class="pfai-primary" data-action="generateInfiltration">
             <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
+          </button>
+          <button type="button" data-action="createBlank" data-subsystem="infiltration">
+            <i class="fa-solid fa-plus"></i> {{localize 'PFAI.View.CreateBlank'}}
           </button>
           <button type="button" data-action="importEvent">
             <i class="fa-solid fa-file-import"></i> {{localize 'PFAI.View.Import'}}
@@ -106,6 +135,12 @@
 
 {{#if selectedResearch}}
     {{> pfaiResearchDetail}}
+  {{else if previewHiddenEvent}}
+    {{!-- Held rather than silently dropped, the way a hidden chase is. --}}
+    <p class="pfai-empty">
+      <i class="fa-solid fa-eye-slash"></i>
+      {{localize 'PFAI.View.PreviewHiddenEvent'}}
+    </p>
   {{else}}
     <header class="pfai-list-header">
       <h2>{{localize 'PFAI.Research.Tab'}}</h2>
@@ -113,6 +148,9 @@
         <div class="pfai-header-actions">
           <button type="button" class="pfai-primary" data-action="generateResearch">
             <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
+          </button>
+          <button type="button" data-action="createBlank" data-subsystem="research">
+            <i class="fa-solid fa-plus"></i> {{localize 'PFAI.View.CreateBlank'}}
           </button>
           <button type="button" data-action="importEvent">
             <i class="fa-solid fa-file-import"></i> {{localize 'PFAI.View.Import'}}
@@ -145,6 +183,12 @@
 
 {{#if selectedInfluence}}
     {{> pfaiInfluenceDetail}}
+  {{else if previewHiddenEvent}}
+    {{!-- Held rather than silently dropped, the way a hidden chase is. --}}
+    <p class="pfai-empty">
+      <i class="fa-solid fa-eye-slash"></i>
+      {{localize 'PFAI.View.PreviewHiddenEvent'}}
+    </p>
   {{else}}
     <header class="pfai-list-header">
       <h2>{{localize 'PFAI.Influence.Tab'}}</h2>
@@ -152,6 +196,9 @@
         <div class="pfai-header-actions">
           <button type="button" class="pfai-primary" data-action="generateInfluence">
             <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
+          </button>
+          <button type="button" data-action="createBlank" data-subsystem="influence">
+            <i class="fa-solid fa-plus"></i> {{localize 'PFAI.View.CreateBlank'}}
           </button>
           <button type="button" data-action="importEvent">
             <i class="fa-solid fa-file-import"></i> {{localize 'PFAI.View.Import'}}
@@ -183,10 +230,6 @@
 
 {{else if previewHiddenChase}}
   <div class="pfai-preview-hidden">
-    <p class="pfai-preview-banner">
-      <i class="fa-solid fa-eye"></i> {{localize 'PFAI.View.PreviewBanner'}}
-      <button type="button" data-action="togglePlayerPreview">{{localize 'PFAI.View.ExitPreview'}}</button>
-    </p>
     <p class="pfai-empty">
       <i class="fa-solid fa-eye-slash"></i>
       {{localize 'PFAI.View.PreviewHiddenChase'}}
@@ -237,13 +280,6 @@
       {{/if}}
     </div>
   </header>
-
-  {{#if ../previewAsPlayer}}
-    <p class="pfai-preview-banner">
-      <i class="fa-solid fa-eye"></i> {{localize 'PFAI.View.PreviewBanner'}}
-      <button type="button" data-action="togglePlayerPreview">{{localize 'PFAI.View.ExitPreview'}}</button>
-    </p>
-  {{/if}}
 
   {{#if img}}
     <figure class="pfai-chase-art">
@@ -674,7 +710,7 @@
         <button type="button" class="pfai-primary" data-action="generate">
           <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
         </button>
-        <button type="button" data-action="createBlank">
+        <button type="button" data-action="createBlank" data-subsystem="chase">
           <i class="fa-solid fa-plus"></i> {{localize 'PFAI.View.CreateBlank'}}
         </button>
         <button type="button" data-action="importEvent">

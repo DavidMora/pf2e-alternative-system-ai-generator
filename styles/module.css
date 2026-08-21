@@ -1301,7 +1301,11 @@
 
 .pfai .pfai-traits {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  /* 13rem fitted three columns into the panel, which left the description
+     about eighty pixels wide once the row's icon buttons had taken their
+     share — two or three words a line. The minimum has to cover the buttons
+     and still leave prose room. */
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
   gap: 0.8rem;
 }
 
@@ -1315,6 +1319,7 @@
 
 .pfai .pfai-trait {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 0.4rem;
   padding: 0.25rem 0.3rem;
@@ -1332,7 +1337,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-.pfai .pfai-trait-body { flex: 1; min-width: 0; }
+/* Wraps onto its own line rather than being squeezed to nothing when the
+   column is too narrow to hold the buttons beside it. */
+.pfai .pfai-trait-body { flex: 1 1 8rem; min-width: 0; }
 
 .pfai .pfai-trait-actions {
   display: flex;

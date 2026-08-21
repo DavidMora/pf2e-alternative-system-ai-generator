@@ -363,12 +363,14 @@ for (const isGM of [true, false]) {
     const { out, zone } = emptyRoster(ctx);
     const hasZone = out.includes('pfai-dropzone');
     const hintInside = zone.includes('pfai-drop-hint');
-    const wired = /data-subsystem="[^"]+"[^>]*data-event-id="/.test(zone) ||
-                  /data-event-id="[^"]+"[^>]*data-subsystem="/.test(zone);
+    // "hasIds", not "wired": this only proves the markup carries what the drop
+    // handler reads. Whether anything listens is check-imports' job.
+    const hasIds = /data-subsystem="[^"]+"[^>]*data-event-id="/.test(zone) ||
+                   /data-event-id="[^"]+"[^>]*data-subsystem="/.test(zone);
     if (!hasZone) { failed = 1; console.error(`  ${label}: no drop zone`); }
     if (!hintInside) { failed = 1; console.error(`  ${label}: drop hint is outside the drop zone`); }
-    if (!wired) { failed = 1; console.error(`  ${label}: drop zone missing subsystem/event id`); }
-    console.log(`dropzone ${label}: present=${hasZone} hintInside=${hintInside} wired=${wired}`);
+    if (!hasIds) { failed = 1; console.error(`  ${label}: drop zone missing subsystem/event id`); }
+    console.log(`dropzone ${label}: present=${hasZone} hintInside=${hintInside} hasIds=${hasIds}`);
   }
 }
 
