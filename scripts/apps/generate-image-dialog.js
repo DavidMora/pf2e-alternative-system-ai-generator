@@ -1,7 +1,8 @@
 import { IMAGE_QUALITIES, IMAGE_SIZES, MODULE_ID, SETTINGS } from '../constants.js';
 import { activeImageModel, fetchReference, generateImage, saveImage } from '../ai/image.js';
 import { hasApiKey } from '../ai/openai.js';
-import { getChase, htmlToPromptText, updateChase } from '../helpers.js';
+import { htmlToPromptText } from '../helpers.js';
+import { subsystem } from '../subsystems.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
@@ -18,14 +19,16 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
    * @param {string} [options.obstacleId] target the obstacle instead of the chase.
    * @param {() => void} [options.onGenerated]
    */
-  constructor({ chaseId, obstacleId, onGenerated, ...options } = {}) {
+  constructor({ subsystemKey = 'chase', eventId, obstacleId, onGenerated, ...options } = {}) {
     super(options);
-    this.#chaseId = chaseId;
+    this.#api = subsystem(subsystemKey);
+    this.#eventId = eventId;
     this.#obstacleId = obstacleId ?? null;
     this.#onGenerated = onGenerated;
   }
 
-  #chaseId;
+  #api;
+  #eventId;
   #obstacleId;
   #onGenerated;
   /** @type {{src: string, label: string}[]} */
@@ -60,12 +63,13 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
   };
 
   get #target() {
-    const chase = getChase(this.#chaseId);
-    if (!chase) return null;
-    if (!this.#obstacleId) return { kind: 'chase', name: chase.name, img: chase.img, chase };
-    const obstacle = chase.obstacles[this.#obstacleId];
+    const event = this.#api.get(this.#eventId);
+    if (!event) return null;
+    // Only chases have per-obstacle art; everything else is event-level.
+    if (!this.#obstacleId) return { kind: 'event', name: event.name, img: event.img, chase: event };
+    const obstacle = event.obstacles?.[this.#obstacleId];
     return obstacle
-      ? { kind: 'obstacle', name: obstacle.name, img: obstacle.img, chase, obstacle }
+      ? { kind: 'obstacle', name: obstacle.name, img: obstacle.img, chase: event, obstacle }
       : null;
   }
 
@@ -76,6 +80,8 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
       hasApiKey: hasApiKey(),
       model: activeImageModel(),
       targetKind: target?.kind,
+      // Name the subsystem rather than calling everything a chase.
+      subsystemLabel: game.i18n.localize(this.#api.label),
       targetName: target?.name ?? '',
       currentImage: target?.img ?? '',
       promptPreview: target ? this.#buildPrompt(target, '', this.#references.length > 0) : '',
@@ -195,12 +201,12 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
       type: 'image',
       current: target.img || undefined,
       callback: async (path) => {
-        await updateChase(this.#chaseId, (chase) => {
+        await this.#api.update(this.#eventId, (event) => {
           if (this.#obstacleId) {
-            const obstacle = chase.obstacles[this.#obstacleId];
+            const obstacle = event.obstacles?.[this.#obstacleId];
             if (obstacle) obstacle.img = path;
           } else {
-            chase.img = path;
+            event.img = path;
           }
         });
         ui.notifications.info(game.i18n.format('PFAI.Image.Attached', { path }));
@@ -255,12 +261,12 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
 
       const path = await saveImage(b64, mimeType, `${target.chase.name}-${target.name}`);
 
-      await updateChase(this.#chaseId, (chase) => {
+      await this.#api.update(this.#eventId, (event) => {
         if (this.#obstacleId) {
-          const obstacle = chase.obstacles[this.#obstacleId];
+          const obstacle = event.obstacles?.[this.#obstacleId];
           if (obstacle) obstacle.img = path;
         } else {
-          chase.img = path;
+          event.img = path;
         }
       });
 
@@ -283,19 +289,24 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
   /**
    * Compose the image prompt.
    *
-   * The chase premise and the full obstacle text carry the scene, so art
-   * direction is optional — a GM can generate straight from the fiction.
+   * The encounter's own setup text and, for a chase obstacle, its full detail
+   * carry the scene, so art direction is optional — a GM can generate straight
+   * from the fiction.
    */
   #buildPrompt(target, context, hasReferences) {
     const parts = [];
     if (target.kind === 'obstacle') {
       parts.push(`Fantasy RPG illustration of a chase obstacle titled "${target.name}".`);
     } else {
-      parts.push(`Fantasy RPG key art for a chase scene titled "${target.name}".`);
+      parts.push(`Fantasy RPG key art for a Pathfinder scene titled "${target.name}".`);
     }
 
-    const premise = htmlToPromptText(target.chase.premise);
-    if (premise) parts.push(`Scene context: ${premise}`);
+    // Each subsystem names its setup differently; use whichever it has. Named
+    // apart from the `context` parameter, which is the GM's art direction.
+    const scene = htmlToPromptText(
+      target.chase.premise || target.chase.target || target.chase.topic,
+    );
+    if (scene) parts.push(`Scene context: ${scene}`);
 
     if (target.kind === 'obstacle') {
       // The whole obstacle, with PF2e inline syntax unwrapped so the model sees

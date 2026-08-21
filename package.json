@@ -5,11 +5,12 @@
   "type": "module",
   "description": "Foundry VTT module: PF2e subsystems with OpenAI-generated encounters.",
   "scripts": {
-    "test": "node test/check-imports.mjs && node test/check-logic.mjs && node test/check-openai.mjs && node test/check-templates.mjs",
+    "test": "node test/check-imports.mjs && node test/check-logic.mjs && node test/check-openai.mjs && node test/check-templates.mjs && node test/check-parity.mjs",
     "test:logic": "node test/check-logic.mjs",
     "test:api": "node test/check-openai.mjs",
     "test:templates": "node test/check-templates.mjs",
-    "test:imports": "node test/check-imports.mjs"
+    "test:imports": "node test/check-imports.mjs",
+    "test:parity": "node test/check-parity.mjs"
   },
   "devDependencies": {
     "handlebars": "^4.7.8"

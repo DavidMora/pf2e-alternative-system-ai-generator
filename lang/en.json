@@ -126,7 +126,7 @@
   "PFAI.Image.Title": "Generate Artwork",
   "PFAI.Image.ForChase": "Key art for the chase",
   "PFAI.Image.ForObstacle": "Artwork for the obstacle",
-  "PFAI.Image.ForChaseHint": "Generate key art for this chase",
+  "PFAI.Image.ForChaseHint": "Generate key art for this encounter",
   "PFAI.Image.ForObstacleHint": "Generate artwork for this obstacle",
   "PFAI.Image.AddArt": "Add art",
   "PFAI.Image.Regenerate": "Regenerate artwork",
@@ -559,5 +559,11 @@
   "PFAI.Info.InfiltrationComplications": "Problems that stop everything until dealt with. While one is active it is the only thing the party can roll against. They fire at an awareness total, after so many rounds, or when you call for it.",
   "PFAI.Info.Opportunities": "Optional risks that pay off in something other than progress: a password overheard, a guard's rota copied. Taking one is never required.",
   "PFAI.Info.Preparations": "What the party can do before the job to earn edge points. Each is offered once. Mark it with + when it succeeds to award the point, or × to record the attempt without one.",
-  "PFAI.Info.InfiltrationRound": "One round is one pass around the table. Advancing a round also raises awareness on its own, which is what makes lingering dangerous."
+  "PFAI.Info.InfiltrationRound": "One round is one pass around the table. Advancing a round also raises awareness on its own, which is what makes lingering dangerous.",
+  "PFAI.Settings.EventSettings": "Settings",
+  "PFAI.Settings.EventSettingsHint": "Base DC, party level and size, round limit",
+  "PFAI.Research.RoundUnit": "A round is a…",
+  "PFAI.Infiltration.AwarenessPerRound": "Awareness per round",
+  "PFAI.Infiltration.AwarenessPerRoundHint": "Added at the end of each round",
+  "PFAI.Image.ForEvent": "Key art for this"
 }

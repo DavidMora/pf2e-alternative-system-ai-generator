@@ -81,8 +81,17 @@ These exist because getting them wrong produced real bugs:
   Structured Outputs strict-mode invariants.
 - `check-openai.mjs` — request shape and every error path.
 - `check-templates.mjs` — renders every template as GM and as player, asserts no
-  GM content leaks, asserts action buttons carry the ids their handlers read, and
-  asserts subsystem UX parity.
+  GM content leaks, and asserts action buttons carry the ids their handlers read.
+- `check-parity.mjs` — **the adversarial audit.** Asserts every capability exists
+  in every subsystem and prints a matrix, so a gap is visible rather than
+  inferred. Add a capability here when you add one anywhere. A subsystem that
+  genuinely cannot have one must declare a `waived` reason; silence counts as a
+  gap. Fixtures for all four live in `test/fixtures.mjs` — one copy, because a
+  fixture that drifts from the view makes every suite lie.
+
+Do **not** replace a region of `subsystem-view.js` by slicing between two
+anchors. It has silently swallowed neighbouring private methods four times now.
+Replace an exact string, or walk the braces from the method signature.
 
 When a test fails, **check the assertion before the code** — several times the
 fixture was wrong, not the implementation. Say so plainly if that turns out to be

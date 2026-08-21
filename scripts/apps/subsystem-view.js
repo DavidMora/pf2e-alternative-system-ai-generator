@@ -2298,22 +2298,25 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static #onGenerateImage(_event, target) {
-    const { chaseId, obstacleId } = target.dataset;
+    const { obstacleId } = target.dataset;
+    const { key, id } = eventTarget(target.dataset);
     new GenerateImageDialog({
-      chaseId,
+      subsystemKey: key,
+      eventId: id,
       obstacleId: obstacleId || undefined,
       onGenerated: () => this.render(),
     }).render({ force: true });
   }
 
   static async #onClearImage(_event, target) {
-    const { chaseId, obstacleId } = target.dataset;
-    await updateChase(chaseId, (chase) => {
+    const { obstacleId } = target.dataset;
+    const { id, api } = eventTarget(target.dataset);
+    await api.update(id, (event) => {
       if (obstacleId) {
-        const obstacle = chase.obstacles[obstacleId];
+        const obstacle = event.obstacles?.[obstacleId];
         if (obstacle) obstacle.img = '';
       } else {
-        chase.img = '';
+        event.img = '';
       }
     });
   }
@@ -2657,37 +2660,66 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     });
   }
 
-  /** Edit the numbers a GM tunes: the stat block, the DC anchor, the clock. */
+  /**
+   * Edit the numbers a GM tunes: the DC anchor, the clock, the party it was
+   * sized for, and - for influence - the NPC's stat block.
+   *
+   * Written once for every subsystem. Only the rows a subsystem actually has
+   * are rendered, so a new one inherits this without further work.
+   */
   static async #onEditStats(_event, target) {
-    const { id, api } = eventTarget(target.dataset);
+    const { key, id, api } = eventTarget(target.dataset);
     const event = api.get(id);
     if (!event) return;
 
+    const isInfluence = key === 'influence';
+    const roundMax = event.rounds?.max ?? '';
+    const npcRows = isInfluence
+      ? `<label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.NpcName')}</span>
+           <input type="text" name="npcName" value="${escapeHTML(event.npc?.name ?? '')}"></label>
+         <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Disposition')}</span>
+           <input type="text" name="disposition" value="${escapeHTML(event.npc?.disposition ?? '')}"></label>
+         <div class="pfai-field-row">
+           <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Perception')}</span>
+             <input type="number" name="perception" step="1" value="${event.perception ?? 0}"></label>
+           <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Will')}</span>
+             <input type="number" name="will" step="1" value="${event.will ?? 0}"></label>
+         </div>`
+      : '';
+    // Research measures a round in hours or days; the others do not.
+    const unitRow =
+      event.rounds?.unit !== undefined
+        ? `<label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.RoundUnit')}</span>
+             <input type="text" name="roundUnit" value="${escapeHTML(event.rounds.unit)}"></label>`
+        : '';
+    // Infiltration is the only one where simply taking time raises the stakes.
+    const perRoundRow =
+      event.awareness !== undefined
+        ? `<label class="pfai-field"><span>${game.i18n.localize('PFAI.Infiltration.AwarenessPerRound')}</span>
+             <input type="number" name="perRound" min="0" step="1" value="${event.awareness.perRound}">
+             <small>${game.i18n.localize('PFAI.Infiltration.AwarenessPerRoundHint')}</small></label>`
+        : '';
+
     const result = await DialogV2.prompt({
-      window: { title: game.i18n.localize('PFAI.Influence.EditStats') },
-      position: { width: 520 },
+      window: { title: game.i18n.localize('PFAI.Settings.EventSettings') },
+      position: { width: 560 },
       content: `<div class="pfai-form">
-        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.NpcName')}</span>
-          <input type="text" name="npcName" value="${escapeHTML(event.npc?.name ?? '')}"></label>
-        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Disposition')}</span>
-          <input type="text" name="disposition" value="${escapeHTML(event.npc?.disposition ?? '')}"></label>
+        ${npcRows}
         <div class="pfai-field-row">
-          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Perception')}</span>
-            <input type="number" name="perception" step="1" value="${event.perception}"></label>
-          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Will')}</span>
-            <input type="number" name="will" step="1" value="${event.will}"></label>
           <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.BaseDC')}</span>
             <input type="number" name="baseDC" min="1" step="1" value="${event.baseDC}">
             <small>${game.i18n.localize('PFAI.Influence.BaseDCNote')}</small></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.PartyLevel')}</span>
+            <input type="number" name="level" min="0" step="1" value="${event.level}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.PartySize')}</span>
+            <input type="number" name="partySize" min="1" step="1" value="${event.partySize}"></label>
         </div>
         <div class="pfai-field-row">
           <label class="pfai-field"><span>${game.i18n.localize('PFAI.Generate.RoundLimit')}</span>
-            <input type="number" name="roundMax" min="0" step="1" value="${event.rounds?.max ?? ''}">
+            <input type="number" name="roundMax" min="0" step="1" value="${roundMax}">
             <small>${game.i18n.localize('PFAI.Influence.BlankForNone')}</small></label>
-          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.PartySize')}</span>
-            <input type="number" name="partySize" min="1" step="1" value="${event.partySize}"></label>
-          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.PartyLevel')}</span>
-            <input type="number" name="level" min="0" step="1" value="${event.level}"></label>
+          ${unitRow}
+          ${perRoundRow}
         </div>
       </div>`,
       ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
@@ -2695,16 +2727,22 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!result) return;
 
     await api.update(id, (draft) => {
-      draft.npc.name = String(result.npcName ?? draft.npc.name);
-      draft.npc.disposition = String(result.disposition ?? '');
-      draft.perception = Number(result.perception) || 0;
-      draft.will = Number(result.will) || 0;
-      // Changing the anchor does not retune existing DCs, which are absolute.
+      // Changing the anchor does not retune DCs that already exist.
       draft.baseDC = Math.max(1, Number(result.baseDC) || draft.baseDC);
-      draft.partySize = Math.max(1, Number(result.partySize) || draft.partySize);
       draft.level = Math.max(0, Number(result.level) || 0);
+      draft.partySize = Math.max(1, Number(result.partySize) || draft.partySize);
       const max = String(result.roundMax ?? '').trim();
       draft.rounds.max = max === '' ? null : Math.max(0, Number(max) || 0);
+      if (result.roundUnit !== undefined) draft.rounds.unit = String(result.roundUnit);
+      if (result.perRound !== undefined && draft.awareness) {
+        draft.awareness.perRound = Math.max(0, Number(result.perRound) || 0);
+      }
+      if (isInfluence) {
+        draft.npc.name = String(result.npcName ?? draft.npc.name);
+        draft.npc.disposition = String(result.disposition ?? '');
+        draft.perception = Number(result.perception) || 0;
+        draft.will = Number(result.will) || 0;
+      }
     });
   }
 

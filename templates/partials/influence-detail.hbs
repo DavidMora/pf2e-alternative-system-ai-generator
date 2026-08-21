@@ -44,6 +44,22 @@
   </div>
 </header>
 
+{{#if img}}
+  <figure class="pfai-chase-art">
+    <img src="{{img}}" alt="{{name}}">
+    {{#if ../isGM}}
+      <figcaption>
+        <button type="button" class="pfai-icon" data-action="generateImage"
+                data-subsystem="influence" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.Regenerate'}}"><i class="fa-solid fa-arrows-rotate"></i></button>
+        <button type="button" class="pfai-icon pfai-danger" data-action="clearImage"
+                data-subsystem="influence" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.Remove'}}"><i class="fa-solid fa-trash"></i></button>
+      </figcaption>
+    {{/if}}
+  </figure>
+{{/if}}
+
 <section class="pfai-status">
   <div class="pfai-status-item">
     <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}
@@ -97,6 +113,16 @@
 
   {{#if ../isGM}}
     <div class="pfai-status-actions">
+      {{#unless img}}
+        <button type="button" data-action="generateImage" data-subsystem="influence" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.ForChaseHint'}}">
+          <i class="fa-solid fa-image"></i> {{localize 'PFAI.Image.AddArt'}}
+        </button>
+      {{/unless}}
+      <button type="button" data-action="editStats" data-subsystem="influence" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Settings.EventSettingsHint'}}">
+        <i class="fa-solid fa-sliders"></i> {{localize 'PFAI.Settings.EventSettings'}}
+      </button>
       <button type="button" data-action="influenceNextRound" data-influence-id="{{id}}">
         <i class="fa-solid fa-forward-step"></i> {{localize 'PFAI.Chase.NextRound'}}
       </button>
@@ -114,9 +140,6 @@
     <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.WhoTheyAre'}}"></i>
     {{#if npc.disposition}} <em class="pfai-disposition">{{npc.disposition}}</em>{{/if}}
     {{#if ../isGM}}
-      <button type="button" class="pfai-icon pfai-row-control" data-action="editStats"
-              data-subsystem="influence" data-event-id="{{id}}"
-              data-tooltip="{{localize 'PFAI.Influence.EditStats'}}"><i class="fa-solid fa-sliders"></i></button>
     {{/if}}
     {{#if ../isGM}}<button type="button" class="pfai-icon pfai-row-control" data-action="editText" data-subsystem="influence" data-event-id="{{id}}" data-field="npc.description" data-label="PFAI.Influence.WhoTheyAre" data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>{{/if}}
   </h3>

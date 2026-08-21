@@ -206,9 +206,9 @@
       <img src="{{img}}" alt="{{name}}">
       {{#if ../isGM}}
         <figcaption>
-          <button type="button" class="pfai-icon" data-action="generateImage" data-chase-id="{{id}}"
+          <button type="button" class="pfai-icon" data-action="generateImage" data-subsystem="chase" data-event-id="{{id}}"
                   data-tooltip="{{localize 'PFAI.Image.Regenerate'}}"><i class="fa-solid fa-arrows-rotate"></i></button>
-          <button type="button" class="pfai-icon pfai-danger" data-action="clearImage" data-chase-id="{{id}}"
+          <button type="button" class="pfai-icon pfai-danger" data-action="clearImage" data-subsystem="chase" data-event-id="{{id}}"
                   data-tooltip="{{localize 'PFAI.Image.Remove'}}"><i class="fa-solid fa-trash"></i></button>
         </figcaption>
       {{/if}}
@@ -261,11 +261,15 @@
           <i class="fa-solid fa-forward-step"></i> {{localize 'PFAI.Chase.NextRound'}}
         </button>
         {{#unless img}}
-          <button type="button" data-action="generateImage" data-chase-id="{{id}}"
+          <button type="button" data-action="generateImage" data-subsystem="chase" data-event-id="{{id}}"
                   data-tooltip="{{localize 'PFAI.Image.ForChaseHint'}}">
             <i class="fa-solid fa-image"></i> {{localize 'PFAI.Image.AddArt'}}
           </button>
         {{/unless}}
+        <button type="button" data-action="editStats" data-subsystem="chase" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Settings.EventSettingsHint'}}">
+          <i class="fa-solid fa-sliders"></i> {{localize 'PFAI.Settings.EventSettings'}}
+        </button>
         <button type="button" data-action="toggleStarted" data-subsystem="chase" data-event-id="{{id}}">
           <i class="fa-solid {{#if started}}fa-pause{{else}}fa-play{{/if}}"></i>
           {{#if started}}{{localize 'PFAI.Chase.Pause'}}{{else}}{{localize 'PFAI.Chase.Start'}}{{/if}}
@@ -387,7 +391,7 @@
                       data-tooltip="{{#if obstacle.isPinned}}{{localize 'PFAI.Chase.UnsetActive'}}{{else}}{{localize 'PFAI.Chase.SetActive'}}{{/if}}">
                 <i class="fa-solid fa-location-crosshairs"></i>
               </button>
-              <button type="button" class="pfai-icon" data-action="generateImage" data-chase-id="{{../id}}"
+              <button type="button" class="pfai-icon" data-action="generateImage" data-subsystem="chase" data-event-id="{{../id}}"
                       data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.Image.ForObstacleHint'}}">
                 <i class="fa-solid fa-image"></i>
               </button>
@@ -437,10 +441,10 @@
             <img src="{{obstacle.img}}" alt="{{obstacle.name}}">
             {{#if ../../isGM}}
               <figcaption>
-                <button type="button" class="pfai-icon" data-action="generateImage" data-chase-id="{{../id}}"
+                <button type="button" class="pfai-icon" data-action="generateImage" data-subsystem="chase" data-event-id="{{../id}}"
                         data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.Image.Regenerate'}}">
                   <i class="fa-solid fa-arrows-rotate"></i></button>
-                <button type="button" class="pfai-icon pfai-danger" data-action="clearImage" data-chase-id="{{../id}}"
+                <button type="button" class="pfai-icon pfai-danger" data-action="clearImage" data-subsystem="chase" data-event-id="{{../id}}"
                         data-obstacle-id="{{obstacle.id}}" data-tooltip="{{localize 'PFAI.Image.Remove'}}">
                   <i class="fa-solid fa-trash"></i></button>
               </figcaption>
