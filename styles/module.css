@@ -1477,3 +1477,18 @@
   border-radius: 4px;
   font-size: 0.88rem;
 }
+
+/* ---------- Leadership ---------- */
+
+/* The three event kinds read very differently at the table, so colour them. */
+.pfai .pfai-leadership-event .pfai-trait-mod {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 0 0 4.6rem;
+  font-weight: 700;
+}
+
+.pfai .pfai-leadership-event.is-trouble .pfai-trait-mod { color: #b4231f; }
+.pfai .pfai-leadership-event.is-windfall .pfai-trait-mod { color: #2f7d43; }
+.pfai .pfai-leadership-event.is-opportunity .pfai-trait-mod { opacity: 0.75; }

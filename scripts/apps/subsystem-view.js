@@ -1,21 +1,26 @@
-import { MODULE_ID, PF2E_SKILLS } from '../constants.js';
+import { LEADERSHIP_EVENT_KINDS, MODULE_ID, PF2E_SKILLS } from '../constants.js';
 import {
   capitalize,
   deleteChase,
   deleteInfluence,
   deleteInfiltration,
+  deleteLeadership,
   deleteResearch,
   enrich,
   getInfluence,
   getInfluences,
   getInfiltration,
   getInfiltrations,
+  getLeadership,
+  getLeaderships,
   getResearch,
   getResearches,
   setInfluences,
   setInfiltrations,
+  setLeaderships,
   setResearches,
   updateInfiltration,
+  updateLeadership,
   updateResearch,
   updateInfluence,
   escapeHTML,
@@ -27,6 +32,7 @@ import {
   nextBranchLabel,
   nextPosition,
   nextStepPosition,
+  organizationSize,
   routeTargetsFor,
   stepsOf,
   unroutedOptions,
@@ -40,10 +46,12 @@ import { GenerateChaseDialog } from './generate-chase-dialog.js';
 import { GenerateInfluenceDialog } from './generate-influence-dialog.js';
 import { GenerateResearchDialog } from './generate-research-dialog.js';
 import { GenerateInfiltrationDialog } from './generate-infiltration-dialog.js';
+import { GenerateLeadershipDialog } from './generate-leadership-dialog.js';
 import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
 import { generateApproach, toApproachEntry } from '../ai/influence.js';
 import { generateSource, toCheckEntry, toSourceEntry } from '../ai/research.js';
 import { generateObstacle as generateInfiltrationObstacle, toObstacleEntry as toInfiltrationObstacle } from '../ai/infiltration.js';
+import { generateLeadershipEvent, toEventEntry as toLeadershipEvent } from '../ai/leadership.js';
 import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowEvent } from '../socket.js';
 import { eventTarget, exportPayload, importPayload, subsystem } from '../subsystems.js';
@@ -52,6 +60,7 @@ import {
   adjustInfluenceContribution,
   adjustResearchContribution,
   advanceInfiltration,
+  advanceLeadership,
   advanceResearch,
   announceInfiltrationProgress,
   announceResearchProgress,
@@ -60,6 +69,7 @@ import {
   rollChaseCheck,
   rollInfluenceCheck,
   rollInfiltrationCheck,
+  rollLeadershipCheck,
   rollResearchCheck,
   spendEdgePoint,
 } from '../rolls.js';
@@ -107,6 +117,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Selected infiltration. */
   #selectedInfiltrationId = null;
 
+  /** Selected organisation. */
+  #selectedLeadershipId = null;
+
   static DEFAULT_OPTIONS = {
     id: 'pfai-subsystem-view',
     classes: ['pfai', 'pfai-view'],
@@ -122,6 +135,21 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       generateInfluence: SubsystemView.#onGenerateInfluence,
       generateResearch: SubsystemView.#onGenerateResearch,
       generateInfiltration: SubsystemView.#onGenerateInfiltration,
+      generateLeadership: SubsystemView.#onGenerateLeadership,
+      openLeadership: SubsystemView.#onOpenLeadership,
+      backLeadership: SubsystemView.#onBackLeadership,
+      deleteLeadership: SubsystemView.#onDeleteLeadership,
+      orgLevelDelta: SubsystemView.#onOrgLevelDelta,
+      rollLeadership: SubsystemView.#onRollLeadership,
+      toggleLeadershipReveal: SubsystemView.#onToggleLeadershipReveal,
+      toggleEventResolved: SubsystemView.#onToggleEventResolved,
+      addLieutenant: SubsystemView.#onAddLieutenant,
+      editLieutenant: SubsystemView.#onEditLieutenant,
+      deleteLieutenant: SubsystemView.#onDeleteLieutenant,
+      addLeadershipEvent: SubsystemView.#onAddLeadershipEvent,
+      generateLeadershipEvent: SubsystemView.#onGenerateLeadershipEvent,
+      editLeadershipEvent: SubsystemView.#onEditLeadershipEvent,
+      deleteLeadershipEvent: SubsystemView.#onDeleteLeadershipEvent,
       openInfiltration: SubsystemView.#onOpenInfiltration,
       backInfiltration: SubsystemView.#onBackInfiltration,
       deleteInfiltration: SubsystemView.#onDeleteInfiltration,
@@ -262,6 +290,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       case 'infiltration':
         this.#selectedInfiltrationId = eventId;
         break;
+      case 'leadership':
+        this.#selectedLeadershipId = eventId;
+        break;
       case 'chase':
         this.#selectedId = eventId;
         // Start on the active obstacle, not wherever this user last browsed.
@@ -315,6 +346,17 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const selectedInfluence =
       selectedInfluenceRaw && (isGM || !selectedInfluenceRaw.hidden) ? selectedInfluenceRaw : null;
 
+    const leaderships = getLeaderships().events;
+    const visibleLeaderships = Object.values(leaderships)
+      .filter((event) => isGM || !event.hidden)
+      .sort((a, b) => a.position - b.position);
+    const selectedLeadershipRaw = this.#selectedLeadershipId
+      ? leaderships[this.#selectedLeadershipId]
+      : null;
+    if (!selectedLeadershipRaw) this.#selectedLeadershipId = null;
+    const selectedLeadership =
+      selectedLeadershipRaw && (isGM || !selectedLeadershipRaw.hidden) ? selectedLeadershipRaw : null;
+
     const infiltrations = getInfiltrations().events;
     const visibleInfiltrations = Object.values(infiltrations)
       .filter((event) => isGM || !event.hidden)
@@ -345,6 +387,14 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       isInfluenceTab: this.#subsystem === 'influence',
       isResearchTab: this.#subsystem === 'research',
       isInfiltrationTab: this.#subsystem === 'infiltration',
+      isLeadershipTab: this.#subsystem === 'leadership',
+      leaderships: visibleLeaderships.map((event) => ({
+        ...event,
+        eventCount: Object.values(event.events).filter((e) => !e.resolved).length,
+      })),
+      selectedLeadership: selectedLeadership
+        ? await this.#prepareLeadership(selectedLeadership, isGM)
+        : null,
       infiltrations: visibleInfiltrations.map((event) => ({
         ...event,
         objectiveCount: Object.keys(event.objectives).length,
@@ -986,6 +1036,98 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
             complications: Object.values(event.complications).filter((e) => e.hidden).length,
             opportunities: Object.values(event.opportunities).filter((e) => e.hidden).length,
             breakpoints: Object.values(event.awarenessBreakpoints).filter((e) => e.hidden).length,
+          }
+        : null,
+    };
+  }
+
+  /** Shape one organisation for display. */
+  async #prepareLeadership(org, isGM) {
+    const visible = (record) =>
+      Object.values(record ?? {})
+        .filter((entry) => isGM || !entry.hidden)
+        .sort((a, b) => a.position - b.position);
+
+    const size = organizationSize(org.organizationLevel);
+
+    const lieutenants = await Promise.all(
+      visible(org.lieutenants).map(async (lieutenant) => ({
+        ...lieutenant,
+        // Prefer the linked actor's portrait when the GM has one.
+        img: lieutenant.img || fromUuidSync(lieutenant.uuid)?.img || '',
+        enrichedDescription: await enrich(lieutenant.description),
+      })),
+    );
+
+    const events = await Promise.all(
+      visible(org.events)
+        .sort((a, b) => (a.revealAt ?? 0) - (b.revealAt ?? 0))
+        .map(async (event) => ({
+          ...event,
+          kindLabel: game.i18n.localize(
+            LEADERSHIP_EVENT_KINDS[event.kind] ?? LEADERSHIP_EVENT_KINDS.opportunity,
+          ),
+          lockedUntil:
+            event.hidden && event.revealAt !== null && org.organizationLevel < event.revealAt
+              ? event.revealAt
+              : null,
+          enrichedDescription: await enrich(event.description),
+          enrichedOutcome: await enrich(event.outcome),
+          checks: visible(event.checks).map((check) => ({ ...check, effectiveDC: check.dc })),
+        })),
+    );
+
+    // Only unresolved, revealed events are worth rolling against.
+    const rollOptions = events
+      .filter((event) => !event.hidden && !event.resolved)
+      .flatMap((event) =>
+        event.checks.map((check) => ({
+          value: `${event.id}|${check.id}`,
+          label: `${event.name}: ${check.label}`,
+          dc: check.effectiveDC,
+        })),
+      );
+
+    const participants = Object.values(org.participants)
+      .filter((p) => isGM || !p.hidden)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((participant) => {
+        const actor = participant.uuid ? fromUuidSync(participant.uuid) : null;
+        const owned = Boolean(actor?.isOwner);
+        const contribution = participant.contribution ?? {};
+        return {
+          ...participant,
+          owned,
+          noActor: !participant.uuid,
+          missingActor: Boolean(participant.uuid) && !actor,
+          canRoll: rollOptions.length > 0 && (isGM ? Boolean(actor) : owned && !participant.hasActed),
+          isReroll: isGM && participant.hasActed,
+          canAward: isGM,
+          rollOptions,
+          contributedTotal: contribution.total ?? 0,
+          rollCount: contribution.rolls ?? 0,
+          successCount: contribution.successes ?? 0,
+          hasContributed: (contribution.rolls ?? 0) > 0,
+        };
+      });
+
+    return {
+      ...org,
+      size,
+      lieutenants,
+      events,
+      pendingCount: events.filter((e) => !e.resolved).length,
+      rollOptions,
+      participants,
+      enrichedOrganization: await enrich(org.organization),
+      enrichedPremise: await enrich(org.premise),
+      enrichedGoal: await enrich(org.goal),
+      enrichedGmNotes: isGM ? await enrich(org.gmNotes, { secrets: true }) : '',
+      atMaxLevel: org.organizationLevel >= 20,
+      hiddenCounts: isGM
+        ? {
+            events: Object.values(org.events).filter((e) => e.hidden).length,
+            lieutenants: Object.values(org.lieutenants).filter((e) => e.hidden).length,
           }
         : null,
     };
@@ -1853,6 +1995,266 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const { [entryId]: _removed, ...remaining } = event.awarenessBreakpoints;
     event.awarenessBreakpoints = remaining;
     await setInfiltrations(store);
+  }
+
+  static #onGenerateLeadership() {
+    new GenerateLeadershipDialog({
+      onGenerated: (id) => {
+        this.#subsystem = 'leadership';
+        this.#selectedLeadershipId = id;
+        this.render();
+      },
+    }).render({ force: true });
+  }
+
+  static #onOpenLeadership(_event, target) {
+    this.#selectedLeadershipId = target.dataset.leadershipId;
+    this.render();
+  }
+
+  static #onBackLeadership() {
+    this.#selectedLeadershipId = null;
+    this.render();
+  }
+
+  static async #onDeleteLeadership(_event, target) {
+    const org = getLeadership(target.dataset.leadershipId);
+    if (!org) return;
+    const confirmed = await DialogV2.confirm({
+      window: { title: game.i18n.localize('PFAI.Leadership.DeleteTitle') },
+      content: `<p>${game.i18n.format('PFAI.Leadership.DeleteConfirm', { name: org.name })}</p>`,
+    });
+    if (!confirmed) return;
+    if (this.#selectedLeadershipId === org.id) this.#selectedLeadershipId = null;
+    await deleteLeadership(org.id);
+  }
+
+  /** The organisation's level is its track; growing it opens up new events. */
+  static async #onOrgLevelDelta(_event, target) {
+    const delta = Number(target.dataset.delta);
+    let revealed = [];
+    await updateLeadership(target.dataset.leadershipId, (org) => {
+      org.organizationLevel = Math.clamp(org.organizationLevel + delta, 1, 20);
+      revealed = advanceLeadership(org);
+    });
+    if (revealed.length) {
+      ui.notifications.info(game.i18n.format('PFAI.Leadership.Unlocked', { what: revealed.join(', ') }));
+    }
+  }
+
+  static async #onRollLeadership(_event, target) {
+    const { leadershipId, participantId } = target.dataset;
+    const row = target.closest('.pfai-participant');
+    const select = row?.querySelector('.pfai-roll-option');
+    if (!select?.value) return;
+    const [eventId, checkId] = select.value.split('|');
+    await rollLeadershipCheck({
+      leadershipId,
+      participantId,
+      eventId,
+      checkId,
+      force: game.user.isGM,
+    });
+  }
+
+  static async #onToggleLeadershipReveal(_event, target) {
+    const { leadershipId, collection, entryId } = target.dataset;
+    await updateLeadership(leadershipId, (org) => {
+      const entry = org[collection]?.[entryId];
+      if (entry) entry.hidden = !entry.hidden;
+    });
+  }
+
+  static async #onToggleEventResolved(_event, target) {
+    const { leadershipId, entryId } = target.dataset;
+    await updateLeadership(leadershipId, (org) => {
+      const event = org.events?.[entryId];
+      if (!event) return;
+      event.resolved = !event.resolved;
+      // Something settled is necessarily something the party saw.
+      if (event.resolved) event.hidden = false;
+    });
+  }
+
+  static async #onAddLieutenant(_event, target) {
+    await updateLeadership(target.dataset.leadershipId, (org) => {
+      const id = foundry.utils.randomID();
+      org.lieutenants[id] = {
+        id,
+        position: nextPosition(org.lieutenants),
+        name: game.i18n.localize('PFAI.Leadership.NewLieutenant'),
+        role: '',
+        description: '',
+        level: 1,
+        uuid: '',
+        img: '',
+        hidden: false,
+      };
+    });
+  }
+
+  static async #onEditLieutenant(_event, target) {
+    const { leadershipId, entryId } = target.dataset;
+    const org = getLeadership(leadershipId);
+    const lieutenant = org?.lieutenants?.[entryId];
+    if (!lieutenant) return;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Leadership.EditLieutenant') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <div class="pfai-field-row">
+          <label class="pfai-field pfai-field-wide"><span>${game.i18n.localize('PFAI.Leadership.LieutenantName')}</span>
+            <input type="text" name="name" value="${escapeHTML(lieutenant.name)}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Leadership.Role')}</span>
+            <input type="text" name="role" value="${escapeHTML(lieutenant.role)}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Leadership.CreatureLevel')}</span>
+            <input type="number" name="level" min="0" max="20" step="1" value="${lieutenant.level}"></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Leadership.WhoTheyAre')}</span>
+          <textarea name="description" rows="4">${escapeHTML(lieutenant.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, b) => formValues(b) },
+    });
+    if (!result) return;
+
+    await updateLeadership(leadershipId, (draft) => {
+      const edited = draft.lieutenants[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.role = String(result.role ?? '');
+      edited.level = Math.clamp(Number(result.level) || 0, 0, 20);
+      edited.description = String(result.description ?? '');
+    });
+  }
+
+  static async #onDeleteLieutenant(_event, target) {
+    const { leadershipId, entryId } = target.dataset;
+    const store = getLeaderships();
+    const org = store.events[leadershipId];
+    if (!org) return;
+    const { [entryId]: _removed, ...remaining } = org.lieutenants;
+    org.lieutenants = remaining;
+    await setLeaderships(store);
+  }
+
+  static async #onAddLeadershipEvent(_event, target) {
+    const { leadershipId, kind } = target.dataset;
+    await updateLeadership(leadershipId, (org) => {
+      const id = foundry.utils.randomID();
+      org.events[id] = {
+        id,
+        position: nextPosition(org.events),
+        kind: kind || 'opportunity',
+        name: game.i18n.localize('PFAI.Leadership.NewEvent'),
+        description: '',
+        outcome: '',
+        // Added at the current level, so it is live immediately.
+        hidden: false,
+        resolved: false,
+        revealAt: org.organizationLevel,
+        checks: {},
+      };
+    });
+  }
+
+  static async #onGenerateLeadershipEvent(_event, target) {
+    if (this.#generatingObstacle) return;
+    const { leadershipId, kind } = target.dataset;
+    const org = getLeadership(leadershipId);
+    if (!org) return;
+    if (!hasApiKey()) {
+      ui.notifications.error(game.i18n.localize('PFAI.Errors.NoApiKey'));
+      return;
+    }
+
+    this.#generatingObstacle = true;
+    await this.render();
+    try {
+      const generated = await generateLeadershipEvent({
+        organization: htmlToText(org.organization),
+        premise: htmlToText(org.premise),
+        goal: htmlToText(org.goal),
+        organizationLevel: org.organizationLevel,
+        baseDC: org.baseDC,
+        level: org.level,
+        partySize: org.partySize,
+        language: game.settings.get(MODULE_ID, 'outputLanguage')?.trim() || game.i18n.lang,
+        existingNames: Object.values(org.events).map((e) => e.name),
+        kind: kind || undefined,
+      });
+
+      await updateLeadership(leadershipId, (draft) => {
+        const entry = toLeadershipEvent(generated, draft.baseDC, {
+          position: nextPosition(draft.events),
+          hidden: (generated.atLevel ?? 1) > draft.organizationLevel,
+        });
+        draft.events[entry.id] = entry;
+      });
+      ui.notifications.info(game.i18n.format('PFAI.Leadership.EventAdded', { name: generated.name }));
+    } catch (error) {
+      console.error(`${MODULE_ID} | leadership event generation failed`, error);
+      ui.notifications.error(error.message, { permanent: true });
+    } finally {
+      this.#generatingObstacle = false;
+      await this.render();
+    }
+  }
+
+  static async #onEditLeadershipEvent(_event, target) {
+    const { leadershipId, entryId } = target.dataset;
+    const org = getLeadership(leadershipId);
+    const event = org?.events?.[entryId];
+    if (!event) return;
+
+    const kindOptions = Object.entries(LEADERSHIP_EVENT_KINDS)
+      .map(([value, key]) =>
+        `<option value="${value}" ${value === event.kind ? 'selected' : ''}>${game.i18n.localize(key)}</option>`)
+      .join('');
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Leadership.EditEvent') },
+      position: { width: 600 },
+      content: `<div class="pfai-form">
+        <div class="pfai-field-row">
+          <label class="pfai-field pfai-field-wide"><span>${game.i18n.localize('PFAI.Leadership.EventName')}</span>
+            <input type="text" name="name" value="${escapeHTML(event.name)}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Leadership.Kind')}</span>
+            <select name="kind">${kindOptions}</select></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Leadership.AtLevel')}</span>
+            <input type="number" name="revealAt" min="1" max="20" step="1" value="${event.revealAt ?? ''}">
+            <small>${game.i18n.localize('PFAI.Leadership.AtLevelHint')}</small></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Leadership.WhatHappens')}</span>
+          <textarea name="description" rows="4">${escapeHTML(event.description)}</textarea></label>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Leadership.Outcome')}</span>
+          <textarea name="outcome" rows="3">${escapeHTML(event.outcome)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, b) => formValues(b) },
+    });
+    if (!result) return;
+
+    await updateLeadership(leadershipId, (draft) => {
+      const edited = draft.events[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.kind = Object.hasOwn(LEADERSHIP_EVENT_KINDS, result.kind) ? result.kind : edited.kind;
+      edited.description = String(result.description ?? '');
+      edited.outcome = String(result.outcome ?? '');
+      const at = String(result.revealAt ?? '').trim();
+      edited.revealAt = at === '' ? null : Math.clamp(Number(at) || 1, 1, 20);
+      if (edited.revealAt !== null && draft.organizationLevel >= edited.revealAt) edited.hidden = false;
+    });
+  }
+
+  static async #onDeleteLeadershipEvent(_event, target) {
+    const { leadershipId, entryId } = target.dataset;
+    const store = getLeaderships();
+    const org = store.events[leadershipId];
+    if (!org) return;
+    const { [entryId]: _removed, ...remaining } = org.events;
+    org.events = remaining;
+    await setLeaderships(store);
   }
 
   static #onGenerateInfiltration() {

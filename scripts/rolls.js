@@ -6,13 +6,16 @@ import {
   getChase,
   getInfluence,
   getInfiltration,
+  getLeadership,
   getResearch,
   updateChase,
   updateInfiltration,
   updateInfluence,
+  updateLeadership,
   updateResearch,
 } from './helpers.js';
 import {
+  emitApplyLeadership,
   emitApplyInfiltration,
   emitApplyInfluence,
   emitApplyPass,
@@ -1133,4 +1136,129 @@ export async function spendEdgePoint({ infiltrationId, participantId, kind, owne
     }),
   );
   return summary;
+}
+
+
+/**
+ * Roll a check against a leadership event.
+ *
+ * There is no point track here, so a success resolves the event outright rather
+ * than moving a meter. What is tallied is how many the character sorted out.
+ */
+export async function rollLeadershipCheck({ leadershipId, participantId, eventId, checkId, force = false }) {
+  const org = getLeadership(leadershipId);
+  const participant = org?.participants?.[participantId];
+  const event = org?.events?.[eventId];
+  const check = event?.checks?.[checkId];
+  if (!org || !participant || !event || !check) return null;
+
+  if (event.hidden || check.hidden) {
+    ui.notifications.warn(game.i18n.format('PFAI.Leadership.NotRevealed', { name: event.name }));
+    return null;
+  }
+  if (event.resolved) {
+    ui.notifications.warn(game.i18n.format('PFAI.Leadership.AlreadyResolved', { name: event.name }));
+    return null;
+  }
+
+  const override = force && game.user.isGM;
+  if (participant.hasActed && !override) {
+    ui.notifications.warn(game.i18n.format('PFAI.Roll.AlreadyActed', { name: participant.name }));
+    return null;
+  }
+
+  const actor = participant.uuid ? await fromUuid(participant.uuid) : null;
+  if (!actor) {
+    ui.notifications.error(game.i18n.format('PFAI.Roll.NoActor', { name: participant.name }));
+    return null;
+  }
+  if (!actor.isOwner) {
+    ui.notifications.error(game.i18n.format('PFAI.Roll.NotOwner', { name: participant.name }));
+    return null;
+  }
+
+  const statistic = actor.getStatistic?.(check.slug);
+  if (!statistic) {
+    ui.notifications.error(
+      game.i18n.format('PFAI.Roll.NoStatistic', { skill: check.label, name: actor.name }),
+    );
+    return null;
+  }
+
+  const roll = await statistic.roll({
+    dc: { value: check.dc },
+    label: `${org.name} — ${event.name}`,
+    extraRollOptions: [`${MODULE_ID}:leadership`],
+  });
+  if (!roll) return null;
+
+  const degree = roll.degreeOfSuccess ?? roll.options?.degreeOfSuccess;
+  if (!Number.isInteger(degree)) {
+    ui.notifications.error(game.i18n.localize('PFAI.Roll.NoDegree'));
+    return null;
+  }
+
+  const payload = { leadershipId, participantId, eventId, checkId, degree };
+  if (game.user.isGM) await applyLeadershipResult(payload);
+  else {
+    if (!game.users.activeGM) {
+      ui.notifications.error(game.i18n.localize('PFAI.Roll.NoGM'));
+      return null;
+    }
+    emitApplyLeadership(payload);
+  }
+  return { degree };
+}
+
+/** GM-side application of a leadership result. */
+export async function applyLeadershipResult({ leadershipId, participantId, eventId, degree }) {
+  if (!game.user.isGM) return;
+
+  let summary = null;
+  await updateLeadership(leadershipId, (org) => {
+    const participant = org.participants[participantId];
+    const event = org.events[eventId];
+    if (!participant || !event) return;
+
+    participant.contribution ??= { total: 0, successes: 0, rolls: 0 };
+    participant.contribution.rolls += 1;
+    participant.hasActed = true;
+    if (degree >= 2) {
+      participant.contribution.successes += 1;
+      participant.contribution.total += 1;
+      event.resolved = true;
+    }
+
+    summary = { participant: participant.name, event: event.name, resolved: event.resolved };
+  });
+
+  if (!summary) return;
+  const degreeKey = ['CriticalFailure', 'Failure', 'Success', 'CriticalSuccess'][degree];
+  ui.notifications.info(
+    game.i18n.format('PFAI.Leadership.Applied', {
+      name: summary.participant,
+      event: summary.event,
+      degree: game.i18n.localize(`PFAI.Degree.${degreeKey}`),
+    }),
+  );
+  if (summary.resolved) {
+    ui.notifications.info(game.i18n.format('PFAI.Leadership.Resolved', { name: summary.event }));
+  }
+}
+
+/**
+ * Reveal events the organisation has now grown into.
+ *
+ * The equivalent of the other subsystems' progress reveals, keyed on
+ * organisation level rather than a point total.
+ */
+export function advanceLeadership(org) {
+  const revealed = [];
+  for (const event of Object.values(org.events ?? {})) {
+    if (!event.hidden || event.revealAt === null || event.revealAt === undefined) continue;
+    if (org.organizationLevel < event.revealAt) continue;
+    event.hidden = false;
+    revealed.push(event.name);
+  }
+  return revealed;
 }

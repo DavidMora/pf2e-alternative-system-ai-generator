@@ -1,0 +1,364 @@
+{{#with selectedLeadership}}
+<header class="pfai-detail-header">
+  <button type="button" class="pfai-icon" data-action="backLeadership" data-tooltip="{{localize 'PFAI.Back'}}">
+    <i class="fa-solid fa-chevron-left"></i>
+  </button>
+  <h2 class="pfai-title">
+    {{name}}
+    {{#if kind}}<span class="pfai-subtitle">{{kind}}{{#if seat}} &mdash; {{seat}}{{/if}}</span>{{/if}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-title-edit" data-action="editTitle"
+              data-subsystem="leadership" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.EditTitle'}}"><i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+    {{#if ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
+  </h2>
+  <div class="pfai-header-actions">
+    {{#if ../isRealGM}}
+      <button type="button" class="pfai-icon {{#if ../previewAsPlayer}}pfai-toggle-on{{/if}}"
+              data-action="togglePlayerPreview" data-tooltip="{{localize 'PFAI.View.PreviewAsPlayer'}}">
+        <i class="fa-solid {{#if ../previewAsPlayer}}fa-user-check{{else}}fa-user{{/if}}"></i>
+      </button>
+    {{/if}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-show-players" data-action="showToPlayers"
+              data-subsystem="leadership" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.ShowToPlayersHint'}}"><i class="fa-solid fa-tv"></i></button>
+      <button type="button" class="pfai-icon" data-action="toggleHidden"
+              data-subsystem="leadership" data-event-id="{{id}}"
+              data-tooltip="{{#if hidden}}{{localize 'PFAI.View.ShowToPlayers'}}{{else}}{{localize 'PFAI.View.HideFromPlayers'}}{{/if}}">
+        <i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+      </button>
+      <button type="button" class="pfai-icon" data-action="exportEvent"
+              data-subsystem="leadership" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Export'}}"><i class="fa-solid fa-file-export"></i></button>
+      <button type="button" class="pfai-icon pfai-danger" data-action="deleteLeadership" data-leadership-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-trash"></i></button>
+    {{/if}}
+  </div>
+</header>
+
+{{#if img}}
+  <figure class="pfai-chase-art">
+    <img src="{{img}}" alt="{{name}}">
+    {{#if ../isGM}}
+      <figcaption>
+        <button type="button" class="pfai-icon" data-action="generateImage"
+                data-subsystem="leadership" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.Regenerate'}}"><i class="fa-solid fa-arrows-rotate"></i></button>
+        <button type="button" class="pfai-icon pfai-danger" data-action="clearImage"
+                data-subsystem="leadership" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.Remove'}}"><i class="fa-solid fa-trash"></i></button>
+      </figcaption>
+    {{/if}}
+  </figure>
+{{/if}}
+
+<section class="pfai-status">
+  <div class="pfai-status-item">
+    <span class="pfai-label">{{localize 'PFAI.Leadership.OrganizationLevel'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.OrganizationLevel'}}"></i></span>
+    <span class="pfai-round">
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="orgLevelDelta" data-leadership-id="{{id}}" data-delta="-1">&minus;</button>
+      {{/if}}
+      <strong class="pfai-points-big">{{organizationLevel}}</strong>
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="orgLevelDelta" data-leadership-id="{{id}}" data-delta="1">+</button>
+      {{/if}}
+    </span>
+  </div>
+
+  <div class="pfai-status-item pfai-live-obstacle">
+    <span class="pfai-label">{{localize 'PFAI.Leadership.Strength'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.OrganizationSize'}}"></i></span>
+    <span class="pfai-live-points">
+      <strong>{{size.followers}}</strong>
+      <span class="pfai-live-name">{{localize 'PFAI.Leadership.FollowersUpToLevel'}} {{size.maxFollowerLevel}}</span>
+    </span>
+  </div>
+
+  <div class="pfai-status-item">
+    <span class="pfai-label">{{localize 'PFAI.Leadership.Lieutenants'}}</span>
+    <span class="pfai-live-points">
+      <strong>{{size.lieutenants}}</strong>
+      <span class="pfai-live-name">{{localize 'PFAI.Leadership.OfLevel'}} {{size.lieutenantLevels}}</span>
+    </span>
+  </div>
+
+  {{#if pendingCount}}
+    <div class="pfai-status-item">
+      <span class="pfai-label">{{localize 'PFAI.Leadership.Pending'}}</span>
+      <strong>{{pendingCount}}</strong>
+    </div>
+  {{/if}}
+
+  {{#if atMaxLevel}}<div class="pfai-flag pfai-flag-good">{{localize 'PFAI.Leadership.AtMax'}}</div>{{/if}}
+
+  {{#if ../isGM}}
+    <div class="pfai-status-actions">
+      {{#unless img}}
+        <button type="button" data-action="generateImage" data-subsystem="leadership" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.ForChaseHint'}}">
+          <i class="fa-solid fa-image"></i> {{localize 'PFAI.Image.AddArt'}}
+        </button>
+      {{/unless}}
+      <button type="button" data-action="editStats" data-subsystem="leadership" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Settings.EventSettingsHint'}}">
+        <i class="fa-solid fa-sliders"></i> {{localize 'PFAI.Settings.EventSettings'}}
+      </button>
+      <button type="button" data-action="toggleStarted" data-subsystem="leadership" data-event-id="{{id}}">
+        <i class="fa-solid {{#if started}}fa-pause{{else}}fa-play{{/if}}"></i>
+        {{#if started}}{{localize 'PFAI.Chase.Pause'}}{{else}}{{localize 'PFAI.Chase.Start'}}{{/if}}
+      </button>
+    </div>
+  {{/if}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Leadership.Organization'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Organization'}}"></i>
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="leadership" data-event-id="{{id}}" data-field="organization"
+              data-label="PFAI.Leadership.Organization" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-prose">{{{enrichedOrganization}}}</div>
+
+  <h3>
+    {{localize 'PFAI.Leadership.Premise'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.LeadershipPremise'}}"></i>
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="leadership" data-event-id="{{id}}" data-field="premise"
+              data-label="PFAI.Leadership.Premise" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-prose">{{{enrichedPremise}}}</div>
+
+  <p class="pfai-goal"><span class="pfai-label">{{localize 'PFAI.Leadership.Goal'}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="leadership" data-event-id="{{id}}" data-field="goal"
+              data-label="PFAI.Leadership.Goal" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </span></p>
+  <div class="pfai-prose">{{{enrichedGoal}}}</div>
+</section>
+
+{{#if ../isGM}}
+  <section class="pfai-panel pfai-gm">
+    <h3>
+      {{localize 'PFAI.Chase.GmNotes'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.GmNotes'}}"></i>
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="leadership" data-event-id="{{id}}" data-field="gmNotes"
+              data-label="PFAI.Chase.EditGmNotes" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    </h3>
+    <div class="pfai-prose">{{{enrichedGmNotes}}}</div>
+  </section>
+{{/if}}
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Leadership.Lieutenants'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Lieutenants'}}"></i>
+    {{#if hiddenCounts.lieutenants}}<span class="pfai-hidden-count">{{hiddenCounts.lieutenants}} {{localize 'PFAI.Influence.Undiscovered'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addLieutenant" data-leadership-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Leadership.AddLieutenantHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+  {{#each lieutenants as |lt|}}
+    <div class="pfai-trait {{#if lt.hidden}}is-hidden{{/if}}">
+      <span class="pfai-trait-mod">{{localize 'PFAI.Leadership.LevelAbbr'}}{{lt.level}}</span>
+      <div class="pfai-trait-body">
+        <strong>{{lt.name}}</strong>
+        {{#if lt.role}}<span class="pfai-trigger-badge">{{lt.role}}</span>{{/if}}
+        <div class="pfai-prose">{{{lt.enrichedDescription}}}</div>
+      </div>
+      {{#if ../../isGM}}
+        <span class="pfai-trait-actions">
+          <button type="button" class="pfai-icon pfai-row-control" data-action="toggleLeadershipReveal"
+                  data-leadership-id="{{../id}}" data-collection="lieutenants" data-entry-id="{{lt.id}}"
+                  data-tooltip="{{#if lt.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+            <i class="fa-solid {{#if lt.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></button>
+          <button type="button" class="pfai-icon pfai-row-control" data-action="editLieutenant"
+                  data-leadership-id="{{../id}}" data-entry-id="{{lt.id}}"
+                  data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteLieutenant"
+                  data-leadership-id="{{../id}}" data-entry-id="{{lt.id}}"
+                  data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+        </span>
+      {{/if}}
+    </div>
+  {{else}}
+    <p class="pfai-empty">{{localize 'PFAI.Leadership.NoLieutenants'}}</p>
+  {{/each}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Leadership.Events'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.LeadershipEvents'}}"></i>
+    {{#if hiddenCounts.events}}<span class="pfai-hidden-count">{{hiddenCounts.events}} {{localize 'PFAI.Research.Pending'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addLeadershipEvent" data-leadership-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Leadership.AddEventHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+        <button type="button" class="pfai-generate-obstacles" data-action="generateLeadershipEvent" data-leadership-id="{{id}}"
+                {{#if ../generatingObstacle}}disabled{{/if}}
+                data-tooltip="{{localize 'PFAI.Leadership.GenerateEventHint'}}">
+          {{#if ../generatingObstacle}}
+            <i class="fa-solid fa-spinner fa-spin"></i> {{localize 'PFAI.Generate.Working'}}
+          {{else}}
+            <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.Leadership.AIEvent'}}
+          {{/if}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+
+  {{#each events as |event|}}
+    <div class="pfai-trait pfai-leadership-event is-{{event.kind}} {{#if event.resolved}}is-used{{/if}} {{#if event.hidden}}is-hidden{{/if}}">
+      <span class="pfai-trait-mod">{{event.kindLabel}}</span>
+      <div class="pfai-trait-body">
+        <strong>{{event.name}}</strong>
+        {{#if event.lockedUntil}}
+          <span class="pfai-unlock-badge" data-tooltip="{{localize 'PFAI.Leadership.AtLevelHint'}}">
+            <i class="fa-solid fa-lock"></i> {{localize 'PFAI.Leadership.FromLevel'}} {{event.revealAt}}
+          </span>
+        {{/if}}
+        {{#if event.resolved}}<span class="pfai-flag pfai-flag-good">{{localize 'PFAI.Leadership.Settled'}}</span>{{/if}}
+        <div class="pfai-prose">{{{event.enrichedDescription}}}</div>
+        {{#if event.enrichedOutcome}}
+          <div class="pfai-check-reveals">
+            <span class="pfai-label">{{localize 'PFAI.Leadership.Outcome'}}</span>
+            <div class="pfai-prose">{{{event.enrichedOutcome}}}</div>
+          </div>
+        {{/if}}
+        <ul class="pfai-check-list">
+          {{#each event.checks as |check|}}
+            <li class="pfai-check"><span class="pfai-check-dc">DC {{check.effectiveDC}}</span>
+              <div class="pfai-check-body"><strong>{{check.label}}</strong>
+                <span class="pfai-check-desc">{{check.description}}</span></div></li>
+          {{/each}}
+        </ul>
+      </div>
+      {{#if ../../isGM}}
+        <span class="pfai-trait-actions">
+          <button type="button" class="pfai-icon {{#if event.resolved}}pfai-toggle-on{{/if}}"
+                  data-action="toggleEventResolved" data-leadership-id="{{../id}}" data-entry-id="{{event.id}}"
+                  data-tooltip="{{localize 'PFAI.Leadership.MarkSettled'}}"><i class="fa-solid fa-check"></i></button>
+          <button type="button" class="pfai-icon pfai-row-control" data-action="toggleLeadershipReveal"
+                  data-leadership-id="{{../id}}" data-collection="events" data-entry-id="{{event.id}}"
+                  data-tooltip="{{#if event.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+            <i class="fa-solid {{#if event.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></button>
+          <button type="button" class="pfai-icon pfai-row-control" data-action="editLeadershipEvent"
+                  data-leadership-id="{{../id}}" data-entry-id="{{event.id}}"
+                  data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteLeadershipEvent"
+                  data-leadership-id="{{../id}}" data-entry-id="{{event.id}}"
+                  data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+        </span>
+      {{/if}}
+    </div>
+  {{else}}
+    <p class="pfai-empty">{{localize 'PFAI.Leadership.NoEventsYet'}}</p>
+  {{/each}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Leadership.Leaders'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Leaders'}}"></i>
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon" data-action="addParticipants"
+              data-subsystem="leadership" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-roster pfai-roster-influence pfai-dropzone"
+       data-subsystem="leadership" data-event-id="{{id}}">
+    <div class="pfai-roster-head">
+      <span>{{localize 'PFAI.Chase.Participant'}}</span>
+      <span>{{localize 'PFAI.Leadership.Settled'}}</span>
+      <span>{{localize 'PFAI.Chase.Turn'}}</span>
+      <span></span>
+    </div>
+    {{#each participants as |participant|}}
+      <div class="pfai-participant {{#if participant.hasActed}}has-acted{{/if}}">
+        <span class="pfai-p-who">
+          <img src="{{participant.img}}" alt="">
+          <span class="pfai-p-name">{{participant.name}}</span>
+          {{#if participant.hasActed}}
+            <i class="fa-solid fa-check pfai-acted-mark" data-tooltip="{{localize 'PFAI.Chase.ActedTooltip'}}"></i>
+          {{/if}}
+        </span>
+        <span class="pfai-p-points"
+              data-tooltip="{{localize 'PFAI.Leadership.ContributionTooltip'}} {{participant.successCount}}/{{participant.rollCount}}">
+          <span class="pfai-tally {{#unless participant.hasContributed}}is-empty{{/unless}}">
+            <i class="fa-solid fa-star"></i><strong>{{participant.contributedTotal}}</strong>
+          </span>
+        </span>
+        <span class="pfai-p-turn">
+          {{#if participant.canRoll}}
+            <select class="pfai-roll-option" aria-label="{{localize 'PFAI.Roll.PickSkill'}}">
+              {{#each participant.rollOptions as |option|}}
+                <option value="{{option.value}}">{{option.label}} DC {{option.dc}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="pfai-roll-button {{#if participant.isReroll}}pfai-reroll{{/if}}"
+                    data-action="rollLeadership" data-leadership-id="{{../id}}"
+                    data-participant-id="{{participant.id}}"
+                    data-tooltip="{{#if participant.isReroll}}{{localize 'PFAI.Roll.RerollHint'}}{{else}}{{localize 'PFAI.Roll.Roll'}}{{/if}}">
+              <i class="fa-solid fa-dice-d20"></i>
+            </button>
+          {{else if participant.noActor}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NoActorLinked'}}</span>
+          {{else if participant.hasActed}}
+            <span class="pfai-p-note">{{localize 'PFAI.Chase.Acted'}}</span>
+          {{else}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NotYours'}}</span>
+          {{/if}}
+        </span>
+        <span class="pfai-p-end">
+          {{#if ../../isGM}}
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleActed"
+                    data-subsystem="leadership" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.ToggleActed'}}">
+              <i class="fa-solid {{#if participant.hasActed}}fa-circle-check{{else}}fa-circle{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="removeParticipant"
+                    data-subsystem="leadership" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveParticipant'}}">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          {{/if}}
+        </span>
+      </div>
+    {{/each}}
+    {{#unless participants.length}}
+      <p class="pfai-empty pfai-drop-hint">
+        {{#if ../isGM}}
+          <i class="fa-solid fa-hand-pointer"></i> {{localize 'PFAI.Chase.DropHint'}}
+        {{else}}
+          {{localize 'PFAI.Chase.NoParticipants'}}
+        {{/if}}
+      </p>
+    {{/unless}}
+  </div>
+</section>
+{{/with}}

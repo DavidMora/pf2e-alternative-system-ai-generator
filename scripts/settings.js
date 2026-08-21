@@ -12,6 +12,7 @@ import { Chases } from './data/chase.js';
 import { Influences } from './data/influence.js';
 import { Researches } from './data/research.js';
 import { Infiltrations } from './data/infiltration.js';
+import { Leaderships } from './data/leadership.js';
 import { SubsystemView } from './apps/subsystem-view.js';
 
 /** Re-render any open subsystem window when world data changes. */
@@ -52,6 +53,14 @@ export function registerSettings() {
     scope: 'world',
     config: false,
     type: Infiltrations,
+    default: { events: {} },
+    onChange: refreshOpenViews,
+  });
+
+  game.settings.register(MODULE_ID, SETTINGS.leaderships, {
+    scope: 'world',
+    config: false,
+    type: Leaderships,
     default: { events: {} },
     onChange: refreshOpenViews,
   });

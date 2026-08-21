@@ -6,6 +6,7 @@ export const SETTINGS = {
   influences: 'influences',
   researches: 'researches',
   infiltrations: 'infiltrations',
+  leaderships: 'leaderships',
   apiKey: 'openaiApiKey',
   model: 'openaiModel',
   modelOverride: 'openaiModelOverride',
@@ -47,6 +48,42 @@ export const IMAGE_QUALITIES = {
   low: 'PFAI.Image.QualityLow',
   medium: 'PFAI.Image.QualityMedium',
   high: 'PFAI.Image.QualityHigh',
+};
+
+/**
+ * Organization sizes by level (GM Core, Leadership). Index 0 is level 1.
+ *
+ * Reproduced rather than computed: the published progression is not a formula,
+ * and a GM checking the book should find the same numbers.
+ */
+export const ORGANIZATION_TABLE = [
+  { followers: '1-2', maxFollowerLevel: 0, lieutenants: '-', lieutenantLevels: '-' },
+  { followers: '3-4', maxFollowerLevel: 0, lieutenants: '-', lieutenantLevels: '-' },
+  { followers: '5-6', maxFollowerLevel: 0, lieutenants: '1', lieutenantLevels: '1' },
+  { followers: '7-9', maxFollowerLevel: 0, lieutenants: '1', lieutenantLevels: '1' },
+  { followers: '10-13', maxFollowerLevel: 0, lieutenants: '1', lieutenantLevels: '1' },
+  { followers: '14-18', maxFollowerLevel: 1, lieutenants: '2', lieutenantLevels: '2' },
+  { followers: '19-27', maxFollowerLevel: 1, lieutenants: '2', lieutenantLevels: '2' },
+  { followers: '28-36', maxFollowerLevel: 1, lieutenants: '3', lieutenantLevels: '2-3' },
+  { followers: '37-53', maxFollowerLevel: 1, lieutenants: '4-5', lieutenantLevels: '2-3' },
+  { followers: '54-75', maxFollowerLevel: 2, lieutenants: '6-7', lieutenantLevels: '3-4' },
+  { followers: '76-99', maxFollowerLevel: 2, lieutenants: '8-10', lieutenantLevels: '3-4' },
+  { followers: '100-150', maxFollowerLevel: 2, lieutenants: '11-15', lieutenantLevels: '3-5' },
+  { followers: '151-215', maxFollowerLevel: 2, lieutenants: '16-22', lieutenantLevels: '3-5' },
+  { followers: '216-300', maxFollowerLevel: 3, lieutenants: '23-30', lieutenantLevels: '4-6' },
+  { followers: '301-425', maxFollowerLevel: 3, lieutenants: '31-42', lieutenantLevels: '4-6' },
+  { followers: '426-600', maxFollowerLevel: 3, lieutenants: '43-60', lieutenantLevels: '4-7' },
+  { followers: '601-850', maxFollowerLevel: 3, lieutenants: '61-85', lieutenantLevels: '4-7' },
+  { followers: '851-1,200', maxFollowerLevel: 4, lieutenants: '86-120', lieutenantLevels: '5-8' },
+  { followers: '1,201-1,700', maxFollowerLevel: 4, lieutenants: '121-170', lieutenantLevels: '5-8' },
+  { followers: '1,701-2,400', maxFollowerLevel: 4, lieutenants: '171-240', lieutenantLevels: '5-9' },
+];
+
+/** The three kinds of thing that happen to an organization in downtime. */
+export const LEADERSHIP_EVENT_KINDS = {
+  opportunity: 'PFAI.Leadership.KindOpportunity',
+  trouble: 'PFAI.Leadership.KindTrouble',
+  windfall: 'PFAI.Leadership.KindWindfall',
 };
 
 /** PF2e Level-based DCs (GM Core). Index is creature/hazard/task level. */

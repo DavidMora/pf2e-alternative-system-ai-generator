@@ -9,6 +9,7 @@ export const SOCKET_ACTIONS = {
   applyInfluence: 'applyInfluence',
   applyResearch: 'applyResearch',
   applyInfiltration: 'applyInfiltration',
+  applyLeadership: 'applyLeadership',
 };
 
 /**
@@ -114,6 +115,24 @@ export function emitApplyInfiltration(payload) {
   });
 }
 
+/** Leadership results are relayed like the rest, to one GM only. */
+export function shouldApplyLeadership(data, context) {
+  if (!data || typeof data !== 'object') return false;
+  if (data.action !== SOCKET_ACTIONS.applyLeadership) return false;
+  if (!data.leadershipId || !data.participantId || !data.eventId || !data.checkId) return false;
+  if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
+  if (!context.isGM) return false;
+  return data.gmId ? data.gmId === context.userId : context.activeGMId === context.userId;
+}
+
+export function emitApplyLeadership(payload) {
+  game.socket.emit(SOCKET_EVENT, {
+    action: SOCKET_ACTIONS.applyLeadership,
+    ...payload,
+    gmId: game.users.activeGM?.id ?? null,
+  });
+}
+
 /** A passed turn carries no degree; everything else is validated the same. */
 export function shouldApplyPass(data, context) {
   if (!data || typeof data !== 'object') return false;
@@ -167,6 +186,7 @@ export function registerSocket({
   onApplyInfluence,
   onApplyResearch,
   onApplyInfiltration,
+  onApplyLeadership,
 }) {
   game.socket.on(SOCKET_EVENT, (data) => {
     if (shouldHandle(data, game.user.id)) {
@@ -186,5 +206,6 @@ export function registerSocket({
     else if (shouldApplyInfluence(data, context)) onApplyInfluence(data);
     else if (shouldApplyResearch(data, context)) onApplyResearch(data);
     else if (shouldApplyInfiltration(data, context)) onApplyInfiltration(data);
+    else if (shouldApplyLeadership(data, context)) onApplyLeadership(data);
   });
 }

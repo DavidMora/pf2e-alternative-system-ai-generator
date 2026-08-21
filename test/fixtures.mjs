@@ -245,6 +245,56 @@ const infiltrationCtx = (isGM, { blocked = false } = {}) => ({
   },
 });
 
+const LEADERSHIP_ROLL_OPTIONS = [
+  { value: 'ev1|c1', label: 'The Dock Levy: Diplomacy', dc: 20 },
+];
+
+export const leadershipCtx = (isGM) => ({
+  isGM, isRealGM: isGM, previewAsPlayer: false, isLeadershipTab: true,
+  chases: [], influences: [], researches: [], infiltrations: [], leaderships: [],
+  selectedLeadership: {
+    id: 'l1', name: 'The Lamplighters', hidden: false, started: false,
+    kind: 'mutual-aid society', seat: 'a converted chandlery',
+    organizationLevel: 6, baseDC: 20, level: 5, partySize: 4,
+    size: { level: 6, followers: '14-18', maxFollowerLevel: 1, lieutenants: '2', lieutenantLevels: '2' },
+    atMaxLevel: false, pendingCount: 1,
+    ai: { generated: true },
+    enrichedOrganization: '<p>A mutual-aid society.</p>',
+    enrichedPremise: '<p>Founded after the press gang.</p>',
+    enrichedGoal: '<p>A seat on the council.</p>',
+    enrichedGmNotes: '<p>LEADERSHIP-SECRET</p>',
+    lieutenants: isGM
+      ? [{ id: 'lt1', name: 'Vessa Cull', role: 'quartermaster', level: 2, hidden: false,
+           enrichedDescription: '<p>Keeps the books.</p>' },
+         { id: 'lt2', name: 'The Auditor', role: 'unknown', level: 3, hidden: true,
+           enrichedDescription: '<p>Nobody has met them.</p>' }]
+      : [{ id: 'lt1', name: 'Vessa Cull', role: 'quartermaster', level: 2, hidden: false,
+           enrichedDescription: '<p>Keeps the books.</p>' }],
+    events: isGM
+      ? [{ id: 'ev1', kind: 'trouble', kindLabel: 'trouble', name: 'The Dock Levy', hidden: false,
+           resolved: false, revealAt: 5, lockedUntil: null,
+           enrichedDescription: '<p>A new tax.</p>', enrichedOutcome: '<p>Goodwill.</p>',
+           checks: [{ id: 'c1', label: 'Diplomacy', dc: 20, effectiveDC: 20, description: 'Petition.' }] },
+         { id: 'ev2', kind: 'windfall', kindLabel: 'windfall', name: 'A Bequest', hidden: true,
+           resolved: false, revealAt: 9, lockedUntil: 9,
+           enrichedDescription: '<p>A will names them.</p>', enrichedOutcome: '<p>Funds.</p>', checks: [] }]
+      : [{ id: 'ev1', kind: 'trouble', kindLabel: 'trouble', name: 'The Dock Levy', hidden: false,
+           resolved: false, revealAt: 5, lockedUntil: null,
+           enrichedDescription: '<p>A new tax.</p>', enrichedOutcome: '<p>Goodwill.</p>',
+           checks: [{ id: 'c1', label: 'Diplomacy', dc: 20, effectiveDC: 20, description: 'Petition.' }] }],
+    rollOptions: LEADERSHIP_ROLL_OPTIONS,
+    participants: [
+      { id: 'pl1', name: 'Amiri', img: 'a.png', hasActed: false, canRoll: true, owned: true, noActor: false,
+        canAward: isGM, isReroll: false, rollOptions: LEADERSHIP_ROLL_OPTIONS,
+        contributedTotal: 1, successCount: 1, rollCount: 2, hasContributed: true },
+      { id: 'pl2', name: 'Harsk', img: 'b.png', hasActed: true, canRoll: isGM, owned: true, noActor: false,
+        canAward: isGM, isReroll: isGM, rollOptions: LEADERSHIP_ROLL_OPTIONS,
+        contributedTotal: 0, successCount: 0, rollCount: 1, hasContributed: true },
+    ],
+    hiddenCounts: isGM ? { events: 1, lieutenants: 1 } : null,
+  },
+});
+
 export { selected, participantsFor, influenceCtx, researchCtx, infiltrationCtx };
 
 /** One context per subsystem, keyed the way the registry keys them. */
@@ -260,4 +310,5 @@ export const CONTEXTS = {
   influence: influenceCtx,
   research: researchCtx,
   infiltration: (isGM) => infiltrationCtx(isGM),
+  leadership: leadershipCtx,
 };

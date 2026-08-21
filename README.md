@@ -495,6 +495,41 @@ rather than points scored.
 Opportunities are optional risks paying off in something other than progress, and
 never block anything.
 
+## Leadership
+
+The fifth subsystem, and the one that least resembles the rest.
+[Rules](https://2e.aonprd.com/Rules.aspx?ID=1258).
+
+### There is no point track
+
+The published subsystem is explicit that an organisation has no meter to fill.
+It gains levels because the party earned them in play, so **you nudge the level
+yourself** — that is the track. Everything else follows from it.
+
+The size bar is the published table, not a formula: at organisation level 9 the
+Lamplighters have 37–53 followers of up to level 1, and 4–5 lieutenants of level
+2–3. Followers never come adventuring and provide no free labour or resources,
+and the generator is told so.
+
+### What happens
+
+Downtime events come in the published three kinds, colour-coded:
+
+- **Opportunity** — a decision that shapes the organisation
+- **Trouble** — something needing the party, which should cost less than it gives
+- **Windfall** — an unexpected benefit
+
+Each carries a level it surfaces at, so an organisation opens up as it grows. An
+event can carry checks; a success settles it and is credited to whoever rolled.
+Those checks are a light extension rather than published rules — a Trouble
+usually wants a roll, and having one keeps the roll experience identical to the
+other four.
+
+### What it does not have
+
+No rounds and no point awards, both waived explicitly in the parity audit with
+reasons, because inventing them would misrepresent the subsystem.
+
 ## Fidelity to the published rules
 
 Checked against [Chases (GM Core)](https://2e.aonprd.com/Rules.aspx?ID=3049).
@@ -545,9 +580,11 @@ scripts/
   ai/influence.js              influence schema, prompt, mapping
   ai/research.js               research schema, prompt, mapping
   ai/infiltration.js           infiltration schema, prompt, mapping
+  ai/leadership.js             leadership schema, prompt, mapping
   data/influence.js            Influence / Influences DataModels
   data/research.js             Research / Researches DataModels
   data/infiltration.js         Infiltration / Infiltrations DataModels
+  data/leadership.js           Leadership / Leaderships DataModels
   subsystems.js                registry: storage + shared GM operations
   apps/subsystem-view.js       the GM/player window
   apps/generate-chase-dialog.js the generation form

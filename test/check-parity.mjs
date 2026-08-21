@@ -12,7 +12,7 @@
 import { CONTEXTS, prepareHandlebars } from './fixtures.mjs';
 
 const view = prepareHandlebars();
-const SUBSYSTEMS = ['chase', 'influence', 'research', 'infiltration'];
+const SUBSYSTEMS = ['chase', 'influence', 'research', 'infiltration', 'leadership'];
 
 const has = (out, action) => out.includes(`data-action="${action}"`);
 const countOf = (out, action) => (out.match(new RegExp(`data-action="${action}"`, 'g')) ?? []).length;
@@ -33,16 +33,22 @@ const CAPABILITIES = [
   { name: 'Export', check: (o) => has(o, 'exportEvent') },
   { name: 'Rename', check: (o) => has(o, 'editTitle') },
   { name: 'Start / pause', check: (o) => has(o, 'toggleStarted') },
-  { name: 'Delete event', check: (o) => /data-action="delete(Chase|Influence|Research|Infiltration)"/.test(o) },
+  {
+    name: 'Delete event',
+    // Derived from the key so adding a subsystem cannot leave this behind.
+    check: (o, key) => has(o, `delete${key[0].toUpperCase()}${key.slice(1)}`),
+  },
 
   // --- rounds ------------------------------------------------------------
   {
     name: 'Next round',
     check: (o) => /data-action="(nextRound|influenceNextRound|researchNextRound|infiltrationNextRound)"/.test(o),
+    waived: { leadership: 'the published subsystem runs in downtime, not rounds' },
   },
   {
     name: 'Adjust round',
     check: (o) => /data-action="(roundDelta|influenceRoundDelta|researchRoundDelta|infiltrationRoundDelta)"/.test(o),
+    waived: { leadership: 'the published subsystem runs in downtime, not rounds' },
   },
 
   // --- prose ------------------------------------------------------------
@@ -64,33 +70,33 @@ const CAPABILITIES = [
   {
     name: 'Add entry (blank)',
     check: (o) =>
-      /data-action="(addObstacle|addApproach|addSource|addCheck|addObjective|addInfiltrationObstacle|addThreshold|addFinding|addComplication|addTrait|addBreakpoint)"/.test(o),
+      /data-action="(addObstacle|addApproach|addSource|addCheck|addObjective|addInfiltrationObstacle|addThreshold|addFinding|addComplication|addTrait|addBreakpoint|addLieutenant|addLeadershipEvent)"/.test(o),
   },
   {
     name: 'Add entry (AI)',
     check: (o) =>
-      /data-action="(generateOneObstacle|generateApproach|generateSource|generateInfiltrationObstacle)"/.test(o),
+      /data-action="(generateOneObstacle|generateApproach|generateSource|generateInfiltrationObstacle|generateLeadershipEvent)"/.test(o),
   },
   {
     name: 'Edit entry',
     check: (o) =>
-      /data-action="(editObstacle|editApproach|editSource|editCheck|editObjective|editInfiltrationObstacle|editThreshold|editFinding|editComplication|editTrait|editBreakpoint)"/.test(o),
+      /data-action="(editObstacle|editApproach|editSource|editCheck|editObjective|editInfiltrationObstacle|editThreshold|editFinding|editComplication|editTrait|editBreakpoint|editLieutenant|editLeadershipEvent)"/.test(o),
   },
   {
     name: 'Delete entry',
     check: (o) =>
-      /data-action="(deleteObstacle|deleteApproach|deleteSource|deleteCheck|deleteObjective|deleteInfiltrationObstacle|deleteThreshold|deleteFinding|deleteComplication|deleteTrait|deleteBreakpoint)"/.test(o),
+      /data-action="(deleteObstacle|deleteApproach|deleteSource|deleteCheck|deleteObjective|deleteInfiltrationObstacle|deleteThreshold|deleteFinding|deleteComplication|deleteTrait|deleteBreakpoint|deleteLieutenant|deleteLeadershipEvent)"/.test(o),
   },
   {
     name: 'Reveal / conceal entry',
     check: (o) =>
-      /data-action="(toggleObstacleLock|toggleReveal|toggleResearchReveal|toggleInfiltrationReveal)"/.test(o),
+      /data-action="(toggleObstacleLock|toggleReveal|toggleResearchReveal|toggleInfiltrationReveal|toggleLeadershipReveal)"/.test(o),
   },
 
   // --- play --------------------------------------------------------------
   {
     name: 'Roll from participant row',
-    check: (o) => /data-action="(rollCheck|rollInfluence|rollResearch|rollInfiltration)"/.test(o),
+    check: (o) => /data-action="(rollCheck|rollInfluence|rollResearch|rollInfiltration|rollLeadership)"/.test(o),
   },
   {
     name: 'Roll picker populated',
@@ -99,7 +105,7 @@ const CAPABILITIES = [
   {
     name: 'Adjust points',
     check: (o) =>
-      /data-action="(chasePointDelta|influencePointDelta|researchPointDelta|awarenessDelta)"/.test(o),
+      /data-action="(chasePointDelta|influencePointDelta|researchPointDelta|awarenessDelta|orgLevelDelta)"/.test(o),
   },
   {
     name: 'Award points to a participant',
@@ -107,6 +113,7 @@ const CAPABILITIES = [
     waived: {
       infiltration:
         'edge points are the published way to help a character here, and spendEdge covers it',
+      leadership: 'there is no point track to award from; the GM settles an event directly',
     },
   },
   { name: 'Contribution tally shown', check: (o) => o.includes('pfai-tally') },
@@ -179,7 +186,9 @@ const CAPABILITIES = [
 const LIST_CAPABILITIES = [
   {
     name: 'Generate a new event (AI)',
-    check: (o) => /data-action="(generate|generateInfluence|generateResearch|generateInfiltration)"/.test(o),
+    check: (o, key) =>
+      // Chases own the bare "generate"; everything else is generate<Key>.
+      has(o, key === 'chase' ? 'generate' : `generate${key[0].toUpperCase()}${key.slice(1)}`),
   },
   { name: 'Import an event', check: (o) => has(o, 'importEvent') },
 ];
@@ -193,13 +202,16 @@ function listView(key) {
     selectedInfluence: null,
     selectedResearch: null,
     selectedInfiltration: null,
+    selectedLeadership: null,
   });
 }
 
 /** Render with an emptied roster, for capabilities that only show there. */
 function emptyRosterView(key) {
   const ctx = CONTEXTS[key](true);
-  const detail = ctx.selected ?? ctx.selectedInfluence ?? ctx.selectedResearch ?? ctx.selectedInfiltration;
+  const detail =
+    ctx.selected ?? ctx.selectedInfluence ?? ctx.selectedResearch ?? ctx.selectedInfiltration ??
+    ctx.selectedLeadership;
   const emptied = { ...detail, participants: [] };
   return view({
     ...ctx,
@@ -207,6 +219,7 @@ function emptyRosterView(key) {
     ...(ctx.selectedInfluence ? { selectedInfluence: emptied } : {}),
     ...(ctx.selectedResearch ? { selectedResearch: emptied } : {}),
     ...(ctx.selectedInfiltration ? { selectedInfiltration: emptied } : {}),
+    ...(ctx.selectedLeadership ? { selectedLeadership: emptied } : {}),
   });
 }
 
@@ -225,7 +238,7 @@ for (const capability of CAPABILITIES) {
       continue;
     }
     const out = capability.emptyRoster ? emptyViews[key] : gmViews[key];
-    const ok = capability.check(out);
+    const ok = capability.check(out, key);
     cells[key] = ok ? 'yes' : 'NO';
     if (!ok) {
       failed = 1;
@@ -240,7 +253,7 @@ const listViews = Object.fromEntries(SUBSYSTEMS.map((k) => [k, listView(k)]));
 for (const capability of LIST_CAPABILITIES) {
   const cells = {};
   for (const key of SUBSYSTEMS) {
-    const ok = capability.check(listViews[key]);
+    const ok = capability.check(listViews[key], key);
     cells[key] = ok ? 'yes' : 'NO';
     if (!ok) {
       failed = 1;
@@ -281,6 +294,9 @@ const GM_ONLY = [
   'setActiveObstacle', 'addBranch', 'generateBranch', 'regenerateObstacle',
   'generateImage', 'clearImage', 'editStats', 'generate', 'generateInfluence',
   'generateResearch', 'generateInfiltration', 'importEvent',
+  'generateLeadership', 'orgLevelDelta', 'toggleLeadershipReveal', 'toggleEventResolved',
+  'addLieutenant', 'editLieutenant', 'deleteLieutenant', 'addLeadershipEvent',
+  'generateLeadershipEvent', 'editLeadershipEvent', 'deleteLeadershipEvent',
 ];
 
 for (const key of SUBSYSTEMS) {
@@ -305,12 +321,20 @@ for (const key of SUBSYSTEMS) {
 
 // --- report ------------------------------------------------------------
 const width = Math.max(...rows.map((r) => r.name.length));
+// Waivers must be readable, not just counted.
+const waivers = CAPABILITIES.flatMap((c) =>
+  Object.entries(c.waived ?? {}).map(([key, why]) => `  ${key}: ${c.name} — ${why}`),
+);
 console.log('');
-console.log(`${'CAPABILITY'.padEnd(width)}  ${SUBSYSTEMS.map((s) => s.padEnd(12)).join('')}`);
-console.log('-'.repeat(width + 2 + SUBSYSTEMS.length * 12));
+console.log(`${'CAPABILITY'.padEnd(width)}  ${SUBSYSTEMS.map((s) => s.padEnd(14)).join('')}`);
+console.log('-'.repeat(width + 2 + SUBSYSTEMS.length * 14));
 for (const row of rows) {
-  const cells = SUBSYSTEMS.map((s) => (row[s] === 'NO' ? 'NO  <<<' : row[s]).padEnd(12)).join('');
+  const cells = SUBSYSTEMS.map((s) => (row[s] === 'NO' ? 'NO  <<<' : row[s]).padEnd(14)).join('');
   console.log(`${row.name.padEnd(width)}  ${cells}`);
+}
+if (waivers.length) {
+  console.log('Deliberately not applicable:');
+  for (const line of waivers) console.log(line);
 }
 console.log('');
 console.log(

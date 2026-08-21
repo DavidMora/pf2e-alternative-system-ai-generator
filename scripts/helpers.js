@@ -1,4 +1,10 @@
-import { DC_ADJUSTMENTS, LEVEL_DCS, MODULE_ID, SETTINGS } from './constants.js';
+import {
+  DC_ADJUSTMENTS,
+  LEVEL_DCS,
+  MODULE_ID,
+  ORGANIZATION_TABLE,
+  SETTINGS,
+} from './constants.js';
 
 /** Current chases as a plain, safely-mutable object. */
 export function getChases() {
@@ -96,6 +102,34 @@ export async function deleteInfiltration(id) {
   const infiltrations = getInfiltrations();
   delete infiltrations.events[id];
   await setInfiltrations({ events: { ...infiltrations.events } });
+}
+
+/** Current leadership organizations as a plain, safely-mutable object. */
+export function getLeaderships() {
+  return game.settings.get(MODULE_ID, SETTINGS.leaderships).toObject();
+}
+
+export async function setLeaderships(leaderships) {
+  return game.settings.set(MODULE_ID, SETTINGS.leaderships, leaderships);
+}
+
+export function getLeadership(id) {
+  return getLeaderships().events[id] ?? null;
+}
+
+export async function updateLeadership(id, mutate) {
+  const leaderships = getLeaderships();
+  const event = leaderships.events[id];
+  if (!event) return null;
+  mutate(event);
+  await setLeaderships(leaderships);
+  return event;
+}
+
+export async function deleteLeadership(id) {
+  const leaderships = getLeaderships();
+  delete leaderships.events[id];
+  await setLeaderships({ events: { ...leaderships.events } });
 }
 
 /** Read a single chase as a plain object, or null. */
@@ -419,6 +453,12 @@ export function awarenessForDegree(degree) {
     default:
       return 0;
   }
+}
+
+/** The published size row for an organization level, clamped to the table. */
+export function organizationSize(level) {
+  const index = Math.clamp(Math.round(level ?? 1) - 1, 0, ORGANIZATION_TABLE.length - 1);
+  return { level: index + 1, ...ORGANIZATION_TABLE[index] };
 }
 
 /** Suggested base DC for the active party, used to pre-fill the dialog. */

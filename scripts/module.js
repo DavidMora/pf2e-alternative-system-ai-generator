@@ -7,6 +7,7 @@ import { generateChase } from './ai/chase.js';
 import { registerSocket } from './socket.js';
 import {
   applyInfiltrationResult,
+  applyLeadershipResult,
   applyInfluenceResult,
   applyPassResult,
   applyResearchResult,
@@ -41,6 +42,7 @@ async function registerPartials() {
     pfaiInfluenceTraits: `modules/${MODULE_ID}/templates/partials/influence-traits.hbs`,
     pfaiResearchDetail: `modules/${MODULE_ID}/templates/partials/research-detail.hbs`,
     pfaiInfiltrationDetail: `modules/${MODULE_ID}/templates/partials/infiltration-detail.hbs`,
+    pfaiLeadershipDetail: `modules/${MODULE_ID}/templates/partials/leadership-detail.hbs`,
   });
 }
 
@@ -66,6 +68,7 @@ Hooks.once('ready', async () => {
     onApplyInfluence: (data) => applyInfluenceResult(data),
     onApplyResearch: (data) => applyResearchResult(data),
     onApplyInfiltration: (data) => applyInfiltrationResult(data),
+    onApplyLeadership: (data) => applyLeadershipResult(data),
   });
 });
 

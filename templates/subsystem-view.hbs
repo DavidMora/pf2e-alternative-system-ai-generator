@@ -17,11 +17,55 @@
           data-action="switchSubsystem" data-subsystem="infiltration">
     <i class="fa-solid fa-user-secret"></i> {{localize 'PFAI.Infiltration.Tab'}}
   </button>
+  <button type="button" class="pfai-tab {{#if isLeadershipTab}}is-active{{/if}}"
+          data-action="switchSubsystem" data-subsystem="leadership">
+    <i class="fa-solid fa-flag"></i> {{localize 'PFAI.Leadership.Tab'}}
+  </button>
 </nav>
 
-{{#if isInfiltrationTab}}
+{{#if isLeadershipTab}}
 
-  {{#if selectedInfiltration}}
+  {{#if selectedLeadership}}
+    {{> pfaiLeadershipDetail}}
+  {{else}}
+    <header class="pfai-list-header">
+      <h2>{{localize 'PFAI.Leadership.Tab'}}</h2>
+      {{#if isGM}}
+        <div class="pfai-header-actions">
+          <button type="button" class="pfai-primary" data-action="generateLeadership">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
+          </button>
+          <button type="button" data-action="importEvent">
+            <i class="fa-solid fa-file-import"></i> {{localize 'PFAI.View.Import'}}
+          </button>
+        </div>
+      {{/if}}
+    </header>
+
+    <div class="pfai-list">
+      {{#each leaderships as |event|}}
+        <article class="pfai-card {{#if event.hidden}}is-hidden{{/if}}"
+                 data-action="openLeadership" data-leadership-id="{{event.id}}">
+          <h3>
+            {{event.name}}
+            {{#if event.ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
+          </h3>
+          <div class="pfai-card-meta">
+            {{#if event.kind}}<span>{{event.kind}}</span>{{/if}}
+            <span>{{localize 'PFAI.Leadership.LevelAbbr'}}{{event.organizationLevel}}</span>
+            {{#if event.eventCount}}<span>{{event.eventCount}} {{localize 'PFAI.Leadership.PendingShort'}}</span>{{/if}}
+            {{#if event.hidden}}<span class="pfai-flag">{{localize 'PFAI.Chase.HiddenFlag'}}</span>{{/if}}
+          </div>
+        </article>
+      {{else}}
+        <p class="pfai-empty">{{localize 'PFAI.Leadership.NoOrganizations'}}</p>
+      {{/each}}
+    </div>
+  {{/if}}
+
+{{else if isInfiltrationTab}}
+
+{{#if selectedInfiltration}}
     {{> pfaiInfiltrationDetail}}
   {{else}}
     <header class="pfai-list-header">
