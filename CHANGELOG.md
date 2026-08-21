@@ -4,6 +4,12 @@
 
 First release.
 
+Tested on Foundry 13.351 with pf2e 7.12.2 and on Foundry 14.367 with pf2e
+8.4.1: the module loads on both, and the PF2e roll API it depends on -
+`actor.getStatistic(slug).roll({dc})` returning a `CheckRoll` with an integer
+`degreeOfSuccess` - is unchanged between them. No deprecation warnings on
+either.
+
 ### Security
 
 - **The OpenAI API key is no longer stored in the world.** It was a world

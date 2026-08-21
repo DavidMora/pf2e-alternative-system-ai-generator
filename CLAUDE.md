@@ -113,6 +113,10 @@ the case.
 
 ## Foundry gotchas, verified in a live v13.351 world
 
+Also re-checked on 14.367 with pf2e 8.4.1, which runs from `.local/app14` on
+port 30001. Everything below still held; nothing in the module produced a
+deprecation warning on either version.
+
 - `ApplicationV2` has **no** drag-drop support: no `dragDrop` option, no
   callbacks. Wire listeners by hand in `_onRender`. `dragleave` fires for child
   elements, so count nesting depth.
@@ -143,8 +147,12 @@ the case.
 module symlinked in. If the server stops:
 
 ```
-node .local/app/main.js --dataPath=.local/data --port=30000 --noupnp
+node .local/app/main.js --dataPath=.local/data --port=30000 --noupnp     # v13
+node .local/app14/main.js --dataPath=.local/data14 --port=30001 --noupnp # v14
 ```
+
+Both installs are gitignored. The v14 one exists so a release can claim v14
+support having actually run there, rather than by hoping.
 
 Then relaunch the world from the setup screen. Never commit `.local/`.
 
