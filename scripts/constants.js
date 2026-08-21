@@ -5,6 +5,7 @@ export const SETTINGS = {
   chases: 'chases',
   influences: 'influences',
   researches: 'researches',
+  infiltrations: 'infiltrations',
   apiKey: 'openaiApiKey',
   model: 'openaiModel',
   modelOverride: 'openaiModelOverride',

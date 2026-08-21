@@ -450,6 +450,51 @@ unlock point so the work opens up as it advances. Participants roll from their
 row, drag in from the sidebar, and carry a contribution tally. The header has the
 same six operations as the other subsystems.
 
+## Infiltration
+
+The fourth subsystem. [Rules](https://2e.aonprd.com/Rules.aspx?ID=3059).
+
+### Awareness is the clock
+
+This is what makes Infiltration different from the other three. A failed check
+costs no progress — it costs **secrecy**:
+
+| | Infiltration points | Awareness |
+|---|---|---|
+| Critical success | +2 | — |
+| Success | +1 | — |
+| Failure | 0 | **+1** |
+| Critical failure | 0 | **+2** |
+| End of every round | — | **+1** |
+
+Awareness breakpoints fire for good once passed and usually raise every DC. Only
+the **highest** one passed applies, not the sum. The status bar shows the current
+total against the next breakpoint, so you always know how much rope is left.
+
+### Complications take over
+
+A fired complication stops everything. The view shows a banner, the panel turns
+red, and the roll picker offers **only** that complication's checks until it is
+dealt with — a roll against anything else is refused. They fire at an awareness
+total, after so many rounds, or when you call for it.
+
+### Edge points
+
+Earned from **preparations** before the job — bribe a lamplighter, forge a writ.
+Mark one with `+` when it succeeds to award the point. Spending one treats the
+selected check as a success **and takes back the awareness that failure drew**,
+which is what "as if they had succeeded" has to mean here.
+
+### Objectives, obstacles, opportunities
+
+Objectives are the stages: get inside, reach the room, get out. Each holds
+obstacles needing infiltration points. An obstacle can be **individual** — every
+character must get past it themselves, and the tally counts people through
+rather than points scored.
+
+Opportunities are optional risks paying off in something other than progress, and
+never block anything.
+
 ## Fidelity to the published rules
 
 Checked against [Chases (GM Core)](https://2e.aonprd.com/Rules.aspx?ID=3049).
@@ -499,8 +544,10 @@ scripts/
   ai/chase.js                  chase + obstacles-only schemas, prompts, mapping
   ai/influence.js              influence schema, prompt, mapping
   ai/research.js               research schema, prompt, mapping
+  ai/infiltration.js           infiltration schema, prompt, mapping
   data/influence.js            Influence / Influences DataModels
   data/research.js             Research / Researches DataModels
+  data/infiltration.js         Infiltration / Infiltrations DataModels
   subsystems.js                registry: storage + shared GM operations
   apps/subsystem-view.js       the GM/player window
   apps/generate-chase-dialog.js the generation form

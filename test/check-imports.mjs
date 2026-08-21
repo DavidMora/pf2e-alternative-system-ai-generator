@@ -99,10 +99,20 @@ const exportedBy = new Map();
 for (const [file, names] of exportCache) {
   for (const name of names) if (!exportedBy.has(name)) exportedBy.set(name, file);
 }
+/** Strip comments and string literals: prose is not a use of a binding. */
+function codeOnly(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\/\/[^\n]*/g, ' ')
+    .replace(/`(?:[^`\\]|\\.)*`/g, '``')
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""');
+}
+
 for (const file of files) {
-  const source = readFileSync(file, 'utf8');
+  const source = codeOnly(readFileSync(file, 'utf8'));
   const imported = new Set(
-    importsOf(source).flatMap(({ names }) => names),
+    importsOf(readFileSync(file, 'utf8')).flatMap(({ names }) => names),
   );
   // Anything declared locally is obviously not a missing import.
   const declared = new Set([

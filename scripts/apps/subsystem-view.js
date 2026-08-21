@@ -3,14 +3,19 @@ import {
   capitalize,
   deleteChase,
   deleteInfluence,
+  deleteInfiltration,
   deleteResearch,
   enrich,
   getInfluence,
   getInfluences,
+  getInfiltration,
+  getInfiltrations,
   getResearch,
   getResearches,
   setInfluences,
+  setInfiltrations,
   setResearches,
+  updateInfiltration,
   updateResearch,
   updateInfluence,
   escapeHTML,
@@ -34,9 +39,11 @@ import {
 import { GenerateChaseDialog } from './generate-chase-dialog.js';
 import { GenerateInfluenceDialog } from './generate-influence-dialog.js';
 import { GenerateResearchDialog } from './generate-research-dialog.js';
+import { GenerateInfiltrationDialog } from './generate-infiltration-dialog.js';
 import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
 import { generateApproach, toApproachEntry } from '../ai/influence.js';
 import { generateSource, toCheckEntry, toSourceEntry } from '../ai/research.js';
+import { generateObstacle as generateInfiltrationObstacle, toObstacleEntry as toInfiltrationObstacle } from '../ai/infiltration.js';
 import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowEvent } from '../socket.js';
 import { eventTarget, exportPayload, importPayload, subsystem } from '../subsystems.js';
@@ -44,13 +51,17 @@ import {
   adjustContribution,
   adjustInfluenceContribution,
   adjustResearchContribution,
+  advanceInfiltration,
   advanceResearch,
+  announceInfiltrationProgress,
   announceResearchProgress,
   passTurn,
   revealByProgress,
   rollChaseCheck,
   rollInfluenceCheck,
+  rollInfiltrationCheck,
   rollResearchCheck,
+  spendEdgePoint,
 } from '../rolls.js';
 import { activeModel, hasApiKey } from '../ai/openai.js';
 
@@ -93,6 +104,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Selected research event. */
   #selectedResearchId = null;
 
+  /** Selected infiltration. */
+  #selectedInfiltrationId = null;
+
   static DEFAULT_OPTIONS = {
     id: 'pfai-subsystem-view',
     classes: ['pfai', 'pfai-view'],
@@ -107,6 +121,29 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       switchSubsystem: SubsystemView.#onSwitchSubsystem,
       generateInfluence: SubsystemView.#onGenerateInfluence,
       generateResearch: SubsystemView.#onGenerateResearch,
+      generateInfiltration: SubsystemView.#onGenerateInfiltration,
+      openInfiltration: SubsystemView.#onOpenInfiltration,
+      backInfiltration: SubsystemView.#onBackInfiltration,
+      deleteInfiltration: SubsystemView.#onDeleteInfiltration,
+      awarenessDelta: SubsystemView.#onAwarenessDelta,
+      edgeDelta: SubsystemView.#onEdgeDelta,
+      infiltrationRoundDelta: SubsystemView.#onInfiltrationRoundDelta,
+      infiltrationNextRound: SubsystemView.#onInfiltrationNextRound,
+      rollInfiltration: SubsystemView.#onRollInfiltration,
+      spendEdge: SubsystemView.#onSpendEdge,
+      toggleInfiltrationReveal: SubsystemView.#onToggleInfiltrationReveal,
+      toggleComplicationResolved: SubsystemView.#onToggleComplicationResolved,
+      togglePreparationUsed: SubsystemView.#onTogglePreparationUsed,
+      addObjective: SubsystemView.#onAddObjective,
+      editObjective: SubsystemView.#onEditObjective,
+      deleteObjective: SubsystemView.#onDeleteObjective,
+      addInfiltrationObstacle: SubsystemView.#onAddInfiltrationObstacle,
+      generateInfiltrationObstacle: SubsystemView.#onGenerateInfiltrationObstacle,
+      editInfiltrationObstacle: SubsystemView.#onEditInfiltrationObstacle,
+      deleteInfiltrationObstacle: SubsystemView.#onDeleteInfiltrationObstacle,
+      addBreakpoint: SubsystemView.#onAddBreakpoint,
+      editBreakpoint: SubsystemView.#onEditBreakpoint,
+      deleteBreakpoint: SubsystemView.#onDeleteBreakpoint,
       openResearch: SubsystemView.#onOpenResearch,
       backResearch: SubsystemView.#onBackResearch,
       deleteResearch: SubsystemView.#onDeleteResearch,
@@ -222,6 +259,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       case 'research':
         this.#selectedResearchId = eventId;
         break;
+      case 'infiltration':
+        this.#selectedInfiltrationId = eventId;
+        break;
       case 'chase':
         this.#selectedId = eventId;
         // Start on the active obstacle, not wherever this user last browsed.
@@ -275,6 +315,19 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const selectedInfluence =
       selectedInfluenceRaw && (isGM || !selectedInfluenceRaw.hidden) ? selectedInfluenceRaw : null;
 
+    const infiltrations = getInfiltrations().events;
+    const visibleInfiltrations = Object.values(infiltrations)
+      .filter((event) => isGM || !event.hidden)
+      .sort((a, b) => a.position - b.position);
+    const selectedInfiltrationRaw = this.#selectedInfiltrationId
+      ? infiltrations[this.#selectedInfiltrationId]
+      : null;
+    if (!selectedInfiltrationRaw) this.#selectedInfiltrationId = null;
+    const selectedInfiltration =
+      selectedInfiltrationRaw && (isGM || !selectedInfiltrationRaw.hidden)
+        ? selectedInfiltrationRaw
+        : null;
+
     const researches = getResearches().events;
     const visibleResearches = Object.values(researches)
       .filter((event) => isGM || !event.hidden)
@@ -291,6 +344,14 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       isChaseTab: this.#subsystem === 'chase',
       isInfluenceTab: this.#subsystem === 'influence',
       isResearchTab: this.#subsystem === 'research',
+      isInfiltrationTab: this.#subsystem === 'infiltration',
+      infiltrations: visibleInfiltrations.map((event) => ({
+        ...event,
+        objectiveCount: Object.keys(event.objectives).length,
+      })),
+      selectedInfiltration: selectedInfiltration
+        ? await this.#prepareInfiltration(selectedInfiltration, isGM)
+        : null,
       researches: visibleResearches.map((event) => ({
         ...event,
         sourceCount: Object.keys(event.sources).length,
@@ -740,6 +801,191 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
             sources: Object.values(event.sources).filter((e) => e.hidden).length,
             thresholds: Object.values(event.thresholds).filter((e) => e.hidden).length,
             events: Object.values(event.events).filter((e) => e.hidden).length,
+          }
+        : null,
+    };
+  }
+
+  /** Shape one infiltration for display. */
+  async #prepareInfiltration(event, isGM) {
+    const visible = (record) =>
+      Object.values(record ?? {})
+        .filter((entry) => isGM || !entry.hidden)
+        .sort((a, b) => a.position - b.position);
+
+    // Only the highest breakpoint passed applies, not the sum of them.
+    const modifier = Object.values(event.awarenessBreakpoints ?? {}).reduce(
+      (acc, b) => (b.fired ? Math.max(acc, b.dcIncrease) : acc),
+      0,
+    );
+
+    const prepChecks = (checks) =>
+      visible(checks).map((check) => ({ ...check, effectiveDC: check.dc + modifier }));
+
+    const objectives = await Promise.all(
+      visible(event.objectives).map(async (objective) => {
+        const obstacles = await Promise.all(
+          visible(objective.obstacles).map(async (obstacle) => {
+            const goal = obstacle.infiltrationPoints.goal;
+            const cleared = obstacle.individual
+              ? obstacle.infiltrationPoints.current >= Object.keys(event.participants).length &&
+                Object.keys(event.participants).length > 0
+              : obstacle.infiltrationPoints.current >= goal;
+            return {
+              ...obstacle,
+              cleared,
+              // An individual obstacle counts people through, not points.
+              progressLabel: obstacle.individual
+                ? game.i18n.format('PFAI.Infiltration.ThroughCount', {
+                    done: obstacle.infiltrationPoints.current,
+                    total: Object.keys(event.participants).length || '?',
+                  })
+                : `${obstacle.infiltrationPoints.current} / ${goal}`,
+              percent: goal
+                ? Math.min(100, Math.round((obstacle.infiltrationPoints.current / goal) * 100))
+                : 0,
+              enrichedDescription: await enrich(obstacle.description),
+              checks: prepChecks(obstacle.checks),
+            };
+          }),
+        );
+        return {
+          ...objective,
+          obstacles,
+          enrichedDescription: await enrich(objective.description),
+          complete: obstacles.length > 0 && obstacles.every((o) => o.cleared),
+        };
+      }),
+    );
+
+    const complications = await Promise.all(
+      visible(event.complications).map(async (complication) => ({
+        ...complication,
+        enrichedDescription: await enrich(complication.description),
+        checks: prepChecks(complication.checks),
+        triggerLabel: game.i18n.format(
+          complication.trigger.kind === 'rounds'
+            ? 'PFAI.Infiltration.TriggerRounds'
+            : complication.trigger.kind === 'manual'
+              ? 'PFAI.Infiltration.TriggerManual'
+              : 'PFAI.Infiltration.TriggerAwareness',
+          { at: complication.trigger.at },
+        ),
+      })),
+    );
+
+    const opportunities = await Promise.all(
+      visible(event.opportunities).map(async (opportunity) => ({
+        ...opportunity,
+        enrichedDescription: await enrich(opportunity.description),
+        enrichedBenefit: await enrich(opportunity.benefit),
+        checks: prepChecks(opportunity.checks),
+      })),
+    );
+
+    const preparations = await Promise.all(
+      visible(event.preparations).map(async (preparation) => ({
+        ...preparation,
+        enrichedDescription: await enrich(preparation.description),
+      })),
+    );
+
+    const breakpoints = await Promise.all(
+      visible(event.awarenessBreakpoints)
+        .sort((a, b) => a.at - b.at)
+        .map(async (breakpoint) => ({
+          ...breakpoint,
+          passed: event.awareness.current >= breakpoint.at,
+          enrichedDescription: await enrich(breakpoint.description),
+        })),
+    );
+
+    // A fired complication blocks everything else, so it owns the picker.
+    const blocking = complications.filter((c) => c.fired && !c.resolved);
+    const rollOptions = blocking.length
+      ? blocking.flatMap((complication) =>
+          complication.checks.map((check) => ({
+            value: `complication|${complication.id}||${check.id}`,
+            label: `${complication.name}: ${check.label}`,
+            dc: check.effectiveDC,
+          })),
+        )
+      : [
+          ...objectives.flatMap((objective) =>
+            objective.obstacles
+              .filter((obstacle) => !obstacle.hidden && !obstacle.cleared)
+              .flatMap((obstacle) =>
+                obstacle.checks.map((check) => ({
+                  value: `obstacle|${obstacle.id}|${objective.id}|${check.id}`,
+                  label: `${obstacle.name}: ${check.label}`,
+                  dc: check.effectiveDC,
+                })),
+              ),
+          ),
+          ...opportunities
+            .filter((opportunity) => !opportunity.hidden && !opportunity.used)
+            .flatMap((opportunity) =>
+              opportunity.checks.map((check) => ({
+                value: `opportunity|${opportunity.id}||${check.id}`,
+                label: `${game.i18n.localize('PFAI.Infiltration.OpportunityPrefix')} ${opportunity.name}: ${check.label}`,
+                dc: check.effectiveDC,
+              })),
+            ),
+        ];
+
+    const participants = Object.values(event.participants)
+      .filter((p) => isGM || !p.hidden)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((participant) => {
+        const actor = participant.uuid ? fromUuidSync(participant.uuid) : null;
+        const owned = Boolean(actor?.isOwner);
+        const contribution = participant.contribution ?? {};
+        return {
+          ...participant,
+          owned,
+          noActor: !participant.uuid,
+          missingActor: Boolean(participant.uuid) && !actor,
+          canRoll: rollOptions.length > 0 && (isGM ? Boolean(actor) : owned && !participant.hasActed),
+          isReroll: isGM && participant.hasActed,
+          canAward: isGM,
+          canSpendEdge: isGM && event.edgePoints > 0 && rollOptions.length > 0,
+          rollOptions,
+          contributedTotal: contribution.total ?? 0,
+          rollCount: contribution.rolls ?? 0,
+          successCount: contribution.successes ?? 0,
+          awarenessCaused: contribution.awarenessCaused ?? 0,
+          hasContributed: (contribution.rolls ?? 0) > 0,
+        };
+      });
+
+    const next = breakpoints.find((b) => !b.passed) ?? null;
+
+    return {
+      ...event,
+      dcModifier: modifier,
+      objectives,
+      complications,
+      opportunities,
+      preparations,
+      breakpoints,
+      nextBreakpoint: next,
+      blocking,
+      isBlocked: blocking.length > 0,
+      rollOptions,
+      participants,
+      enrichedPremise: await enrich(event.premise),
+      enrichedTarget: await enrich(event.target),
+      enrichedGoal: await enrich(event.goal),
+      enrichedGmNotes: isGM ? await enrich(event.gmNotes, { secrets: true }) : '',
+      outOfTime: event.rounds.max !== null && event.rounds.current >= event.rounds.max,
+      complete:
+        objectives.length > 0 && objectives.every((objective) => objective.complete),
+      hiddenCounts: isGM
+        ? {
+            objectives: Object.values(event.objectives).filter((e) => e.hidden).length,
+            complications: Object.values(event.complications).filter((e) => e.hidden).length,
+            opportunities: Object.values(event.opportunities).filter((e) => e.hidden).length,
+            breakpoints: Object.values(event.awarenessBreakpoints).filter((e) => e.hidden).length,
           }
         : null,
     };
@@ -1370,6 +1616,400 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const { [entryId]: _removed, ...remaining } = event.events;
     event.events = remaining;
     await setResearches(store);
+  }
+
+  static async #onAddObjective(_event, target) {
+    await updateInfiltration(target.dataset.infiltrationId, (event) => {
+      const id = foundry.utils.randomID();
+      event.objectives[id] = {
+        id,
+        position: nextPosition(event.objectives),
+        name: game.i18n.localize('PFAI.Infiltration.NewObjective'),
+        description: '',
+        hidden: true,
+        obstacles: {},
+      };
+    });
+  }
+
+  static async #onEditObjective(_event, target) {
+    const { infiltrationId, entryId } = target.dataset;
+    const event = getInfiltration(infiltrationId);
+    const objective = event?.objectives?.[entryId];
+    if (!objective) return;
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Infiltration.EditObjective') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Infiltration.ObjectiveName')}</span>
+          <input type="text" name="name" value="${escapeHTML(objective.name)}"></label>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Infiltration.WhatStageIsThis')}</span>
+          <textarea name="description" rows="3">${escapeHTML(objective.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, b) => formValues(b) },
+    });
+    if (!result) return;
+    await updateInfiltration(infiltrationId, (draft) => {
+      const edited = draft.objectives[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.description = String(result.description ?? '');
+    });
+  }
+
+  static async #onDeleteObjective(_event, target) {
+    const { infiltrationId, entryId } = target.dataset;
+    const store = getInfiltrations();
+    const event = store.events[infiltrationId];
+    if (!event) return;
+    const { [entryId]: _removed, ...remaining } = event.objectives;
+    event.objectives = remaining;
+    await setInfiltrations(store);
+  }
+
+  static async #onAddInfiltrationObstacle(_event, target) {
+    const { infiltrationId, objectiveId } = target.dataset;
+    await updateInfiltration(infiltrationId, (event) => {
+      const objective = event.objectives[objectiveId];
+      if (!objective) return;
+      const id = foundry.utils.randomID();
+      objective.obstacles[id] = {
+        id,
+        position: nextPosition(objective.obstacles),
+        name: game.i18n.localize('PFAI.Chase.NewObstacle'),
+        description: '',
+        hidden: false,
+        revealAt: null,
+        individual: false,
+        infiltrationPoints: { current: 0, goal: 2 },
+        individualPoints: {},
+        checks: {},
+      };
+    });
+  }
+
+  static async #onGenerateInfiltrationObstacle(_event, target) {
+    if (this.#generatingObstacle) return;
+    const { infiltrationId, objectiveId } = target.dataset;
+    const event = getInfiltration(infiltrationId);
+    const objective = event?.objectives?.[objectiveId];
+    if (!objective) return;
+    if (!hasApiKey()) {
+      ui.notifications.error(game.i18n.localize('PFAI.Errors.NoApiKey'));
+      return;
+    }
+
+    this.#generatingObstacle = true;
+    await this.render();
+    try {
+      const obstacle = await generateInfiltrationObstacle({
+        premise: htmlToText(event.premise),
+        target: htmlToText(event.target),
+        goal: htmlToText(event.goal),
+        baseDC: event.baseDC,
+        level: event.level,
+        partySize: event.partySize,
+        roundLimit: event.rounds?.max ?? 0,
+        language: game.settings.get(MODULE_ID, 'outputLanguage')?.trim() || game.i18n.lang,
+        objectiveName: objective.name,
+        existingNames: Object.values(objective.obstacles).map((o) => o.name),
+        becauseOf: event.awareness.current > 0
+          ? game.i18n.format('PFAI.Infiltration.BecauseAwareness', { awareness: event.awareness.current })
+          : '',
+      });
+
+      await updateInfiltration(infiltrationId, (draft) => {
+        const target = draft.objectives[objectiveId];
+        if (!target) return;
+        const entry = toInfiltrationObstacle(obstacle, draft.baseDC, {
+          position: nextPosition(target.obstacles),
+        });
+        target.obstacles[entry.id] = entry;
+      });
+      ui.notifications.info(game.i18n.format('PFAI.Infiltration.ObstacleAdded', { name: obstacle.name }));
+    } catch (error) {
+      console.error(`${MODULE_ID} | infiltration obstacle generation failed`, error);
+      ui.notifications.error(error.message, { permanent: true });
+    } finally {
+      this.#generatingObstacle = false;
+      await this.render();
+    }
+  }
+
+  static async #onEditInfiltrationObstacle(_event, target) {
+    const { infiltrationId, objectiveId, entryId } = target.dataset;
+    const event = getInfiltration(infiltrationId);
+    const obstacle = event?.objectives?.[objectiveId]?.obstacles?.[entryId];
+    if (!obstacle) return;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Chase.EditObstacle') },
+      position: { width: 580 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.ObstacleName')}</span>
+          <input type="text" name="name" value="${escapeHTML(obstacle.name)}"></label>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Infiltration.PointsNeeded')}</span>
+            <input type="number" name="goal" min="1" step="1" value="${obstacle.infiltrationPoints.goal}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Infiltration.Progress')}</span>
+            <input type="number" name="current" min="0" step="1" value="${obstacle.infiltrationPoints.current}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Infiltration.Individual')}</span>
+            <select name="individual">
+              <option value="false" ${obstacle.individual ? '' : 'selected'}>${game.i18n.localize('PFAI.Infiltration.AsAParty')}</option>
+              <option value="true" ${obstacle.individual ? 'selected' : ''}>${game.i18n.localize('PFAI.Infiltration.EachAlone')}</option>
+            </select>
+            <small>${game.i18n.localize('PFAI.Info.IndividualObstacle')}</small></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.Overcome')}</span>
+          <textarea name="description" rows="4">${escapeHTML(obstacle.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, b) => formValues(b) },
+    });
+    if (!result) return;
+
+    await updateInfiltration(infiltrationId, (draft) => {
+      const edited = draft.objectives[objectiveId]?.obstacles?.[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.description = String(result.description ?? '');
+      edited.infiltrationPoints.goal = Math.max(1, Number(result.goal) || edited.infiltrationPoints.goal);
+      edited.infiltrationPoints.current = Math.max(0, Number(result.current) || 0);
+      edited.individual = result.individual === 'true' || result.individual === true;
+    });
+  }
+
+  static async #onDeleteInfiltrationObstacle(_event, target) {
+    const { infiltrationId, objectiveId, entryId } = target.dataset;
+    const store = getInfiltrations();
+    const objective = store.events[infiltrationId]?.objectives?.[objectiveId];
+    if (!objective) return;
+    const { [entryId]: _removed, ...remaining } = objective.obstacles;
+    objective.obstacles = remaining;
+    await setInfiltrations(store);
+  }
+
+  static async #onAddBreakpoint(_event, target) {
+    await updateInfiltration(target.dataset.infiltrationId, (event) => {
+      const id = foundry.utils.randomID();
+      const highest = Object.values(event.awarenessBreakpoints).reduce((max, b) => Math.max(max, b.at), 0);
+      event.awarenessBreakpoints[id] = {
+        id,
+        position: nextPosition(event.awarenessBreakpoints),
+        at: highest + 5,
+        name: game.i18n.localize('PFAI.Infiltration.NewBreakpoint'),
+        description: '',
+        dcIncrease: 1,
+        hidden: true,
+        fired: false,
+      };
+    });
+  }
+
+  static async #onEditBreakpoint(_event, target) {
+    const { infiltrationId, entryId } = target.dataset;
+    const event = getInfiltration(infiltrationId);
+    const breakpoint = event?.awarenessBreakpoints?.[entryId];
+    if (!breakpoint) return;
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Infiltration.EditBreakpoint') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <div class="pfai-field-row">
+          <label class="pfai-field pfai-field-wide"><span>${game.i18n.localize('PFAI.Infiltration.BreakpointName')}</span>
+            <input type="text" name="name" value="${escapeHTML(breakpoint.name)}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Infiltration.AtAwareness')}</span>
+            <input type="number" name="at" min="1" step="1" value="${breakpoint.at}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.DCShift')}</span>
+            <input type="number" name="dcIncrease" min="0" max="10" step="1" value="${breakpoint.dcIncrease}"></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Infiltration.WhatChanges')}</span>
+          <textarea name="description" rows="4">${escapeHTML(breakpoint.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, b) => formValues(b) },
+    });
+    if (!result) return;
+
+    await updateInfiltration(infiltrationId, (draft) => {
+      const edited = draft.awarenessBreakpoints[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.description = String(result.description ?? '');
+      edited.at = Math.max(1, Number(result.at) || edited.at);
+      edited.dcIncrease = Math.clamp(Number(result.dcIncrease) || 0, 0, 10);
+      // Lowering it under the current awareness means it has already bitten.
+      if (draft.awareness.current >= edited.at) {
+        edited.fired = true;
+        edited.hidden = false;
+      }
+    });
+  }
+
+  static async #onDeleteBreakpoint(_event, target) {
+    const { infiltrationId, entryId } = target.dataset;
+    const store = getInfiltrations();
+    const event = store.events[infiltrationId];
+    if (!event) return;
+    const { [entryId]: _removed, ...remaining } = event.awarenessBreakpoints;
+    event.awarenessBreakpoints = remaining;
+    await setInfiltrations(store);
+  }
+
+  static #onGenerateInfiltration() {
+    new GenerateInfiltrationDialog({
+      onGenerated: (id) => {
+        this.#subsystem = 'infiltration';
+        this.#selectedInfiltrationId = id;
+        this.render();
+      },
+    }).render({ force: true });
+  }
+
+  static #onOpenInfiltration(_event, target) {
+    this.#selectedInfiltrationId = target.dataset.infiltrationId;
+    this.render();
+  }
+
+  static #onBackInfiltration() {
+    this.#selectedInfiltrationId = null;
+    this.render();
+  }
+
+  static async #onDeleteInfiltration(_event, target) {
+    const event = getInfiltration(target.dataset.infiltrationId);
+    if (!event) return;
+    const confirmed = await DialogV2.confirm({
+      window: { title: game.i18n.localize('PFAI.Infiltration.DeleteTitle') },
+      content: `<p>${game.i18n.format('PFAI.Infiltration.DeleteConfirm', { name: event.name })}</p>`,
+    });
+    if (!confirmed) return;
+    if (this.#selectedInfiltrationId === event.id) this.#selectedInfiltrationId = null;
+    await deleteInfiltration(event.id);
+  }
+
+  static async #onAwarenessDelta(_event, target) {
+    const delta = Number(target.dataset.delta);
+    let summary = null;
+    await updateInfiltration(target.dataset.infiltrationId, (event) => {
+      event.awareness.current = Math.max(0, event.awareness.current + delta);
+      summary = advanceInfiltration(event);
+    });
+    if (summary) announceInfiltrationProgress(summary);
+  }
+
+  static async #onEdgeDelta(_event, target) {
+    const delta = Number(target.dataset.delta);
+    await updateInfiltration(target.dataset.infiltrationId, (event) => {
+      event.edgePoints = Math.max(0, event.edgePoints + delta);
+    });
+  }
+
+  static async #onInfiltrationRoundDelta(_event, target) {
+    const delta = Number(target.dataset.delta);
+    let summary = null;
+    await updateInfiltration(target.dataset.infiltrationId, (event) => {
+      event.rounds.current = Math.max(0, event.rounds.current + delta);
+      summary = advanceInfiltration(event);
+    });
+    if (summary) announceInfiltrationProgress(summary);
+  }
+
+  /** Advancing a round is what makes awareness climb on its own. */
+  static async #onInfiltrationNextRound(_event, target) {
+    let gained = 0;
+    let summary = null;
+    await updateInfiltration(target.dataset.infiltrationId, (event) => {
+      event.rounds.current += 1;
+      gained = event.awareness.perRound ?? 0;
+      event.awareness.current = Math.max(0, event.awareness.current + gained);
+      for (const participant of Object.values(event.participants)) participant.hasActed = false;
+      summary = advanceInfiltration(event);
+    });
+    if (gained) {
+      ui.notifications.info(game.i18n.format('PFAI.Infiltration.RoundAwareness', { gained }));
+    }
+    if (summary) announceInfiltrationProgress(summary);
+  }
+
+  static async #onRollInfiltration(_event, target) {
+    const { infiltrationId, participantId } = target.dataset;
+    const row = target.closest('.pfai-participant');
+    const select = row?.querySelector('.pfai-roll-option');
+    if (!select?.value) return;
+    // The option encodes where the check lives: kind, owner, objective, check.
+    const [kind, ownerId, objectiveId, checkId] = select.value.split('|');
+    await rollInfiltrationCheck({
+      infiltrationId,
+      participantId,
+      kind,
+      ownerId,
+      objectiveId: objectiveId || undefined,
+      checkId,
+      force: game.user.isGM,
+    });
+  }
+
+  static async #onSpendEdge(_event, target) {
+    const { infiltrationId, participantId } = target.dataset;
+    const row = target.closest('.pfai-participant');
+    const select = row?.querySelector('.pfai-roll-option');
+    if (!select?.value) return;
+    const [kind, ownerId, objectiveId] = select.value.split('|');
+    await spendEdgePoint({
+      infiltrationId,
+      participantId,
+      kind,
+      ownerId,
+      objectiveId: objectiveId || undefined,
+    });
+  }
+
+  /** Reveal or re-hide an objective, obstacle, check, complication or the rest. */
+  static async #onToggleInfiltrationReveal(_event, target) {
+    const { infiltrationId, collection, entryId, objectiveId, ownerId, kind } = target.dataset;
+    await updateInfiltration(infiltrationId, (event) => {
+      let entry = null;
+      if (kind === 'check') {
+        const owner = objectiveId
+          ? event.objectives?.[objectiveId]?.obstacles?.[ownerId]
+          : event[collection]?.[ownerId];
+        entry = owner?.checks?.[entryId];
+      } else if (kind === 'obstacle') {
+        entry = event.objectives?.[objectiveId]?.obstacles?.[entryId];
+      } else {
+        entry = event[collection]?.[entryId];
+      }
+      if (entry) entry.hidden = !entry.hidden;
+    });
+  }
+
+  static async #onToggleComplicationResolved(_event, target) {
+    const { infiltrationId, entryId } = target.dataset;
+    await updateInfiltration(infiltrationId, (event) => {
+      const complication = event.complications?.[entryId];
+      if (!complication) return;
+      complication.resolved = !complication.resolved;
+      // Resolving something the party never saw fire makes no sense.
+      if (complication.resolved) {
+        complication.fired = true;
+        complication.hidden = false;
+      }
+    });
+  }
+
+  /** Mark a preparation attempted, and award the edge point it earns. */
+  static async #onTogglePreparationUsed(_event, target) {
+    const { infiltrationId, entryId, award } = target.dataset;
+    await updateInfiltration(infiltrationId, (event) => {
+      const preparation = event.preparations?.[entryId];
+      if (!preparation) return;
+      const wasUsed = preparation.used;
+      preparation.used = !wasUsed;
+      if (award === 'true') {
+        // Earning it on the way in, giving it back on the way out.
+        event.edgePoints = Math.max(0, event.edgePoints + (wasUsed ? -1 : 1));
+      }
+    });
   }
 
   static #onGenerateResearch() {

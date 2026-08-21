@@ -6,6 +6,7 @@ import { GenerateImageDialog } from './apps/generate-image-dialog.js';
 import { generateChase } from './ai/chase.js';
 import { registerSocket } from './socket.js';
 import {
+  applyInfiltrationResult,
   applyInfluenceResult,
   applyPassResult,
   applyResearchResult,
@@ -39,6 +40,7 @@ async function registerPartials() {
     pfaiInfluenceChecks: `modules/${MODULE_ID}/templates/partials/influence-checks.hbs`,
     pfaiInfluenceTraits: `modules/${MODULE_ID}/templates/partials/influence-traits.hbs`,
     pfaiResearchDetail: `modules/${MODULE_ID}/templates/partials/research-detail.hbs`,
+    pfaiInfiltrationDetail: `modules/${MODULE_ID}/templates/partials/infiltration-detail.hbs`,
   });
 }
 
@@ -63,6 +65,7 @@ Hooks.once('ready', async () => {
     onApplyPass: (data) => applyPassResult(data),
     onApplyInfluence: (data) => applyInfluenceResult(data),
     onApplyResearch: (data) => applyResearchResult(data),
+    onApplyInfiltration: (data) => applyInfiltrationResult(data),
   });
 });
 

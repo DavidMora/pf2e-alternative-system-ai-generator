@@ -1,14 +1,24 @@
 import { MODULE_ID } from './constants.js';
 import {
+  awarenessForDegree,
   chasePointsForDegree,
+  infiltrationPointsForDegree,
   getChase,
   getInfluence,
+  getInfiltration,
   getResearch,
   updateChase,
+  updateInfiltration,
   updateInfluence,
   updateResearch,
 } from './helpers.js';
-import { emitApplyInfluence, emitApplyPass, emitApplyResearch, emitApplyRoll } from './socket.js';
+import {
+  emitApplyInfiltration,
+  emitApplyInfluence,
+  emitApplyPass,
+  emitApplyResearch,
+  emitApplyRoll,
+} from './socket.js';
 
 /**
  * Roll a chase skill check and record the outcome.
@@ -796,5 +806,331 @@ export async function adjustResearchContribution({ researchId, participantId, so
     }),
   );
   announceResearchProgress(summary);
+  return summary;
+}
+
+
+/** Locate a check anywhere in an infiltration, and the thing that owns it. */
+export function findInfiltrationCheck(event, { kind, ownerId, objectiveId, checkId }) {
+  if (kind === 'obstacle') {
+    const objective = event.objectives?.[objectiveId];
+    const obstacle = objective?.obstacles?.[ownerId];
+    return obstacle ? { owner: obstacle, objective, check: obstacle.checks?.[checkId] } : null;
+  }
+  const collection = kind === 'complication' ? 'complications' : 'opportunities';
+  const owner = event[collection]?.[ownerId];
+  return owner ? { owner, check: owner.checks?.[checkId] } : null;
+}
+
+/**
+ * Roll an infiltration check.
+ *
+ * Unlike the other subsystems a failure costs no progress; it costs secrecy.
+ * Awareness is the clock here, so every fumble feeds it.
+ */
+export async function rollInfiltrationCheck({
+  infiltrationId,
+  participantId,
+  kind,
+  ownerId,
+  objectiveId,
+  checkId,
+  force = false,
+}) {
+  const event = getInfiltration(infiltrationId);
+  const participant = event?.participants?.[participantId];
+  const found = event ? findInfiltrationCheck(event, { kind, ownerId, objectiveId, checkId }) : null;
+  if (!event || !participant || !found?.check) return null;
+
+  const { owner, check } = found;
+  if (owner.hidden || check.hidden) {
+    ui.notifications.warn(game.i18n.format('PFAI.Infiltration.NotRevealed', { name: check.label }));
+    return null;
+  }
+
+  // A fired complication stops everything until it is dealt with.
+  const blocking = Object.values(event.complications ?? {}).filter((c) => c.fired && !c.resolved);
+  if (kind !== 'complication' && blocking.length) {
+    ui.notifications.warn(
+      game.i18n.format('PFAI.Infiltration.Blocked', { name: blocking[0].name }),
+    );
+    return null;
+  }
+
+  const override = force && game.user.isGM;
+  if (participant.hasActed && !override) {
+    ui.notifications.warn(game.i18n.format('PFAI.Roll.AlreadyActed', { name: participant.name }));
+    return null;
+  }
+
+  const actor = participant.uuid ? await fromUuid(participant.uuid) : null;
+  if (!actor) {
+    ui.notifications.error(game.i18n.format('PFAI.Roll.NoActor', { name: participant.name }));
+    return null;
+  }
+  if (!actor.isOwner) {
+    ui.notifications.error(game.i18n.format('PFAI.Roll.NotOwner', { name: participant.name }));
+    return null;
+  }
+
+  const statistic = actor.getStatistic?.(check.slug);
+  if (!statistic) {
+    ui.notifications.error(
+      game.i18n.format('PFAI.Roll.NoStatistic', { skill: check.label, name: actor.name }),
+    );
+    return null;
+  }
+
+  // Breakpoints already passed make everything harder.
+  const modifier = Object.values(event.awarenessBreakpoints ?? {}).reduce(
+    (acc, b) => (b.fired ? Math.max(acc, b.dcIncrease) : acc),
+    0,
+  );
+
+  const roll = await statistic.roll({
+    dc: { value: check.dc + modifier },
+    label: `${event.name} — ${owner.name}`,
+    extraRollOptions: [`${MODULE_ID}:infiltration`],
+  });
+  if (!roll) return null;
+
+  const degree = roll.degreeOfSuccess ?? roll.options?.degreeOfSuccess;
+  if (!Number.isInteger(degree)) {
+    ui.notifications.error(game.i18n.localize('PFAI.Roll.NoDegree'));
+    return null;
+  }
+
+  const payload = { infiltrationId, participantId, kind, ownerId, objectiveId, checkId, degree };
+  if (game.user.isGM) await applyInfiltrationResult(payload);
+  else {
+    if (!game.users.activeGM) {
+      ui.notifications.error(game.i18n.localize('PFAI.Roll.NoGM'));
+      return null;
+    }
+    emitApplyInfiltration(payload);
+  }
+  return { degree };
+}
+
+/** GM-side application of an infiltration result. */
+export async function applyInfiltrationResult({
+  infiltrationId,
+  participantId,
+  kind,
+  ownerId,
+  objectiveId,
+  checkId,
+  degree,
+}) {
+  if (!game.user.isGM) return;
+
+  let summary = null;
+  await updateInfiltration(infiltrationId, (event) => {
+    const participant = event.participants[participantId];
+    const found = findInfiltrationCheck(event, { kind, ownerId, objectiveId, checkId });
+    if (!participant || !found?.owner) return;
+
+    const points = infiltrationPointsForDegree(degree);
+    const awareness = awarenessForDegree(degree);
+
+    participant.contribution ??= { total: 0, successes: 0, rolls: 0, awarenessCaused: 0 };
+    participant.contribution.rolls += 1;
+    if (degree >= 2) participant.contribution.successes += 1;
+    participant.contribution.awarenessCaused += awareness;
+    participant.hasActed = true;
+
+    event.awareness.current = Math.max(0, event.awareness.current + awareness);
+
+    let cleared = false;
+    if (kind === 'obstacle') {
+      const obstacle = found.owner;
+      if (obstacle.individual) {
+        // Each character clears this one for themselves.
+        const before = obstacle.individualPoints[participantId] ?? 0;
+        obstacle.individualPoints[participantId] = Math.min(
+          obstacle.infiltrationPoints.goal,
+          before + points,
+        );
+        participant.contribution.total += obstacle.individualPoints[participantId] - before;
+        // The shared tally shows how many are through.
+        obstacle.infiltrationPoints.current = Object.values(obstacle.individualPoints).filter(
+          (v) => v >= obstacle.infiltrationPoints.goal,
+        ).length;
+        cleared = obstacle.individualPoints[participantId] >= obstacle.infiltrationPoints.goal;
+      } else {
+        const before = obstacle.infiltrationPoints.current;
+        obstacle.infiltrationPoints.current = Math.min(
+          obstacle.infiltrationPoints.goal,
+          before + points,
+        );
+        participant.contribution.total += obstacle.infiltrationPoints.current - before;
+        cleared = obstacle.infiltrationPoints.current >= obstacle.infiltrationPoints.goal;
+      }
+    } else if (kind === 'complication') {
+      // Any success clears a complication and unblocks the job.
+      if (degree >= 2) found.owner.resolved = true;
+    } else if (kind === 'opportunity') {
+      if (degree >= 2) found.owner.used = true;
+    }
+
+    summary = {
+      participant: participant.name,
+      owner: found.owner.name,
+      kind,
+      points,
+      awareness,
+      cleared,
+      resolved: kind === 'complication' && found.owner.resolved,
+      seized: kind === 'opportunity' && found.owner.used,
+      awarenessTotal: event.awareness.current,
+      ...advanceInfiltration(event),
+    };
+  });
+
+  if (!summary) return;
+
+  const degreeKey = ['CriticalFailure', 'Failure', 'Success', 'CriticalSuccess'][degree];
+  ui.notifications.info(
+    game.i18n.format('PFAI.Infiltration.Applied', {
+      name: summary.participant,
+      degree: game.i18n.localize(`PFAI.Degree.${degreeKey}`),
+      points: summary.points,
+      awareness: summary.awareness ? `+${summary.awareness}` : '0',
+      total: summary.awarenessTotal,
+    }),
+  );
+  if (summary.cleared) {
+    ui.notifications.info(game.i18n.format('PFAI.Infiltration.ObstacleCleared', { name: summary.owner }));
+  }
+  if (summary.resolved) {
+    ui.notifications.info(game.i18n.format('PFAI.Infiltration.ComplicationResolved', { name: summary.owner }));
+  }
+  if (summary.seized) {
+    ui.notifications.info(game.i18n.format('PFAI.Infiltration.OpportunitySeized', { name: summary.owner }));
+  }
+  announceInfiltrationProgress(summary);
+}
+
+/**
+ * Fire whatever the party's awareness and elapsed rounds have earned them:
+ * breakpoints passed, complications triggered, obstacles unlocked.
+ */
+export function advanceInfiltration(event) {
+  const passed = [];
+  for (const breakpoint of Object.values(event.awarenessBreakpoints ?? {})) {
+    if (breakpoint.fired || event.awareness.current < breakpoint.at) continue;
+    breakpoint.fired = true;
+    breakpoint.hidden = false;
+    passed.push(breakpoint.name);
+  }
+
+  const triggered = [];
+  for (const complication of Object.values(event.complications ?? {})) {
+    if (complication.fired || complication.trigger.kind === 'manual') continue;
+    const reached =
+      complication.trigger.kind === 'rounds'
+        ? event.rounds.current >= complication.trigger.at
+        : event.awareness.current >= complication.trigger.at;
+    if (!reached) continue;
+    complication.fired = true;
+    complication.hidden = false;
+    triggered.push(complication.name);
+  }
+
+  const unlocked = [];
+  for (const objective of Object.values(event.objectives ?? {})) {
+    for (const obstacle of Object.values(objective.obstacles ?? {})) {
+      if (obstacle.hidden && obstacle.revealAt !== null && event.awareness.current >= obstacle.revealAt) {
+        obstacle.hidden = false;
+        unlocked.push(obstacle.name);
+      }
+    }
+  }
+
+  return { passed, triggered, unlocked };
+}
+
+export function announceInfiltrationProgress(summary) {
+  for (const name of summary.passed ?? []) {
+    ui.notifications.warn(game.i18n.format('PFAI.Infiltration.BreakpointPassed', { name }), {
+      permanent: true,
+    });
+  }
+  for (const name of summary.triggered ?? []) {
+    ui.notifications.warn(game.i18n.format('PFAI.Infiltration.ComplicationFired', { name }), {
+      permanent: true,
+    });
+  }
+  if (summary.unlocked?.length) {
+    ui.notifications.info(
+      game.i18n.format('PFAI.Infiltration.Unlocked', { what: summary.unlocked.join(', ') }),
+    );
+  }
+}
+
+/**
+ * Spend an edge point to turn a failure into a success.
+ *
+ * Applies the point the failed roll should have earned and takes back the
+ * awareness it caused, which is what "as if they had succeeded" means here.
+ */
+export async function spendEdgePoint({ infiltrationId, participantId, kind, ownerId, objectiveId }) {
+  if (!game.user.isGM) return null;
+
+  let summary = null;
+  await updateInfiltration(infiltrationId, (event) => {
+    if (event.edgePoints <= 0) return;
+    const participant = event.participants[participantId];
+    const found = findInfiltrationCheck(event, { kind, ownerId, objectiveId, checkId: null });
+    if (!participant || !found?.owner) return;
+
+    event.edgePoints -= 1;
+    // Undo the awareness a failure drew, then credit the success.
+    event.awareness.current = Math.max(0, event.awareness.current - 1);
+    participant.contribution.awarenessCaused = Math.max(
+      0,
+      participant.contribution.awarenessCaused - 1,
+    );
+
+    if (kind === 'obstacle') {
+      const obstacle = found.owner;
+      if (obstacle.individual) {
+        const before = obstacle.individualPoints[participantId] ?? 0;
+        obstacle.individualPoints[participantId] = Math.min(obstacle.infiltrationPoints.goal, before + 1);
+        obstacle.infiltrationPoints.current = Object.values(obstacle.individualPoints).filter(
+          (v) => v >= obstacle.infiltrationPoints.goal,
+        ).length;
+      } else {
+        obstacle.infiltrationPoints.current = Math.min(
+          obstacle.infiltrationPoints.goal,
+          obstacle.infiltrationPoints.current + 1,
+        );
+      }
+      participant.contribution.total += 1;
+    } else if (kind === 'complication') {
+      found.owner.resolved = true;
+    } else if (kind === 'opportunity') {
+      found.owner.used = true;
+    }
+
+    summary = {
+      participant: participant.name,
+      owner: found.owner.name,
+      remaining: event.edgePoints,
+      awarenessTotal: event.awareness.current,
+    };
+  });
+
+  if (!summary) {
+    ui.notifications.warn(game.i18n.localize('PFAI.Infiltration.NoEdgePoints'));
+    return null;
+  }
+  ui.notifications.info(
+    game.i18n.format('PFAI.Infiltration.EdgeSpent', {
+      name: summary.participant,
+      owner: summary.owner,
+      remaining: summary.remaining,
+    }),
+  );
   return summary;
 }

@@ -70,6 +70,34 @@ export async function deleteResearch(id) {
   await setResearches({ events: { ...researches.events } });
 }
 
+/** Current infiltrations as a plain, safely-mutable object. */
+export function getInfiltrations() {
+  return game.settings.get(MODULE_ID, SETTINGS.infiltrations).toObject();
+}
+
+export async function setInfiltrations(infiltrations) {
+  return game.settings.set(MODULE_ID, SETTINGS.infiltrations, infiltrations);
+}
+
+export function getInfiltration(id) {
+  return getInfiltrations().events[id] ?? null;
+}
+
+export async function updateInfiltration(id, mutate) {
+  const infiltrations = getInfiltrations();
+  const event = infiltrations.events[id];
+  if (!event) return null;
+  mutate(event);
+  await setInfiltrations(infiltrations);
+  return event;
+}
+
+export async function deleteInfiltration(id) {
+  const infiltrations = getInfiltrations();
+  delete infiltrations.events[id];
+  await setInfiltrations({ events: { ...infiltrations.events } });
+}
+
 /** Read a single chase as a plain object, or null. */
 export function getChase(id) {
   return getChases().events[id] ?? null;
@@ -359,6 +387,35 @@ export function chasePointsForDegree(degree) {
       return 1;
     case 0:
       return -1;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Infiltration points earned by a degree of success.
+ *
+ * Deliberately not the shared chase mapping: a failed infiltration check costs
+ * no progress, it costs *secrecy*. See awarenessForDegree.
+ */
+export function infiltrationPointsForDegree(degree) {
+  switch (degree) {
+    case 3:
+      return 2;
+    case 2:
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/** Awareness the party attracts by fumbling a check. */
+export function awarenessForDegree(degree) {
+  switch (degree) {
+    case 0:
+      return 2;
+    case 1:
+      return 1;
     default:
       return 0;
   }

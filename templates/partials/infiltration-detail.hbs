@@ -1,0 +1,497 @@
+{{#with selectedInfiltration}}
+<header class="pfai-detail-header">
+  <button type="button" class="pfai-icon" data-action="backInfiltration" data-tooltip="{{localize 'PFAI.Back'}}">
+    <i class="fa-solid fa-chevron-left"></i>
+  </button>
+  <h2 class="pfai-title">
+    {{name}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-title-edit" data-action="editTitle"
+              data-subsystem="infiltration" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.EditTitle'}}"><i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+    {{#if ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
+  </h2>
+  <div class="pfai-header-actions">
+    {{#if ../isRealGM}}
+      <button type="button" class="pfai-icon {{#if ../previewAsPlayer}}pfai-toggle-on{{/if}}"
+              data-action="togglePlayerPreview" data-tooltip="{{localize 'PFAI.View.PreviewAsPlayer'}}">
+        <i class="fa-solid {{#if ../previewAsPlayer}}fa-user-check{{else}}fa-user{{/if}}"></i>
+      </button>
+    {{/if}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-show-players" data-action="showToPlayers"
+              data-subsystem="infiltration" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.ShowToPlayersHint'}}"><i class="fa-solid fa-tv"></i></button>
+      <button type="button" class="pfai-icon" data-action="toggleHidden"
+              data-subsystem="infiltration" data-event-id="{{id}}"
+              data-tooltip="{{#if hidden}}{{localize 'PFAI.View.ShowToPlayers'}}{{else}}{{localize 'PFAI.View.HideFromPlayers'}}{{/if}}">
+        <i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+      </button>
+      <button type="button" class="pfai-icon" data-action="exportEvent"
+              data-subsystem="infiltration" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Export'}}"><i class="fa-solid fa-file-export"></i></button>
+      <button type="button" class="pfai-icon pfai-danger" data-action="deleteInfiltration" data-infiltration-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-trash"></i></button>
+    {{/if}}
+  </div>
+</header>
+
+{{#if isBlocked}}
+  <p class="pfai-blocked-banner">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    {{localize 'PFAI.Infiltration.BlockedBanner'}}
+    {{#each blocking as |c|}}<strong>{{c.name}}</strong>{{/each}}
+  </p>
+{{/if}}
+
+<section class="pfai-status">
+  <div class="pfai-status-item">
+    <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.InfiltrationRound'}}"></i></span>
+    <span class="pfai-round">
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="infiltrationRoundDelta" data-infiltration-id="{{id}}" data-delta="-1">&minus;</button>
+      {{/if}}
+      <strong>{{rounds.current}}</strong>{{#if rounds.max}} / {{rounds.max}}{{/if}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="infiltrationRoundDelta" data-infiltration-id="{{id}}" data-delta="1">+</button>
+      {{/if}}
+    </span>
+  </div>
+
+  <div class="pfai-status-item pfai-awareness">
+    <span class="pfai-label">{{localize 'PFAI.Infiltration.Awareness'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Awareness'}}"></i></span>
+    <span class="pfai-round">
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="awarenessDelta" data-infiltration-id="{{id}}" data-delta="-1">&minus;</button>
+      {{/if}}
+      <strong class="pfai-points-big pfai-bad">{{awareness.current}}</strong>
+      {{#if nextBreakpoint}}<span class="pfai-live-name">/ {{nextBreakpoint.at}} {{nextBreakpoint.name}}</span>{{/if}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="awarenessDelta" data-infiltration-id="{{id}}" data-delta="1">+</button>
+      {{/if}}
+    </span>
+  </div>
+
+  <div class="pfai-status-item">
+    <span class="pfai-label">{{localize 'PFAI.Infiltration.EdgePoints'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.EdgePoints'}}"></i></span>
+    <span class="pfai-round">
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="edgeDelta" data-infiltration-id="{{id}}" data-delta="-1">&minus;</button>
+      {{/if}}
+      <strong class="pfai-points-big pfai-good">{{edgePoints}}</strong>
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="edgeDelta" data-infiltration-id="{{id}}" data-delta="1">+</button>
+      {{/if}}
+    </span>
+  </div>
+
+  {{#if dcModifier}}
+    <div class="pfai-status-item">
+      <span class="pfai-label">{{localize 'PFAI.Influence.DCShift'}}</span>
+      <strong class="pfai-bad">+{{dcModifier}}</strong>
+    </div>
+  {{/if}}
+
+  {{#if complete}}<div class="pfai-flag pfai-flag-good">{{localize 'PFAI.Infiltration.AllClear'}}</div>{{/if}}
+  {{#if outOfTime}}<div class="pfai-flag pfai-flag-bad">{{localize 'PFAI.Chase.OutOfTime'}}</div>{{/if}}
+
+  {{#if ../isGM}}
+    <div class="pfai-status-actions">
+      <button type="button" data-action="infiltrationNextRound" data-infiltration-id="{{id}}">
+        <i class="fa-solid fa-forward-step"></i> {{localize 'PFAI.Chase.NextRound'}}
+      </button>
+      <button type="button" data-action="toggleStarted" data-subsystem="infiltration" data-event-id="{{id}}">
+        <i class="fa-solid {{#if started}}fa-pause{{else}}fa-play{{/if}}"></i>
+        {{#if started}}{{localize 'PFAI.Chase.Pause'}}{{else}}{{localize 'PFAI.Chase.Start'}}{{/if}}
+      </button>
+    </div>
+  {{/if}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Infiltration.Target'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.InfiltrationTarget'}}"></i>
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="infiltration" data-event-id="{{id}}" data-field="target"
+              data-label="PFAI.Infiltration.Target" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-prose">{{{enrichedTarget}}}</div>
+
+  <h3>
+    {{localize 'PFAI.Infiltration.Situation'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.InfiltrationSituation'}}"></i>
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="infiltration" data-event-id="{{id}}" data-field="premise"
+              data-label="PFAI.Infiltration.Situation" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-prose">{{{enrichedPremise}}}</div>
+
+  <p class="pfai-goal"><span class="pfai-label">{{localize 'PFAI.Infiltration.Goal'}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="infiltration" data-event-id="{{id}}" data-field="goal"
+              data-label="PFAI.Infiltration.Goal" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </span></p>
+  <div class="pfai-prose">{{{enrichedGoal}}}</div>
+</section>
+
+{{#if ../isGM}}
+  <section class="pfai-panel pfai-gm">
+    <h3>
+      {{localize 'PFAI.Chase.GmNotes'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.GmNotes'}}"></i>
+      <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+              data-subsystem="infiltration" data-event-id="{{id}}" data-field="gmNotes"
+              data-label="PFAI.Chase.EditGmNotes" data-tooltip="{{localize 'PFAI.Edit'}}">
+        <i class="fa-solid fa-pen"></i></button>
+    </h3>
+    <div class="pfai-prose">{{{enrichedGmNotes}}}</div>
+  </section>
+{{/if}}
+
+{{#if complications.length}}
+<section class="pfai-panel {{#if isBlocked}}pfai-panel-urgent{{/if}}">
+  <h3>
+    {{localize 'PFAI.Infiltration.Complications'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.InfiltrationComplications'}}"></i>
+    {{#if hiddenCounts.complications}}<span class="pfai-hidden-count">{{hiddenCounts.complications}} {{localize 'PFAI.Research.Pending'}}</span>{{/if}}
+  </h3>
+  {{#each complications as |c|}}
+    <div class="pfai-trait {{#if c.resolved}}is-used{{/if}} {{#if c.hidden}}is-hidden{{/if}}">
+      <span class="pfai-trait-mod">{{#if c.fired}}<i class="fa-solid fa-bell"></i>{{else}}<i class="fa-solid fa-hourglass"></i>{{/if}}</span>
+      <div class="pfai-trait-body">
+        <strong>{{c.name}}</strong>
+        <span class="pfai-trigger-badge">{{c.triggerLabel}}</span>
+        {{#if c.resolved}}<span class="pfai-flag pfai-flag-good">{{localize 'PFAI.Infiltration.Resolved'}}</span>
+        {{else if c.fired}}<span class="pfai-flag pfai-flag-bad">{{localize 'PFAI.Infiltration.Active'}}</span>{{/if}}
+        <div class="pfai-prose">{{{c.enrichedDescription}}}</div>
+        <ul class="pfai-check-list">
+          {{#each c.checks as |check|}}
+            <li class="pfai-check"><span class="pfai-check-dc">DC {{check.effectiveDC}}</span>
+              <div class="pfai-check-body"><strong>{{check.label}}</strong>
+                <span class="pfai-check-desc">{{check.description}}</span></div></li>
+          {{/each}}
+        </ul>
+      </div>
+      {{#if ../../isGM}}
+        <span class="pfai-trait-actions">
+          <button type="button" class="pfai-icon {{#if c.resolved}}pfai-toggle-on{{/if}}"
+                  data-action="toggleComplicationResolved" data-infiltration-id="{{../id}}" data-entry-id="{{c.id}}"
+                  data-tooltip="{{localize 'PFAI.Infiltration.MarkResolved'}}"><i class="fa-solid fa-check"></i></button>
+          <button type="button" class="pfai-icon pfai-row-control" data-action="toggleInfiltrationReveal"
+                  data-infiltration-id="{{../id}}" data-collection="complications" data-entry-id="{{c.id}}"
+                  data-tooltip="{{#if c.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+            <i class="fa-solid {{#if c.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></button>
+        </span>
+      {{/if}}
+    </div>
+  {{/each}}
+</section>
+{{/if}}
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Infiltration.Objectives'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Objectives'}}"></i>
+    {{#if hiddenCounts.objectives}}<span class="pfai-hidden-count">{{hiddenCounts.objectives}} {{localize 'PFAI.Research.Unopened'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addObjective" data-infiltration-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Infiltration.AddObjectiveHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+
+  {{#each objectives as |objective|}}
+    <article class="pfai-objective {{#if objective.hidden}}is-hidden{{/if}} {{#if objective.complete}}is-complete{{/if}}">
+      <header>
+        <h4>{{objective.name}}</h4>
+        {{#if objective.complete}}<span class="pfai-flag pfai-flag-good">{{localize 'PFAI.Infiltration.Clear'}}</span>{{/if}}
+        {{#if ../../isGM}}
+          <span class="pfai-trait-actions">
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleInfiltrationReveal"
+                    data-infiltration-id="{{../id}}" data-collection="objectives" data-entry-id="{{objective.id}}"
+                    data-tooltip="{{#if objective.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+              <i class="fa-solid {{#if objective.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="editObjective"
+                    data-infiltration-id="{{../id}}" data-entry-id="{{objective.id}}"
+                    data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="addInfiltrationObstacle"
+                    data-infiltration-id="{{../id}}" data-objective-id="{{objective.id}}"
+                    data-tooltip="{{localize 'PFAI.Infiltration.AddObstacleHint'}}"><i class="fa-solid fa-plus"></i></button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="generateInfiltrationObstacle"
+                    data-infiltration-id="{{../id}}" data-objective-id="{{objective.id}}"
+                    {{#if ../generatingObstacle}}disabled{{/if}}
+                    data-tooltip="{{localize 'PFAI.Infiltration.GenerateObstacleHint'}}">
+              <i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteObjective"
+                    data-infiltration-id="{{../id}}" data-entry-id="{{objective.id}}"
+                    data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+          </span>
+        {{/if}}
+      </header>
+      <div class="pfai-prose">{{{objective.enrichedDescription}}}</div>
+
+      {{#each objective.obstacles as |obstacle|}}
+        <div class="pfai-source {{#if obstacle.hidden}}is-hidden{{/if}} {{#if obstacle.cleared}}is-exhausted{{/if}}">
+          <header>
+            <h4>{{obstacle.name}}</h4>
+            {{#if obstacle.individual}}
+              <span class="pfai-flag pfai-flag-muted" data-tooltip="{{localize 'PFAI.Info.IndividualObstacle'}}">
+                {{localize 'PFAI.Infiltration.Individual'}}</span>
+            {{/if}}
+            <span class="pfai-points-value">{{obstacle.progressLabel}}</span>
+            {{#if ../../../isGM}}
+              <span class="pfai-trait-actions">
+                <button type="button" class="pfai-icon pfai-row-control" data-action="toggleInfiltrationReveal"
+                        data-infiltration-id="{{../../id}}" data-kind="obstacle" data-objective-id="{{objective.id}}"
+                        data-entry-id="{{obstacle.id}}"
+                        data-tooltip="{{#if obstacle.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+                  <i class="fa-solid {{#if obstacle.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></button>
+                <button type="button" class="pfai-icon pfai-row-control" data-action="editInfiltrationObstacle"
+                        data-infiltration-id="{{../../id}}" data-objective-id="{{objective.id}}" data-entry-id="{{obstacle.id}}"
+                        data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+                <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteInfiltrationObstacle"
+                        data-infiltration-id="{{../../id}}" data-objective-id="{{objective.id}}" data-entry-id="{{obstacle.id}}"
+                        data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+              </span>
+            {{/if}}
+          </header>
+          <div class="pfai-progress"><div class="pfai-progress-bar" style="width: {{obstacle.percent}}%"></div></div>
+          <div class="pfai-prose">{{{obstacle.enrichedDescription}}}</div>
+          <ul class="pfai-check-list">
+            {{#each obstacle.checks as |check|}}
+              <li class="pfai-check {{#if check.hidden}}is-hidden{{/if}}">
+                <span class="pfai-check-dc">DC {{check.effectiveDC}}</span>
+                <div class="pfai-check-body"><strong>{{check.label}}</strong>
+                  <span class="pfai-check-desc">{{check.description}}</span></div>
+              </li>
+            {{/each}}
+          </ul>
+        </div>
+      {{/each}}
+    </article>
+  {{else}}
+    <p class="pfai-empty">{{localize 'PFAI.Infiltration.NoObjectives'}}</p>
+  {{/each}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Infiltration.Breakpoints'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Breakpoints'}}"></i>
+    {{#if hiddenCounts.breakpoints}}<span class="pfai-hidden-count">{{hiddenCounts.breakpoints}} {{localize 'PFAI.Influence.Undiscovered'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" class="pfai-generate-obstacles" data-action="addBreakpoint" data-infiltration-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Infiltration.AddBreakpointHint'}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+  <ol class="pfai-thresholds">
+    {{#each breakpoints as |b|}}
+      <li class="pfai-threshold {{#if b.passed}}is-reached{{/if}} {{#if b.hidden}}is-hidden{{/if}}">
+        <span class="pfai-threshold-points">{{b.at}}</span>
+        <div class="pfai-threshold-body">
+          <strong>{{b.name}}</strong>
+          {{#if b.dcIncrease}}<span class="pfai-trigger-badge">+{{b.dcIncrease}} {{localize 'PFAI.Chase.DC'}}</span>{{/if}}
+          <div class="pfai-prose">{{{b.enrichedDescription}}}</div>
+        </div>
+        {{#if ../../isGM}}
+          <span class="pfai-trait-actions">
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleInfiltrationReveal"
+                    data-infiltration-id="{{../id}}" data-collection="awarenessBreakpoints" data-entry-id="{{b.id}}"
+                    data-tooltip="{{#if b.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+              <i class="fa-solid {{#if b.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="editBreakpoint"
+                    data-infiltration-id="{{../id}}" data-entry-id="{{b.id}}"
+                    data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteBreakpoint"
+                    data-infiltration-id="{{../id}}" data-entry-id="{{b.id}}"
+                    data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+          </span>
+        {{/if}}
+      </li>
+    {{else}}
+      <p class="pfai-empty">{{localize 'PFAI.Infiltration.NoBreakpoints'}}</p>
+    {{/each}}
+  </ol>
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Infiltration.Opportunities'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Opportunities'}}"></i>
+    {{#if hiddenCounts.opportunities}}<span class="pfai-hidden-count">{{hiddenCounts.opportunities}} {{localize 'PFAI.Influence.Undiscovered'}}</span>{{/if}}
+  </h3>
+  {{#each opportunities as |o|}}
+    <div class="pfai-trait {{#if o.used}}is-used{{/if}} {{#if o.hidden}}is-hidden{{/if}}">
+      <span class="pfai-trait-mod pfai-good"><i class="fa-solid fa-key"></i></span>
+      <div class="pfai-trait-body">
+        <strong>{{o.name}}</strong>
+        {{#if o.used}}<span class="pfai-flag pfai-flag-good">{{localize 'PFAI.Infiltration.Seized'}}</span>{{/if}}
+        <div class="pfai-prose">{{{o.enrichedDescription}}}</div>
+        <div class="pfai-check-reveals"><span class="pfai-label">{{localize 'PFAI.Infiltration.Benefit'}}</span>
+          <div class="pfai-prose">{{{o.enrichedBenefit}}}</div></div>
+        <ul class="pfai-check-list">
+          {{#each o.checks as |check|}}
+            <li class="pfai-check"><span class="pfai-check-dc">DC {{check.effectiveDC}}</span>
+              <div class="pfai-check-body"><strong>{{check.label}}</strong>
+                <span class="pfai-check-desc">{{check.description}}</span></div></li>
+          {{/each}}
+        </ul>
+      </div>
+      {{#if ../../isGM}}
+        <span class="pfai-trait-actions">
+          <button type="button" class="pfai-icon pfai-row-control" data-action="toggleInfiltrationReveal"
+                  data-infiltration-id="{{../id}}" data-collection="opportunities" data-entry-id="{{o.id}}"
+                  data-tooltip="{{#if o.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+            <i class="fa-solid {{#if o.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></button>
+        </span>
+      {{/if}}
+    </div>
+  {{else}}
+    <p class="pfai-empty">{{localize 'PFAI.Infiltration.NoOpportunities'}}</p>
+  {{/each}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Infiltration.Preparations'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Preparations'}}"></i>
+  </h3>
+  {{#each preparations as |prep|}}
+    <div class="pfai-trait {{#if prep.used}}is-used{{/if}}">
+      <span class="pfai-trait-mod">DC {{prep.dc}}</span>
+      <div class="pfai-trait-body">
+        <strong>{{prep.name}}</strong> <span class="pfai-trigger-badge">{{prep.label}}</span>
+        {{#if prep.used}}<span class="pfai-flag pfai-flag-muted">{{localize 'PFAI.Infiltration.Attempted'}}</span>{{/if}}
+        <div class="pfai-prose">{{{prep.enrichedDescription}}}</div>
+      </div>
+      {{#if ../../isGM}}
+        <span class="pfai-trait-actions">
+          <button type="button" class="pfai-icon" data-action="togglePreparationUsed"
+                  data-infiltration-id="{{../id}}" data-entry-id="{{prep.id}}" data-award="true"
+                  data-tooltip="{{localize 'PFAI.Infiltration.MarkSucceeded'}}">
+            <i class="fa-solid fa-plus"></i></button>
+          <button type="button" class="pfai-icon pfai-row-control" data-action="togglePreparationUsed"
+                  data-infiltration-id="{{../id}}" data-entry-id="{{prep.id}}" data-award="false"
+                  data-tooltip="{{localize 'PFAI.Infiltration.MarkFailed'}}">
+            <i class="fa-solid fa-xmark"></i></button>
+        </span>
+      {{/if}}
+    </div>
+  {{else}}
+    <p class="pfai-empty">{{localize 'PFAI.Infiltration.NoPreparations'}}</p>
+  {{/each}}
+</section>
+
+<section class="pfai-panel">
+  <h3>
+    {{localize 'PFAI.Chase.Participants'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Participants'}}"></i>
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon" data-action="addParticipants"
+              data-subsystem="infiltration" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-roster pfai-roster-influence pfai-dropzone"
+       data-subsystem="infiltration" data-event-id="{{id}}">
+    <div class="pfai-roster-head">
+      <span>{{localize 'PFAI.Chase.Participant'}}</span>
+      <span>{{localize 'PFAI.Chase.Points'}}</span>
+      <span>{{localize 'PFAI.Chase.Turn'}}</span>
+      <span></span>
+    </div>
+    {{#each participants as |participant|}}
+      <div class="pfai-participant {{#if participant.hasActed}}has-acted{{/if}}">
+        <span class="pfai-p-who">
+          <img src="{{participant.img}}" alt="">
+          <span class="pfai-p-name">{{participant.name}}</span>
+          {{#if participant.hasActed}}
+            <i class="fa-solid fa-check pfai-acted-mark" data-tooltip="{{localize 'PFAI.Chase.ActedTooltip'}}"></i>
+          {{/if}}
+        </span>
+        <span class="pfai-p-points"
+              data-tooltip="{{localize 'PFAI.Infiltration.ContributionTooltip'}} {{participant.successCount}}/{{participant.rollCount}}">
+          <span class="pfai-tally {{#unless participant.hasContributed}}is-empty{{/unless}}">
+            <i class="fa-solid fa-star"></i><strong>{{participant.contributedTotal}}</strong>
+            {{#if participant.awarenessCaused}}
+              <small class="pfai-bad"><i class="fa-solid fa-eye"></i>{{participant.awarenessCaused}}</small>
+            {{/if}}
+          </span>
+        </span>
+        <span class="pfai-p-turn">
+          {{#if participant.canRoll}}
+            <select class="pfai-roll-option" aria-label="{{localize 'PFAI.Roll.PickSkill'}}">
+              {{#each participant.rollOptions as |option|}}
+                <option value="{{option.value}}">{{option.label}} DC {{option.dc}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="pfai-roll-button {{#if participant.isReroll}}pfai-reroll{{/if}}"
+                    data-action="rollInfiltration" data-infiltration-id="{{../id}}"
+                    data-participant-id="{{participant.id}}"
+                    data-tooltip="{{#if participant.isReroll}}{{localize 'PFAI.Roll.RerollHint'}}{{else}}{{localize 'PFAI.Roll.Roll'}}{{/if}}">
+              <i class="fa-solid fa-dice-d20"></i>
+            </button>
+            {{#if participant.canSpendEdge}}
+              <button type="button" class="pfai-pass-button" data-action="spendEdge"
+                      data-infiltration-id="{{../id}}" data-participant-id="{{participant.id}}"
+                      data-tooltip="{{localize 'PFAI.Infiltration.SpendEdgeHint'}}">
+                <i class="fa-solid fa-star"></i>
+              </button>
+            {{/if}}
+          {{else if participant.noActor}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NoActorLinked'}}</span>
+          {{else if participant.hasActed}}
+            <span class="pfai-p-note">{{localize 'PFAI.Chase.Acted'}}</span>
+          {{else}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NotYours'}}</span>
+          {{/if}}
+        </span>
+        <span class="pfai-p-end">
+          {{#if ../../isGM}}
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleActed"
+                    data-subsystem="infiltration" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.ToggleActed'}}">
+              <i class="fa-solid {{#if participant.hasActed}}fa-circle-check{{else}}fa-circle{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="removeParticipant"
+                    data-subsystem="infiltration" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveParticipant'}}">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          {{/if}}
+        </span>
+      </div>
+    {{/each}}
+    {{#unless participants.length}}
+      <p class="pfai-empty pfai-drop-hint">
+        {{#if ../isGM}}
+          <i class="fa-solid fa-hand-pointer"></i> {{localize 'PFAI.Chase.DropHint'}}
+        {{else}}
+          {{localize 'PFAI.Chase.NoParticipants'}}
+        {{/if}}
+      </p>
+    {{/unless}}
+  </div>
+</section>
+{{/with}}

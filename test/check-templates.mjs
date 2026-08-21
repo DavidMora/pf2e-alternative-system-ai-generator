@@ -17,6 +17,7 @@ Handlebars.registerHelper('pfaiSubtract', (a, b) => Number(a) - Number(b));
 const partialsDir = path.join(dir, 'partials');
 for (const [name, file] of [
   ['pfaiResearchDetail', 'research-detail.hbs'],
+  ['pfaiInfiltrationDetail', 'infiltration-detail.hbs'],
   ['pfaiInfluenceDetail', 'influence-detail.hbs'],
   ['pfaiInfluenceChecks', 'influence-checks.hbs'],
   ['pfaiInfluenceTraits', 'influence-traits.hbs'],
@@ -615,6 +616,134 @@ for (const isGM of [true, false]) {
     }
     console.log(`explained ${label}: ${headings.length - bare.length}/${headings.length} sections`);
   }
+}
+
+// ---- Infiltration: the fourth subsystem, same guarantees ----
+const INF_ROLL_OPTIONS = [
+  { value: 'obstacle|ob1|obj1|c1', label: 'The Postern Gate: Stealth', dc: 18 },
+  { value: 'opportunity|op1||c2', label: '\u2605 The Rota: Thievery', dc: 20 },
+];
+
+const infiltrationCtx = (isGM, { blocked = false } = {}) => ({
+  isGM, isRealGM: isGM, previewAsPlayer: false, isInfiltrationTab: true,
+  chases: [], influences: [], researches: [], infiltrations: [],
+  selectedInfiltration: {
+    id: 'i1', name: 'The Signal House', hidden: false, started: false,
+    baseDC: 20, dcModifier: 2, edgePoints: 2,
+    rounds: { current: 2, max: 6 }, outOfTime: false, complete: false,
+    awareness: { current: 6, perRound: 1 },
+    ai: { generated: true },
+    enrichedTarget: '<p>A signal house.</p>',
+    enrichedPremise: '<p>Festival night.</p>',
+    enrichedGoal: '<p>The codes.</p>',
+    enrichedGmNotes: '<p>INFILTRATION-SECRET</p>',
+    objectives: [{
+      id: 'obj1', name: 'Get inside', hidden: false, complete: false,
+      enrichedDescription: '<p>Past the wall.</p>',
+      obstacles: [{
+        id: 'ob1', name: 'The Postern Gate', hidden: false, cleared: false, individual: false,
+        progressLabel: '1 / 2', percent: 50, enrichedDescription: '<p>Locked.</p>',
+        infiltrationPoints: { current: 1, goal: 2 },
+        checks: [{ id: 'c1', label: 'Stealth', dc: 16, effectiveDC: 18, description: 'Slip past.', hidden: false }],
+      }],
+    }],
+    breakpoints: isGM
+      ? [{ id: 'b1', at: 5, name: 'The watch doubles', passed: true, hidden: false, dcIncrease: 2, enrichedDescription: '<p>x</p>' },
+         { id: 'b2', at: 10, name: 'Alarm', passed: false, hidden: true, dcIncrease: 4, enrichedDescription: '<p>y</p>' }]
+      : [{ id: 'b1', at: 5, name: 'The watch doubles', passed: true, hidden: false, dcIncrease: 2, enrichedDescription: '<p>x</p>' }],
+    nextBreakpoint: { id: 'b2', at: 10, name: 'Alarm' },
+    complications: blocked
+      ? [{ id: 'cm1', name: 'A patrol doubles back', hidden: false, fired: true, resolved: false,
+           trigger: { kind: 'awareness', at: 5 }, triggerLabel: 'at 5 awareness',
+           enrichedDescription: '<p>They turn.</p>',
+           checks: [{ id: 'c3', label: 'Deception', dc: 18, effectiveDC: 20, description: 'Bluff.' }] }]
+      : [],
+    blocking: blocked
+      ? [{ id: 'cm1', name: 'A patrol doubles back' }]
+      : [],
+    isBlocked: blocked,
+    opportunities: isGM
+      ? [{ id: 'op1', name: 'The Rota', hidden: false, used: false,
+           enrichedDescription: '<p>A duty roster.</p>', enrichedBenefit: '<p>-2 awareness.</p>',
+           checks: [{ id: 'c2', label: 'Thievery', dc: 18, effectiveDC: 20, description: 'Palm it.' }] }]
+      : [],
+    preparations: isGM
+      ? [{ id: 'p1', name: 'Bribe a lamplighter', slug: 'diplomacy', label: 'Diplomacy', dc: 18,
+           used: false, enrichedDescription: '<p>Coin talks.</p>' }]
+      : [],
+    rollOptions: INF_ROLL_OPTIONS,
+    participants: [
+      { id: 'pa1', name: 'Merisiel', img: 'a.png', hasActed: false, canRoll: true, owned: true, noActor: false,
+        canAward: isGM, canSpendEdge: isGM, isReroll: false, rollOptions: INF_ROLL_OPTIONS,
+        contributedTotal: 2, successCount: 2, rollCount: 4, awarenessCaused: 3, hasContributed: true },
+      { id: 'pa2', name: 'Kyra', img: 'b.png', hasActed: true, canRoll: isGM, owned: true, noActor: false,
+        canAward: isGM, canSpendEdge: isGM, isReroll: isGM, rollOptions: INF_ROLL_OPTIONS,
+        contributedTotal: 0, successCount: 0, rollCount: 1, awarenessCaused: 1, hasContributed: true },
+    ],
+    hiddenCounts: isGM ? { objectives: 1, complications: 0, opportunities: 1, breakpoints: 1 } : null,
+  },
+});
+
+for (const isGM of [true, false]) {
+  const out = view(infiltrationCtx(isGM));
+  if (out.includes('INFILTRATION-SECRET') !== isGM) { failed = 1; console.error('  infiltration GM notes leak'); }
+
+  const rolls = (out.match(/data-action="rollInfiltration"/g) ?? []).length;
+  if (rolls !== (isGM ? 2 : 1)) { failed = 1; console.error(`  infiltration rolls: expected ${isGM ? 2 : 1}, got ${rolls}`); }
+
+  const authoring = ['addObjective', 'editObjective', 'deleteObjective', 'addInfiltrationObstacle',
+                     'generateInfiltrationObstacle', 'editInfiltrationObstacle', 'deleteInfiltrationObstacle',
+                     'addBreakpoint', 'editBreakpoint', 'deleteBreakpoint', 'toggleInfiltrationReveal',
+                     'togglePreparationUsed', 'removeParticipant', 'editText', 'spendEdge', 'awarenessDelta',
+                     'edgeDelta'];
+  const present = authoring.filter((a) => out.includes(`data-action="${a}"`));
+  if (isGM && present.length !== authoring.length) {
+    failed = 1;
+    console.error(`  infiltration missing authoring: ${authoring.filter((a) => !present.includes(a))}`);
+  }
+  if (!isGM && present.length) { failed = 1; console.error(`  infiltration authoring leaked: ${present}`); }
+
+  if (isGM) {
+    for (const [what, ok] of [
+      ['awareness readout', out.includes('pfai-awareness')],
+      ['edge points', out.includes('PFAI.Infiltration.EdgePoints')],
+      ['awareness drawn per participant', out.includes('fa-eye')],
+      ['individual obstacle handling', out.includes('PFAI.Infiltration.Individual') || out.includes('1 / 2')],
+    ]) {
+      if (!ok) { failed = 1; console.error(`  infiltration: ${what} not shown`); }
+    }
+  }
+  console.log(`infiltration isGM=${isGM}: bytes=${out.length} rolls=${rolls} authoring=${present.length}`);
+}
+
+// A live complication must take over the view and the picker.
+{
+  const out = view(infiltrationCtx(true, { blocked: true }));
+  if (!out.includes('pfai-blocked-banner')) { failed = 1; console.error('  a blocking complication is not announced'); }
+  if (!out.includes('pfai-panel-urgent')) { failed = 1; console.error('  the complication panel is not marked urgent'); }
+  console.log('infiltration blocked: banner and urgent panel shown');
+}
+
+// Parity with the other three.
+{
+  const out = view(infiltrationCtx(true));
+  const SHARED = ['togglePlayerPreview', 'showToPlayers', 'toggleHidden', 'exportEvent', 'editTitle', 'toggleStarted'];
+  const missing = SHARED.filter((a) => !out.includes(`data-action="${a}"`));
+  if (missing.length) { failed = 1; console.error(`  infiltration missing shared operations: ${missing}`); }
+  for (const tag of out.match(/<[^>]*data-action="(?:showToPlayers|toggleHidden|exportEvent|editTitle|toggleStarted)"[^>]*>/g) ?? []) {
+    if (!/data-subsystem="infiltration"/.test(tag) || !/data-event-id="/.test(tag)) {
+      failed = 1; console.error(`  infiltration shared action not wired: ${tag.slice(0, 80)}`);
+    }
+  }
+  const zone = out.includes('pfai-dropzone') && /data-subsystem="infiltration"/.test(out);
+  if (!zone) { failed = 1; console.error('  infiltration roster is not a drop target'); }
+
+  // And every section explains itself, like the rest.
+  const headings = out.match(/<h3\b[\s\S]*?<\/h3>/g) ?? [];
+  const bare = headings.filter((h) => !h.includes('pfai-info'))
+    .map((h) => h.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40));
+  if (bare.length) { failed = 1; console.error(`  infiltration unexplained sections: ${bare.join(' | ')}`); }
+  console.log(`infiltration parity: shared=${SHARED.length - missing.length}/${SHARED.length} dropzone=${zone} explained=${headings.length - bare.length}/${headings.length}`);
 }
 
 process.exit(failed);

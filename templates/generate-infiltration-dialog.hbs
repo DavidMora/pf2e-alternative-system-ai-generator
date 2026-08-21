@@ -1,0 +1,86 @@
+<div class="pfai-form pfai-generate-form">
+
+  {{#unless hasApiKey}}
+    <p class="pfai-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i> {{localize 'PFAI.Generate.NoKeyWarning'}}
+    </p>
+  {{/unless}}
+
+  <p class="pfai-note">
+    <i class="fa-solid fa-circle-info"></i> {{localize 'PFAI.Infiltration.GenerateNote'}}
+  </p>
+
+  <label class="pfai-field">
+    <span>{{localize 'PFAI.Infiltration.Target'}}</span>
+    <textarea name="target" rows="2" placeholder="{{localize 'PFAI.Infiltration.TargetPlaceholder'}}"
+              {{#if busy}}disabled{{/if}} autofocus></textarea>
+    <small>{{localize 'PFAI.Infiltration.TargetHint'}}</small>
+  </label>
+
+  <label class="pfai-field">
+    <span>{{localize 'PFAI.Infiltration.Situation'}}</span>
+    <textarea name="premise" rows="3" placeholder="{{localize 'PFAI.Infiltration.SituationPlaceholder'}}"
+              {{#if busy}}disabled{{/if}}></textarea>
+    <small>{{localize 'PFAI.Infiltration.SituationHint'}}</small>
+  </label>
+
+  <label class="pfai-field">
+    <span>{{localize 'PFAI.Infiltration.Goal'}}</span>
+    <textarea name="goal" rows="2" placeholder="{{localize 'PFAI.Infiltration.GoalPlaceholder'}}"
+              {{#if busy}}disabled{{/if}}></textarea>
+  </label>
+
+  <div class="pfai-field-row">
+    <label class="pfai-field pfai-field-wide">
+      <span>{{localize 'PFAI.Generate.TitleField'}}</span>
+      <input type="text" name="title" placeholder="{{localize 'PFAI.Generate.TitlePlaceholder'}}"
+             {{#if busy}}disabled{{/if}}>
+    </label>
+    <label class="pfai-field">
+      <span>{{localize 'PFAI.Generate.BaseDC'}}</span>
+      <input type="number" name="baseDC" min="1" max="60" step="1" value="{{baseDC}}" {{#if busy}}disabled{{/if}}>
+      <small>{{localize 'PFAI.Generate.BaseDCHint'}}</small>
+    </label>
+  </div>
+
+  <div class="pfai-field-row">
+    <label class="pfai-field">
+      <span>{{localize 'PFAI.Influence.PartyLevel'}}</span>
+      <input type="number" name="level" min="0" max="25" step="1" value="{{level}}" {{#if busy}}disabled{{/if}}>
+    </label>
+    <label class="pfai-field">
+      <span>{{localize 'PFAI.Influence.PartySize'}}</span>
+      <input type="number" name="partySize" min="1" max="10" step="1" value="{{partySize}}" {{#if busy}}disabled{{/if}}>
+    </label>
+    <label class="pfai-field">
+      <span>{{localize 'PFAI.Generate.RoundLimit'}}</span>
+      <input type="number" name="roundLimit" min="0" step="1" value="0" {{#if busy}}disabled{{/if}}>
+      <small>{{localize 'PFAI.Generate.AutoHint'}}</small>
+    </label>
+  </div>
+
+  <div class="pfai-field-row">
+    <label class="pfai-field pfai-field-wide">
+      <span>{{localize 'PFAI.Generate.Tone'}}</span>
+      <input type="text" name="tone" placeholder="{{localize 'PFAI.Generate.TonePlaceholder'}}" {{#if busy}}disabled{{/if}}>
+    </label>
+    <label class="pfai-field">
+      <span>{{localize 'PFAI.Generate.Language'}}</span>
+      <input type="text" name="language" value="{{language}}" {{#if busy}}disabled{{/if}}>
+    </label>
+  </div>
+
+  <footer class="pfai-generate-footer">
+    <span class="pfai-model">{{localize 'PFAI.Generate.UsingModel'}} <code>{{model}}</code></span>
+    {{#if busy}}
+      <span class="pfai-busy"><i class="fa-solid fa-spinner fa-spin"></i> {{localize 'PFAI.Generate.Working'}}</span>
+      <button type="button" data-action="cancel">{{localize 'PFAI.Generate.Cancel'}}</button>
+    {{else}}
+      <button type="button" data-action="cancel">{{localize 'PFAI.Close'}}</button>
+      <button type="submit" class="pfai-primary" {{#unless hasApiKey}}disabled{{/unless}}>
+        <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.Infiltration.Submit'}}
+      </button>
+    {{/if}}
+  </footer>
+
+</div>
