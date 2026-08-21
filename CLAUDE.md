@@ -74,6 +74,10 @@ These exist because getting them wrong produced real bugs:
 - **World settings are GM-writable only.** Anything a player does that changes
   state goes over the socket and is applied by exactly one designated GM
   (`activeGM`), or two GMs double-count it.
+- **World settings are also world-*readable*.** `restricted: true` stops a
+  player editing a setting, not reading one: the server's `Setting.dump()` goes
+  to every client that joins, with no filter on role. The OpenAI key is client
+  scope for exactly this reason and must stay there. `check-logic` asserts it.
 
 ## Testing
 
@@ -142,8 +146,7 @@ module symlinked in. If the server stops:
 node .local/app/main.js --dataPath=.local/data --port=30000 --noupnp
 ```
 
-Then relaunch the world from the setup screen. Never commit `.local/` — the world
-database contains the OpenAI API key.
+Then relaunch the world from the setup screen. Never commit `.local/`.
 
 ## Adding a subsystem
 

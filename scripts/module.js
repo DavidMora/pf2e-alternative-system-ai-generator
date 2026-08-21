@@ -13,7 +13,7 @@ import {
   applyResearchResult,
   applyRollResult,
 } from './rolls.js';
-import { migrateChases } from './migrate.js';
+import { migrateApiKeyOutOfWorld, migrateChases } from './migrate.js';
 
 Hooks.once('init', () => {
   registerSettings();
@@ -60,6 +60,7 @@ function registerHandlebarsHelpers() {
 Hooks.once('setup', () => registerPartials());
 
 Hooks.once('ready', async () => {
+  await migrateApiKeyOutOfWorld();
   await migrateChases();
   registerSocket({
     onShowChase: ({ subsystem, eventId }) => SubsystemView.open(eventId, subsystem),

@@ -1,0 +1,63 @@
+name: Release
+
+# Foundry fetches the manifest URL to learn what the latest version is, and the
+# download URL to install it. Both point at `releases/latest/download/...`, so
+# publishing a release with those two assets attached is the whole contract.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # A broken import disables the module silently in Foundry, so nothing
+      # ships without the suite passing.
+      - name: Test
+        run: npm test
+
+      - name: Check the tag matches the manifest
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest=$(node -p "require('./module.json').version")
+          if [ "$tag" != "$manifest" ]; then
+            echo "Tag $tag does not match module.json version $manifest." >&2
+            echo "Foundry offers an update by comparing versions, so these must agree." >&2
+            exit 1
+          fi
+
+      # Only what Foundry actually loads. Tests, the local Foundry install and
+      # the working notes have no business in a user's modules directory.
+      - name: Build the package
+        run: |
+          zip -r module.zip \
+            module.json \
+            LICENSE \
+            NOTICE.md \
+            README.md \
+            CHANGELOG.md \
+            scripts \
+            styles \
+            templates \
+            lang \
+            -x '*.DS_Store'
+          unzip -l module.zip
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            module.json
+            module.zip
+          generate_release_notes: true

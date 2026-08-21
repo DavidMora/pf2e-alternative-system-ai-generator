@@ -11,6 +11,24 @@ in a sentence and get a mechanically-sound encounter back.
 Chases are implemented today. The data layer, generation pipeline and UI are
 shaped so Research, Infiltration and Influence drop in the same way.
 
+## Your API key, and what leaves your machine
+
+The key is stored **in your browser, not in the world**. That distinction
+matters: Foundry sends every world setting to every client that joins, so a key
+kept in the world is a key every player at your table receives. `restricted:
+true` does not prevent that — it only stops players editing the setting. Enter
+the key once per browser you GM from, under Configure Settings.
+
+*If you ran a build before 1.0.0, your key was world-scoped. The module deletes
+it on load and tells you, but revoke it at platform.openai.com — deleting it
+stops it being sent again, it cannot un-send what already went.*
+
+Requests go to `api.openai.com` only, only when a GM asks for something, and
+carry: the premise and other prose you typed, the base DC, party level and
+size, and for artwork the obstacle text plus any reference images you chose.
+Player names, actor sheets and chat are never sent. You are billed by OpenAI
+for what you use.
+
 ## Requirements
 
 - Foundry VTT v13+
@@ -25,16 +43,13 @@ shaped so Research, Infiltration and Influence drop in the same way.
 3. Optionally pick a model. Defaults to `gpt-5.6-terra`; the **Model override**
    field accepts any model id, so you are not stuck with the dropdown.
 
-### About the API key
+Requests go straight from the GM's browser to `api.openai.com`; nothing is
+proxied through a third party. If you would rather they did not, point **API
+base URL** at your own OpenAI-compatible endpoint.
 
-The key is stored in a **world-scope, GM-restricted** setting, so any GM on the
-world can generate without re-entering it. That also means it lives in the world
-database and is readable by anyone with database access — don't use a key you
-wouldn't put in a shared file. Requests go straight from the GM's browser to
-`api.openai.com`; nothing is proxied through a third party.
-
-If you'd rather the key never touch the world DB, point **API base URL** at your
-own OpenAI-compatible proxy and leave the key field holding a throwaway value.
+Because the key lives in the browser rather than the world, each GM enters
+their own, once per browser. A second GM on the same world will be asked for
+one before they can generate.
 
 ## Using it
 
@@ -678,6 +693,15 @@ Three harnesses, no Foundry required — they stub the globals:
   Blank means "omit the parameter".
 - Only the Chase subsystem is implemented.
 
-## License
+## Licence and attribution
 
-MIT
+The code is MIT; see [LICENSE](LICENSE).
+
+The Pathfinder Second Edition rules this module implements are Paizo's, not
+mine. Mechanical rules content is used under the ORC License, and the
+Pathfinder name under Paizo's Community Use Policy. This module is free,
+cannot be sold under that policy, and is not published, endorsed or approved by
+Paizo. The full attributions are in [NOTICE.md](NOTICE.md).
+
+No adventure text, artwork or stat blocks from any Paizo publication ship with
+this module. What it produces is generated at runtime from your own writing.

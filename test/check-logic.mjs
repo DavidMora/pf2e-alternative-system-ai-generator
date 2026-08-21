@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -393,6 +394,26 @@ for (const [name, predicate, base_, idField] of relays) {
 for (const [name, predicate] of relays.map(([n, p]) => [n, p])) {
   const foreign = relays.filter(([other]) => other !== name).map(([, , payload]) => predicate(payload, { ...gm, gmId: 'gm1' }));
   check(`${name}: refuses the other subsystems' messages`, foreign, [false, false, false]);
+}
+
+// --- the API key must never be a world setting ---
+// `restricted: true` only stops players editing a setting. Foundry's server
+// sends every world Setting to every client that joins, so a world-scoped key
+// is handed to the whole table and readable from any player's console.
+{
+  const settingsSource = readFileSync(path.join(base, 'settings.js'), 'utf8');
+  const registration = settingsSource.slice(settingsSource.indexOf('SETTINGS.apiKey'));
+  const scope = registration.match(/scope: '(\w+)'/)?.[1];
+  check('the OpenAI key is client scope, not world', scope, 'client');
+
+  const migrateSource = readFileSync(path.join(base, 'migrate.js'), 'utf8');
+  check(
+    'and a world-scoped one left by an older build is deleted',
+    /migrateApiKeyOutOfWorld[\s\S]*?stored\.delete\(\)/.test(migrateSource),
+    true,
+  );
+  const moduleSource = readFileSync(path.join(base, 'module.js'), 'utf8');
+  check('and that migration actually runs', moduleSource.includes('migrateApiKeyOutOfWorld()'), true);
 }
 
 // --- Structured Outputs strict-mode invariants ---

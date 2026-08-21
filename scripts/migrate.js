@@ -1,4 +1,4 @@
-import { MODULE_ID } from './constants.js';
+import { MODULE_ID, SETTINGS } from './constants.js';
 import { getChases, setChases } from './helpers.js';
 
 /**
@@ -73,4 +73,31 @@ export async function migrateChases() {
   }
 
   return { changed, obstaclesFixed };
+}
+
+
+/**
+ * Get an API key out of the world database.
+ *
+ * The key used to be a world setting, and Foundry sends every world setting to
+ * every client that joins, so on any world where this ran before the change
+ * the key has already been handed to whoever was at the table. Deleting it
+ * here stops it going out again; it does not un-send it, which is why the GM
+ * is told to revoke it rather than just reassured.
+ *
+ * The Setting document is deleted rather than blanked, so nothing is left for
+ * the next `Setting.dump()` to broadcast.
+ */
+export async function migrateApiKeyOutOfWorld() {
+  if (!game.user.isGM) return { moved: false };
+
+  const key = `${MODULE_ID}.${SETTINGS.apiKey}`;
+  const stored = game.settings.storage.get('world')?.getSetting?.(key);
+  const value = String(stored?.value ?? '').replace(/^"|"$/g, '');
+  if (!stored || !value) return { moved: false };
+
+  await stored.delete();
+  ui.notifications.error(game.i18n.localize('PFAI.Settings.KeyMoved'), { permanent: true });
+  console.warn(`${MODULE_ID} | removed the API key from the world database; revoke the old key`);
+  return { moved: true };
 }

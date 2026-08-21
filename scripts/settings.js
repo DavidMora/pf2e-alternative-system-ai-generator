@@ -65,10 +65,23 @@ export function registerSettings() {
     onChange: refreshOpenViews,
   });
 
+  /*
+   * Client scope, and it matters.
+   *
+   * `restricted: true` only stops a player *editing* a setting. Foundry's
+   * server sends every world Setting document to every client when they join
+   * - `Setting.dump()` with no filter on role - so a world-scoped key sits in
+   * the browser of everyone at the table, readable from the console. Client
+   * scope keeps it in this browser's storage and off the wire entirely.
+   *
+   * The cost is that each GM enters it once per browser, which is the right
+   * trade for a credential that bills someone. Every request is made from a
+   * GM client already, so nothing else needs it.
+   */
   game.settings.register(MODULE_ID, SETTINGS.apiKey, {
     name: 'PFAI.Settings.ApiKey.Name',
     hint: 'PFAI.Settings.ApiKey.Hint',
-    scope: 'world',
+    scope: 'client',
     config: true,
     restricted: true,
     type: String,
