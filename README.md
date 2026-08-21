@@ -29,6 +29,33 @@ size, and for artwork the obstacle text plus any reference images you chose.
 Player names, actor sheets and chat are never sent. You are billed by OpenAI
 for what you use.
 
+### If the browser is not good enough
+
+Client scope solves one problem completely — no player receives the key — and
+does not solve a second one at all: anyone who can use the GM's browser can
+read it. That is not a gap this module can close. Its own code runs in that
+browser and has to be able to read the key to send it, so any key that unlocked
+an encrypted key would sit right beside it. Obfuscation would only mean the key
+takes a minute to find instead of a second, while making you believe otherwise.
+
+The real answer is to not put a key in the browser at all:
+
+1. Run a small proxy that holds the real key and forwards to OpenAI, adding the
+   `Authorization` header itself. A Cloudflare Worker or a few lines of Express
+   is enough.
+2. Point **API base URL** at it.
+3. Put a token your proxy accepts in the key field — or nothing, if the proxy
+   authenticates some other way. Whatever is in the browser is now revocable by
+   you and worthless anywhere else.
+
+Short of that, use a **project-scoped key with a spend limit** at OpenAI. A key
+that can only ever spend a few dollars on one project fails safe in a way that
+a full-account key does not.
+
+The key field is rendered as a password input so it is not read over a shoulder
+or caught in a screen share. That is what it is for; it is not encryption and
+does not make the stored value any harder to read.
+
 ## Requirements
 
 - Foundry VTT v13+

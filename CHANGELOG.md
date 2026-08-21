@@ -17,6 +17,11 @@ First release.
   **If you used an earlier build, revoke that key at platform.openai.com.**
   Deleting it stops it being sent again; it cannot un-send what already went.
 
+- The key field renders as a password input, so it is not read over a shoulder
+  or caught in a screen share. That is all it does — it is not encryption. No
+  module can hide a key from the person operating the browser it runs in; the
+  README explains how to proxy instead if that matters to you.
+
 ### Subsystems
 
 All five published PF2e subsystems, generated from a premise you write:

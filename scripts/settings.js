@@ -22,6 +22,28 @@ function refreshOpenViews() {
   }
 }
 
+/**
+ * A string setting that renders as a password field.
+ *
+ * Foundry's own text input hard-codes `type="text"` and `setInputAttributes`
+ * has no passthrough for it, so the element is built by the parent and then
+ * corrected. This changes nothing about how the value is stored — it is not
+ * encryption and does not pretend to be. It stops the key being read over a
+ * shoulder, caught in a screen share, or left legible in a screenshot of the
+ * settings page, which is the realistic way a key gets seen.
+ */
+class SecretStringField extends foundry.data.fields.StringField {
+  _toInput(config) {
+    const input = super._toInput(config);
+    if (input?.tagName === 'INPUT') {
+      input.type = 'password';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+    }
+    return input;
+  }
+}
+
 export function registerSettings() {
   game.settings.register(MODULE_ID, SETTINGS.chases, {
     scope: 'world',
@@ -84,7 +106,7 @@ export function registerSettings() {
     scope: 'client',
     config: true,
     restricted: true,
-    type: String,
+    type: new SecretStringField({ required: true, blank: true, initial: '' }),
     default: '',
   });
 
