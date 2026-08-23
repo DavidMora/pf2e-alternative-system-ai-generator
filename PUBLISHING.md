@@ -13,7 +13,7 @@ Everything the submission form asks for already exists and resolves.
 
 | | |
 |---|---|
-| Package id | `matadragones-subsystems` — permanent once approved |
+| Package id | `matadragones-subsystems-implementation-for-pf2e` — permanent once approved |
 | Repository | https://github.com/DavidMora/pf2e-alternative-system-ai-generator — public |
 | Latest release | `v1.0.0` |
 | Manifest URL | https://github.com/DavidMora/pf2e-alternative-system-ai-generator/releases/latest/download/module.json |
@@ -40,7 +40,7 @@ You need a licensed account to submit. The listing is attached to that account.
 | Field | Value |
 |---|---|
 | Package Type | Module |
-| Package Name | `matadragones-subsystems` |
+| Package Name | `matadragones-subsystems-implementation-for-pf2e` |
 | Package Title | Matadragones Subsystems (AI driven) |
 | Manifest URL | `https://github.com/DavidMora/pf2e-alternative-system-ai-generator/releases/latest/download/module.json` |
 | Project URL | `https://github.com/DavidMora/pf2e-alternative-system-ai-generator` |
@@ -50,7 +50,7 @@ Field labels may read slightly differently; match them by meaning. The
 on every update check afterwards, and everything else can be edited later.
 
 **Package Name is the id and is permanent.** On approval,
-`matadragones-subsystems` is yours and cannot be changed, renamed or
+`matadragones-subsystems-implementation-for-pf2e` is yours and cannot be changed, renamed or
 transferred to a different id. It is also the folder name in every user's
 `Data/modules/`.
 

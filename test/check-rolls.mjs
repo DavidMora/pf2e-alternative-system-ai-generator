@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const base = path.join(root, 'scripts');
 
-const MODULE_ID = 'matadragones-subsystems';
+const MODULE_ID = 'matadragones-subsystems-implementation-for-pf2e';
 
 // One in-memory store standing in for world settings.
 const store = {};

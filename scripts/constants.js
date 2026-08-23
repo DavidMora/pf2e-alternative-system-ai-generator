@@ -1,4 +1,4 @@
-export const MODULE_ID = 'matadragones-subsystems';
+export const MODULE_ID = 'matadragones-subsystems-implementation-for-pf2e';
 
 /** World/client setting keys. */
 export const SETTINGS = {

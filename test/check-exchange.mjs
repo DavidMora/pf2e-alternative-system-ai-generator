@@ -350,7 +350,7 @@ check(
 /* -------------------------------------------------------------- whole files */
 
 const file = (over = {}) => JSON.stringify({
-  module: 'matadragones-subsystems',
+  module: 'matadragones-subsystems-implementation-for-pf2e',
   kind: 'payload',
   version: 1,
   type: 'influence',
@@ -400,7 +400,7 @@ check(
 check(
   'a stored event exported for backup still imports',
   parseExchange(
-    JSON.stringify({ module: 'matadragones-subsystems', type: 'chase', version: 2, data: { name: 'x' } }),
+    JSON.stringify({ module: 'matadragones-subsystems-implementation-for-pf2e', type: 'chase', version: 2, data: { name: 'x' } }),
   ),
   { ok: true, kind: 'event', key: 'chase', data: { name: 'x' }, problems: [] },
 );
