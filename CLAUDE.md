@@ -135,6 +135,11 @@ deprecation warning on either version.
   `degreeOfSuccess` (0–3). Lore slugs end in `-lore`.
 - The images endpoint rejects SVG, and Foundry ships SVG icons — rasterise
   references to PNG first.
+- Anything with `overflow: hidden` placed directly in `.pfai-root` needs
+  `flex-shrink: 0`. That container is a flex column, so a tall child is squeezed
+  to zero height on a long event and then clips its own content away. It looks
+  like the feature did nothing rather than like a layout bug, and short events
+  have enough slack to hide it.
 - A drop zone must **contain** the text inviting the drop. An empty roster whose
   hint sits outside it is a thin header strip, and dropping is silently
   impossible. Give zones a `min-height` too.

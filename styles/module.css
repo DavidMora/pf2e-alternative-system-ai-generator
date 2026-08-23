@@ -457,6 +457,13 @@
   border-radius: 6px;
   overflow: hidden;
   line-height: 0;
+  /* The art sits directly in .pfai-root, which is a flex column. A flex item
+     shrinks by default, so on a long event the figure was squeezed to zero
+     height and `overflow: hidden` then clipped the picture away completely -
+     the Add art button would disappear, having done its job, and nothing would
+     appear in its place. Short events had slack and looked fine, which is why
+     this survived so long. */
+  flex-shrink: 0;
 }
 
 .pfai .pfai-chase-art img,
