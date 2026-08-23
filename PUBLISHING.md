@@ -161,8 +161,49 @@ Pushing the tag runs `.github/workflows/release.yml`, which:
    install,
 5. publishes `module.json` and `module.zip` to the release.
 
-Nothing else is needed. Foundry notices new versions by re-fetching the
-manifest URL, which always points at `releases/latest`.
+Nothing else is needed to publish. Foundry notices new versions by re-fetching
+the manifest URL, which always points at `releases/latest`.
+
+### Then add the version on foundryvtt.com
+
+The package listing keeps a row per version, and Foundry uses those rows to
+serve the right release to someone on an older core version. Your profile →
+Packages → this package → **Add Version**:
+
+| Field | Value |
+|---|---|
+| Version Number | must match `module.json` exactly, e.g. `1.0.1` |
+| Package Manifest URL | `.../releases/download/v1.0.1/module.json` — **the tagged URL, not `latest`** |
+| Release Notes URL | `.../releases/tag/v1.0.1` |
+| Minimum Core Version | `13` |
+| Verified Core Version | the build you actually ran on, e.g. `14.367` |
+| Maximum Core Version | **leave blank** |
+
+Two of those are easy to get wrong.
+
+The **manifest URL here is the tagged one**, not `releases/latest`. The
+package-level URL points at `latest` because it must always describe the newest
+version; a version row describes one specific release, and pointing it at
+`latest` means a user who needs an older build is handed the newest manifest
+instead.
+
+**Maximum Core Version is a hard block, not a hint.** Setting it to `14` means
+the module refuses to install on Foundry 15 even where it would work. Leave it
+empty, and leave `maximum` out of `module.json` too — a mismatch between the
+two causes trouble.
+
+### Why `manifest` and `download` point at different places
+
+In `module.json` as committed, both point at `releases/latest`. At release time
+the workflow rewrites **`download`** to the tagged zip and leaves `manifest`
+alone, then fails the build if either is wrong.
+
+That asymmetry is deliberate. `manifest` must stay at `latest` or Foundry can
+never discover a newer version. `download` must not, because that release's
+manifest is archived under its own tag forever: without the rewrite, someone
+installing 1.0.0 in two years would be handed whatever zip happened to be
+newest. The two fields answer different questions — "where do I look for
+updates" and "where is *this* version" — and only the first one moves.
 
 ### Watch it
 

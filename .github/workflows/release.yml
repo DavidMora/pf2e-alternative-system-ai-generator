@@ -41,6 +41,37 @@ jobs:
             exit 1
           fi
 
+      # `manifest` has to stay at releases/latest so Foundry can find the newest
+      # version when it checks for updates. `download` must not: this release's
+      # manifest is archived under its own tag forever, and a user installing
+      # 1.0.0 two years from now has to get 1.0.0's zip, not whatever is newest.
+      # The two fields point at different places on purpose.
+      - name: Point this release's manifest at its own zip
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync("module.json", "utf8"));
+            m.download = `https://github.com/${process.env.REPO}/releases/download/${process.env.TAG}/module.zip`;
+            fs.writeFileSync("module.json", JSON.stringify(m, null, 2) + "\n");
+            console.log("download ->", m.download);
+            console.log("manifest ->", m.manifest);
+          '
+          # A silent no-op here would ship the bug it exists to prevent.
+          node -e '
+            const m = require("./module.json");
+            if (!m.download.includes(process.env.TAG)) {
+              console.error("download URL was not rewritten to the tagged zip");
+              process.exit(1);
+            }
+            if (!m.manifest.includes("releases/latest")) {
+              console.error("manifest URL must stay at releases/latest for update checks");
+              process.exit(1);
+            }
+          '
+
       # Only what Foundry actually loads. Tests, the local Foundry install and
       # the working notes have no business in a user's modules directory.
       - name: Build the package
