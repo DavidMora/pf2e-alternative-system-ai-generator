@@ -22,6 +22,10 @@ jobs:
         with:
           node-version: '20'
 
+      # check-templates renders the real templates, so it needs handlebars.
+      - name: Install test dependencies
+        run: npm ci
+
       # A broken import disables the module silently in Foundry, so nothing
       # ships without the suite passing.
       - name: Test
