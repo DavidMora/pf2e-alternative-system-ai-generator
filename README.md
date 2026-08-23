@@ -29,6 +29,11 @@ size, and for artwork the obstacle text plus any reference images you chose.
 Player names, actor sheets and chat are never sent. You are billed by OpenAI
 for what you use.
 
+Nothing is gathered on your behalf. Every reference image is one you picked by
+hand, which also makes it yours to account for: only send art you hold the
+rights to send to a model. The module will not go looking for context in your
+world, your compendia or anyone else's assets.
+
 ### If the browser is not good enough
 
 Client scope solves one problem completely — no player receives the key — and

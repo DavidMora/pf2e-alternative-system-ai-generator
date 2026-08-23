@@ -68,9 +68,24 @@ The manifest already carries one; the listing wants its own. This works:
 
 ### 4. Tags
 
-**AI Tools** is the one people looking for this will browse. Add one or two
-more that genuinely fit — *Automation Enhancers* is reasonable. Do not tag
-*Actor and Item Sheets*; it touches no sheets.
+**AI Tools is required, not a preference.** Foundry's AI Content Policy says a
+package "incorporating AI models/interfaces for runtime improvised content"
+must carry that category, and this is one. Add one or two more that genuinely
+fit — *Automation Enhancers* is reasonable. Do not tag *Actor and Item Sheets*;
+it touches no sheets.
+
+**Do not claim the "Zero AI" designation.** It is only for packages that used
+no AI at any stage of development. Claiming it wrongly is grounds for removal
+and for being barred from submitting again.
+
+### 4b. The AI Content Policy
+
+Read it before submitting: https://foundryvtt.com/article/ai-policy/
+
+The short version for this package: what it *does* — generate encounters at
+runtime in response to a GM's own prompt — is the permitted "improvised
+content" case, explicitly blessed by the policy. What needs your attention is
+everything that ships *with* it. See `AI-POLICY-COMPLIANCE.md`.
 
 ### 5. The disclosure questions
 
