@@ -469,9 +469,16 @@
 .pfai .pfai-chase-art img,
 .pfai .pfai-obstacle-art img {
   width: 100%;
-  height: auto;
   display: block;
   border: none;
+  /* A banner, not a wall. At full panel width a square image came out over
+     eight hundred pixels tall and pushed the whole encounter below the fold;
+     landscape art was half that and still dominated. Cap the height and crop
+     from the centre so the art sits above the content rather than
+     in place of it. */
+  height: 14rem;
+  object-fit: cover;
+  object-position: center;
 }
 
 .pfai .pfai-chase-art figcaption,

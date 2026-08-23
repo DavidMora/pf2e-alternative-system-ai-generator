@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.1
+
+Generated artwork was invisible. Add art would run, store the image and hide
+its own button, and nothing would appear in its place.
+
+The art figure sits directly in a flex column and took the default
+`flex-shrink: 1`, so on a long event it was squeezed to zero height and its own
+`overflow: hidden` clipped the picture away entirely. Short events had slack,
+which is why chases looked fine: it depends on how much content sits above the
+art, not on which subsystem you are in.
+
+Art is also capped at 14rem and cropped from the centre now. At full panel
+width a square image came out over eight hundred pixels tall and pushed the
+whole encounter below the fold.
+
 ## 1.0.0
 
 First release.
