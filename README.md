@@ -4,6 +4,9 @@
 the situation in a sentence; get a playable encounter back — obstacles, skill
 approaches, DCs, thresholds and clickable inline checks.
 
+Built at our own table by [**Matadragones**](https://matadragones.org) —
+*echando dados desde los 90.*
+
 <p>
   <img alt="Foundry v13–v14" src="https://img.shields.io/badge/Foundry-v13%20%E2%80%93%20v14-informational">
   <img alt="System pf2e" src="https://img.shields.io/badge/system-pf2e-brown">
@@ -824,6 +827,31 @@ Three harnesses, no Foundry required — they stub the globals:
   `NumberField` can validate, so a blank field would break the whole sheet.
   Blank means "omit the parameter".
 - Only the Chase subsystem is implemented.
+
+## Who made this
+
+[**Matadragones**](https://matadragones.org) · *Echando dados desde los 90 ·
+Cada fin de semana*
+
+We are *veteranos del rol, amigos de toda la vida* — role-playing veterans and
+lifelong friends. We met at school in the nineties, and what began as games
+snatched between classes turned into "una amistad de décadas y una pasión que
+sigue tan viva como el primer día": a friendship measured in decades, and a
+passion as alive as it was on the first day. We still play every weekend.
+
+Two campaigns are running at the moment: **Drakar**, a homebrew setting on the
+2024 D&D rules, and **Era de las Cenizas** — Pathfinder 2e's Age of Ashes. This
+module came out of that second table. Every subsystem here was built because we
+wanted to run it on a Sunday and did not want to spend the Saturday typing it
+in.
+
+Which is also why it is free, and why it will stay that way. Thirty years of
+this hobby were given to us by people who wrote things down and handed them
+over. This is some of that going back. If it saves you an evening of prep,
+that is the whole return we were after.
+
+You can read about our campaigns, characters and comics at
+[matadragones.org](https://matadragones.org).
 
 ## Licence and attribution
 

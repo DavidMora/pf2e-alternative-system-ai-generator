@@ -35,7 +35,9 @@ what game it is for, and nothing more:
 > more information about Paizo Inc. and Paizo products, visit paizo.com.
 
 This module is free and always will be. Under the Community Use Policy it
-cannot be sold, and it must not be presented as an official Paizo product.
+cannot be sold, and it must not be presented as an official Paizo product. That
+suits us: it was written by [Matadragones](https://matadragones.org) for our own
+table and given away for the same reason anybody gives anything to this hobby.
 
 **What is not reproduced.** No adventure text, artwork, monster stat blocks or
 setting material from any Paizo publication ships with this module. The
