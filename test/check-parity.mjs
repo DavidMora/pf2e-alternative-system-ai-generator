@@ -12,7 +12,7 @@
 import { CONTEXTS, prepareHandlebars } from './fixtures.mjs';
 
 const view = prepareHandlebars();
-const SUBSYSTEMS = ['chase', 'influence', 'research', 'infiltration', 'leadership'];
+const SUBSYSTEMS = ['chase', 'influence', 'research', 'infiltration', 'victory', 'leadership'];
 
 const has = (out, action) => out.includes(`data-action="${action}"`);
 const countOf = (out, action) => (out.match(new RegExp(`data-action="${action}"`, 'g')) ?? []).length;
@@ -42,12 +42,12 @@ const CAPABILITIES = [
   // --- rounds ------------------------------------------------------------
   {
     name: 'Next round',
-    check: (o) => /data-action="(nextRound|influenceNextRound|researchNextRound|infiltrationNextRound)"/.test(o),
+    check: (o) => /data-action="\w*[Nn]extRound"/.test(o),
     waived: { leadership: 'the published subsystem runs in downtime, not rounds' },
   },
   {
     name: 'Adjust round',
-    check: (o) => /data-action="(roundDelta|influenceRoundDelta|researchRoundDelta|infiltrationRoundDelta)"/.test(o),
+    check: (o) => /data-action="\w*[Rr]oundDelta"/.test(o),
     waived: { leadership: 'the published subsystem runs in downtime, not rounds' },
   },
 
@@ -70,33 +70,38 @@ const CAPABILITIES = [
   {
     name: 'Add entry (blank)',
     check: (o) =>
-      /data-action="(addObstacle|addApproach|addSource|addCheck|addObjective|addInfiltrationObstacle|addThreshold|addFinding|addComplication|addTrait|addBreakpoint|addLieutenant|addLeadershipEvent)"/.test(o),
+      // Scoped away from the shared header and roster actions, or
+      // addParticipants alone would satisfy this for every subsystem.
+      /data-action="add(?!Participants)[A-Z]\w*"/.test(o),
   },
   {
     name: 'Add entry (AI)',
     check: (o) =>
-      /data-action="(generateOneObstacle|generateApproach|generateSource|generateInfiltrationObstacle|generateLeadershipEvent)"/.test(o),
+      /data-action="generate(OneObstacle|Approach|Source|\w*(Obstacle|Event|Check))"/.test(o),
   },
   {
     name: 'Edit entry',
     check: (o) =>
-      /data-action="(editObstacle|editApproach|editSource|editCheck|editObjective|editInfiltrationObstacle|editThreshold|editFinding|editComplication|editTrait|editBreakpoint|editLieutenant|editLeadershipEvent)"/.test(o),
+      // editTitle, editStats and editText are the shared header controls;
+      // an entry editor has to be something else.
+      /data-action="edit(?!Title|Stats|Text)[A-Z]\w*"/.test(o),
   },
   {
     name: 'Delete entry',
-    check: (o) =>
-      /data-action="(deleteObstacle|deleteApproach|deleteSource|deleteCheck|deleteObjective|deleteInfiltrationObstacle|deleteThreshold|deleteFinding|deleteComplication|deleteTrait|deleteBreakpoint|deleteLieutenant|deleteLeadershipEvent)"/.test(o),
+    check: // delete<Subsystem> removes the whole event, not an entry in it.
+      (o, key) =>
+        new RegExp(`data-action="delete(?!${key[0].toUpperCase()}${key.slice(1)}")[A-Z]\\w*"`).test(o),
   },
   {
     name: 'Reveal / conceal entry',
     check: (o) =>
-      /data-action="(toggleObstacleLock|toggleReveal|toggleResearchReveal|toggleInfiltrationReveal|toggleLeadershipReveal)"/.test(o),
+      /data-action="toggle(ObstacleLock|\w*[Rr]eveal)"/.test(o),
   },
 
   // --- play --------------------------------------------------------------
   {
     name: 'Roll from participant row',
-    check: (o) => /data-action="(rollCheck|rollInfluence|rollResearch|rollInfiltration|rollLeadership)"/.test(o),
+    check: (o) => /data-action="roll[A-Z]\w*"/.test(o),
   },
   {
     name: 'Roll picker populated',
@@ -105,11 +110,11 @@ const CAPABILITIES = [
   {
     name: 'Adjust points',
     check: (o) =>
-      /data-action="(chasePointDelta|influencePointDelta|researchPointDelta|awarenessDelta|orgLevelDelta)"/.test(o),
+      /data-action="\w*(PointDelta|awarenessDelta|orgLevelDelta)"/.test(o),
   },
   {
     name: 'Award points to a participant',
-    check: (o) => /data-action="(awardContribution|awardInfluence|awardResearch)"/.test(o),
+    check: (o) => /data-action="award[A-Z]\w*"/.test(o),
     waived: {
       infiltration:
         'edge points are the published way to help a character here, and spendEdge covers it',
@@ -213,6 +218,7 @@ function listView(key) {
     selectedResearch: null,
     selectedInfiltration: null,
     selectedLeadership: null,
+    selectedVictory: null,
   });
 }
 
@@ -221,7 +227,7 @@ function emptyRosterView(key) {
   const ctx = CONTEXTS[key](true);
   const detail =
     ctx.selected ?? ctx.selectedInfluence ?? ctx.selectedResearch ?? ctx.selectedInfiltration ??
-    ctx.selectedLeadership;
+    ctx.selectedLeadership ?? ctx.selectedVictory;
   const emptied = { ...detail, participants: [] };
   return view({
     ...ctx,
@@ -230,6 +236,7 @@ function emptyRosterView(key) {
     ...(ctx.selectedResearch ? { selectedResearch: emptied } : {}),
     ...(ctx.selectedInfiltration ? { selectedInfiltration: emptied } : {}),
     ...(ctx.selectedLeadership ? { selectedLeadership: emptied } : {}),
+    ...(ctx.selectedVictory ? { selectedVictory: emptied } : {}),
   });
 }
 
@@ -314,6 +321,31 @@ for (const key of SUBSYSTEMS) {
   if (leaked.length) {
     failed = 1;
     console.error(`LEAK ${key} exposes to players: ${leaked.join(', ')}`);
+  }
+}
+
+/*
+ * GM prose must not reach a player either.
+ *
+ * The action check above proves players get no GM *controls*. It says nothing
+ * about the text: GM notes, an unreached threshold, a twist still waiting. The
+ * fixtures plant markers for exactly this, and until now four of them were
+ * planted and never looked at.
+ *
+ * Derived by scanning the GM view for the markers, so a fixture that adds one
+ * is covered without editing this file.
+ */
+for (const key of SUBSYSTEMS) {
+  const planted = [...new Set(gmViews[key].match(/[A-Z][A-Z-]*SECRET[A-Z-]*/g) ?? [])];
+  if (!planted.length) {
+    failed = 1;
+    console.error(`FIXTURE ${key} plants no GM-only marker, so nothing proves its prose is withheld`);
+    continue;
+  }
+  const leaked = planted.filter((marker) => playerViews[key].includes(marker));
+  if (leaked.length) {
+    failed = 1;
+    console.error(`LEAK ${key} shows players GM prose: ${leaked.join(', ')}`);
   }
 }
 

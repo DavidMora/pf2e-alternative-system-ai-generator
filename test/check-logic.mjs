@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -396,6 +396,77 @@ for (const [name, predicate, base_, idField] of relays) {
 for (const [name, predicate] of relays.map(([n, p]) => [n, p])) {
   const foreign = relays.filter(([other]) => other !== name).map(([, , payload]) => predicate(payload, { ...gm, gmId: 'gm1' }));
   check(`${name}: refuses the other subsystems' messages`, foreign, [false, false, false]);
+}
+
+// --- every string a template asks for must exist ---
+// A missing key renders as the raw key. It looks like a typo in the UI and
+// gives no clue which file to open, so pin the whole surface at once.
+{
+  const lang = JSON.parse(readFileSync(path.join(root, 'lang/en.json'), 'utf8'));
+  const files = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.(hbs|js)$/.test(entry.name)) files.push(full);
+    }
+  };
+  walk(path.join(root, 'templates'));
+  walk(path.join(root, 'scripts'));
+
+  const missing = new Set();
+  for (const file of files) {
+    const source = readFileSync(file, 'utf8');
+    // localize/format in templates and code, plus bare 'PFAI.*' string literals.
+    for (const [, key] of source.matchAll(/(?:localize|format)\(?\s*'(PFAI\.[\w.]+)'/g)) {
+      if (!(key in lang)) missing.add(key);
+    }
+    for (const [, key] of source.matchAll(/localize '(PFAI\.[\w.]+)'/g)) {
+      if (!(key in lang)) missing.add(key);
+    }
+  }
+  check('every localisation key a template or script asks for exists', [...missing].sort(), []);
+}
+
+// --- the published scale table ---
+// Table 3-1 reproduced, not computed. Without this the forefront row silently
+// lost a threshold and nothing noticed.
+{
+  const { VICTORY_SCALES } = await import(`file://${base}/constants.js`);
+  const asTable = Object.fromEntries(
+    Object.entries(VICTORY_SCALES).map(([key, row]) => [key, [row.goal, row.thresholds]]),
+  );
+  check('scale table matches GM Core Table 3-1', asTable, {
+    quick: [5, []],
+    long: [10, [4]],
+    session: [20, [5, 10, 15]],
+    sideline: [18, [5, 10, 15]],
+    forefront: [50, [10, 20, 30, 40]],
+  });
+
+  const { victoryPointsForDegree } = await import(`file://${base}/helpers.js`);
+  check('accumulating rolls follow the published table',
+    [3, 2, 1, 0].map((d) => victoryPointsForDegree(d, 'accumulating')), [2, 1, 0, -1]);
+  check('diminishing rolls follow the published table',
+    [3, 2, 1, 0].map((d) => victoryPointsForDegree(d, 'diminishing')), [1, 0, -1, -2]);
+  check('and a diminishing critical success only recovers where recovery is possible',
+    victoryPointsForDegree(3, 'diminishing', false), 0);
+}
+
+// --- localisation keys must expand into a tree ---
+// Foundry runs expandObject over the language file, turning dotted keys into
+// nested objects. A key that is both a value and the prefix of another key
+// cannot be both a leaf and a branch, so expandObject throws - and the whole
+// file is dropped, taking every other string in the module with it. The symptom
+// is the entire UI rendering raw keys, which points nowhere near the cause.
+{
+  const lang = JSON.parse(readFileSync(path.join(root, 'lang/en.json'), 'utf8'));
+  const keys = Object.keys(lang);
+  const collisions = keys.filter((key) => keys.some((other) => other.startsWith(`${key}.`)));
+  check('no localisation key is both a value and a branch', collisions, []);
+
+  const nonString = keys.filter((key) => typeof lang[key] !== 'string');
+  check('every localisation value is a string', nonString, []);
 }
 
 // --- the API key must never be a world setting ---

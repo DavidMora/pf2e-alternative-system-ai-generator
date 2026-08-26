@@ -41,7 +41,7 @@ const selected = {
   id: 'abc', name: 'Rooftop Run', baseDC: 20, level: 5, hidden: true, started: false,
   rounds: { current: 2, max: 6 }, complete: false, outOfTime: false,
   ai: { generated: true, model: 'gpt-5.6-terra' }, generatedAt: '2026-08-19',
-  enrichedPremise: '<p>Go</p>', enrichedGmNotes: '<p>Secret</p>',
+  enrichedPremise: '<p>Go</p>', enrichedGmNotes: '<p>CHASE-SECRET</p>',
   obstacles: [{ id: 'o1', number: 1, name: 'Gap', locked: false, cleared: false, percent: 50,
                 chasePoints: { current: 1, goal: 2 }, enrichedOvercome: '<ul><li>x</li></ul>' }],
   currentObstacle: { id: 'o1', number: 1, name: 'Gap', locked: false, cleared: false, percent: 50, isLive: true,
@@ -98,7 +98,7 @@ const influenceCtx = (isGM) => ({
     enrichedPremise: '<p>A ball.</p>', enrichedGoal: '<p>Her vote.</p>',
     enrichedNpcDescription: '<p>A diplomat.</p>',
     enrichedNpcWants: '<p>SECRET-WANTS</p>',
-    enrichedGmNotes: '<p>SECRET-NOTES</p>',
+    enrichedGmNotes: '<p>INFLUENCE-SECRET</p>',
     discoveries: [{ id: 'd1', label: 'Society', dc: 18, effectiveDC: 16, description: 'Ask around.',
                     hidden: false, enrichedReveals: '<p>Her bias.</p>' }],
     influenceSkills: isGM
@@ -298,6 +298,67 @@ export const leadershipCtx = (isGM) => ({
 export { selected, participantsFor, influenceCtx, researchCtx, infiltrationCtx };
 
 /** One context per subsystem, keyed the way the registry keys them. */
+const VICTORY_ROLL_OPTIONS = [
+  { id: 'vc1', label: 'Athletics', dc: 20 },
+  { id: 'vc3', label: 'Diplomacy', dc: 18 },
+];
+
+export const victoryCtx = (isGM) => ({
+  isGM, isRealGM: isGM, previewAsPlayer: false, isVictoryTab: true,
+  chases: [], influences: [], researches: [], infiltrations: [], leaderships: [], victories: [],
+  selectedVictory: {
+    id: 'v1', name: 'Holding the Kettle Bridge', hidden: false, started: true,
+    baseDC: 20, level: 5, partySize: 4,
+    structure: 'accumulating', scale: 'session',
+    isDiminishing: false,
+    structureLabel: 'Accumulating',
+    scoringHint: 'Critical success 2, success 1, critical failure -1.',
+    outcome: '', isWon: false, isLost: false,
+    atEndOfTrack: false, trackLabel: 'The endpoint has been reached.',
+    outOfTime: false,
+    points: { current: 7, goal: 20 },
+    rounds: { current: 2, max: 8, unit: 'minute' },
+    ai: { generated: true },
+    enrichedPremise: '<p>A running fight for the bridge.</p>',
+    enrichedObjective: '<p>Hold it open until the district crosses.</p>',
+    enrichedGoal: '<p>They get out.</p>',
+    enrichedFailure: '<p>VICTORY-FAILURE-SECRET</p>',
+    enrichedGmNotes: '<p>VICTORY-SECRET</p>',
+    nextThreshold: { id: 'vt2', points: 10, name: 'The Span Holds' },
+    checks: isGM
+      ? [{ id: 'vc1', label: 'Athletics', dc: 20, award: 0, hidden: false, description: 'Haul debris clear.' },
+         { id: 'vc3', label: 'Diplomacy', dc: 18, award: 0, hidden: false, description: 'Keep the crowd moving.' },
+         { id: 'vc5', label: 'Thievery', dc: 25, award: 2, hidden: true, description: 'Cut the ferry chain.' }]
+      : [{ id: 'vc1', label: 'Athletics', dc: 20, award: 0, hidden: false, description: 'Haul debris clear.' },
+         { id: 'vc3', label: 'Diplomacy', dc: 18, award: 0, hidden: false, description: 'Keep the crowd moving.' }],
+    thresholds: isGM
+      ? [{ id: 'vt1', points: 5, name: 'The Crowd Thins', reached: true, hidden: false,
+           enrichedDescription: '<p>The bottleneck clears.</p>' },
+         { id: 'vt2', points: 10, name: 'The Span Holds', reached: false, hidden: true,
+           enrichedDescription: '<p>VICTORY-THRESHOLD-SECRET</p>' }]
+      : [{ id: 'vt1', points: 5, name: 'The Crowd Thins', reached: true, hidden: false,
+           enrichedDescription: '<p>The bottleneck clears.</p>' }],
+    events: isGM
+      ? [{ id: 've1', name: 'The Wind Turns', triggerLabel: 'round 3', fired: true, hidden: false,
+           enrichedDescription: '<p>Smoke rolls back.</p>' },
+         { id: 've2', name: 'They Fire the Barges', triggerLabel: 'at 10', fired: false, hidden: true,
+           enrichedDescription: '<p>VICTORY-EVENT-SECRET</p>' }]
+      : [{ id: 've1', name: 'The Wind Turns', triggerLabel: 'round 3', fired: true, hidden: false,
+           enrichedDescription: '<p>Smoke rolls back.</p>' }],
+    participants: [
+      { id: 'vp1', name: 'Amiri', img: 'a.png', hasActed: false, canRoll: true, owned: true,
+        noActor: false, missingActor: false, isReroll: false, canAward: isGM,
+        rollOptions: VICTORY_ROLL_OPTIONS, contributedTotal: 4, successCount: 2, rollCount: 3,
+        hasContributed: true },
+      { id: 'vp2', name: 'Harsk', img: 'b.png', hasActed: true, canRoll: isGM, owned: true,
+        noActor: false, missingActor: false, isReroll: isGM, canAward: isGM,
+        rollOptions: VICTORY_ROLL_OPTIONS, contributedTotal: 3, successCount: 1, rollCount: 2,
+        hasContributed: true },
+    ],
+    hiddenCounts: isGM ? { checks: 1 } : { checks: 0 },
+  },
+});
+
 export const CONTEXTS = {
   chase: (isGM) => ({
     isGM,
@@ -311,4 +372,5 @@ export const CONTEXTS = {
   research: researchCtx,
   infiltration: (isGM) => infiltrationCtx(isGM),
   leadership: leadershipCtx,
+  victory: victoryCtx,
 };

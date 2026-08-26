@@ -13,15 +13,21 @@ Handlebars.registerHelper('pfaiAdd', (a, b) => Number(a) + Number(b));
 Handlebars.registerHelper('pfaiOr', (...a) => a.slice(0, -1).some(Boolean));
 Handlebars.registerHelper('pfaiSubtract', (a, b) => Number(a) - Number(b));
 
-// Partials must be registered before the templates that use them compile.
+/*
+ * Partials must be registered before the templates that use them compile.
+ *
+ * Read from the directory rather than listed by hand: the hand-written list
+ * silently fell two behind when leadership and victory were added, which is the
+ * kind of gap that looks like coverage until someone checks.
+ */
 const partialsDir = path.join(dir, 'partials');
-for (const [name, file] of [
-  ['pfaiResearchDetail', 'research-detail.hbs'],
-  ['pfaiInfiltrationDetail', 'infiltration-detail.hbs'],
-  ['pfaiInfluenceDetail', 'influence-detail.hbs'],
-  ['pfaiInfluenceChecks', 'influence-checks.hbs'],
-  ['pfaiInfluenceTraits', 'influence-traits.hbs'],
-]) {
+for (const file of readdirSync(partialsDir).filter((f) => f.endsWith('.hbs'))) {
+  // influence-detail.hbs -> pfaiInfluenceDetail
+  const name = `pfai${file
+    .replace('.hbs', '')
+    .split('-')
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join('')}`;
   Handlebars.registerPartial(name, readFileSync(path.join(partialsDir, file), 'utf8'));
 }
 Handlebars.registerHelper('pfaiLt', (a, b) => Number(a) < Number(b));

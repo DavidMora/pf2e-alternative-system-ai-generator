@@ -156,6 +156,35 @@ for (const file of files) {
       console.error(`FAIL ${path.relative(root, file)} registers action ${name} but never defines it`);
     }
   }
+  // Being defined somewhere in the file is not enough: a handler that landed
+  // after the class closed still matches the regex above, and still makes the
+  // class body a SyntaxError that Foundry reports as an inactive module with no
+  // error at all. Check they are inside the class that registers them.
+  for (const match of source.matchAll(/^export class (\w+) extends/gm)) {
+    const open = source.indexOf('{', match.index);
+    let depth = 0;
+    let close = source.length;
+    for (let i = open; i < source.length; i += 1) {
+      if (source[i] === '{') depth += 1;
+      else if (source[i] === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          close = i;
+          break;
+        }
+      }
+    }
+    const body = source.slice(open, close);
+    for (const name of registered) {
+      if (!source.includes(`${match[1]}.${name}`)) continue;
+      if (body.includes(`${name}(`)) continue;
+      failed = 1;
+      console.error(
+        `FAIL ${path.relative(root, file)} registers ${name} on ${match[1]} but defines it outside the class body`,
+      );
+    }
+  }
+
   // A handler nobody can reach is dead weight worth knowing about.
   for (const name of defined) {
     if (!registered.has(name) && !source.includes(`${name}(`)) {

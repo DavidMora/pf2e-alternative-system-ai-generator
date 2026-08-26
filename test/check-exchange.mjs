@@ -368,10 +368,10 @@ check(
 );
 check('a JSON array is not a file', parseExchange('[]').problems[0].message, 'expected a JSON object');
 check(
+  // Derived from the registry, so adding a subsystem does not break this the
+  // way a hand-written list would.
   'an unknown subsystem lists the real ones',
   parseExchange(file({ type: 'heist' })).problems[0].message,
-  // Derived from the registry, so adding a subsystem does not silently
-  // falsify this the way a hardcoded list does.
   `"heist" is not one of: ${Object.keys(EXCHANGE).join(', ')}`,
 );
 check(
@@ -448,6 +448,173 @@ check(
   null,
 );
 
+/* ------------------------------------------------ victory: the generic case */
+
+const victoryGiven = {
+  premise: 'A running fight for the only bridge left.',
+  objective: 'Hold it open until the district crosses.',
+  goal: 'They get out.',
+  failure: 'The span goes down with people on it.',
+  baseDC: 20, level: 5, partySize: 4,
+  structure: 'accumulating', scale: 'session',
+};
+const vCheck = (skill, adjustment = 'standard', exploitsWeakness = false) => ({
+  skill, loreName: '', dcAdjustment: adjustment, description: 'Do the thing.', exploitsWeakness,
+});
+const victoryPayload = {
+  title: 'Holding the Bridge',
+  gmNotes: 'The militia will not hold past dusk.',
+  roundUnit: 'minute', roundLimit: 8,
+  checks: [vCheck('athletics'), vCheck('crafting', 'hard'), vCheck('diplomacy', 'easy'), vCheck('thievery', 'very-hard', true)],
+  thresholds: [
+    { name: 'The Crowd Thins', description: 'a' },
+    { name: 'The Span Holds', description: 'b' },
+    { name: 'Reinforcements', description: 'c' },
+  ],
+  events: [{ name: 'The Wind Turns', description: 'Smoke.', triggerKind: 'rounds', triggerAt: 3 }],
+};
+
+check('victory: a well-formed payload passes', verifyPayload('victory', victoryPayload, victoryGiven), []);
+check(
+  'victory: the objective is required, because nothing else says what they are doing',
+  verifyPayload('victory', victoryPayload, { ...victoryGiven, objective: '  ' })
+    .some((p) => p.path === 'given.objective'),
+  true,
+);
+check(
+  'victory: a DC the agent tried to set is rejected',
+  verifyPayload('victory', { ...victoryPayload, checks: [{ ...vCheck('athletics'), dc: 22 }] }, victoryGiven)
+    .some((p) => p.path === 'payload.checks[0].dc'),
+  true,
+);
+
+/*
+ * Victory had no semantic checks at all: it was added after the verifier and
+ * nobody extended it, so a file that satisfied the schema and was unplayable
+ * imported without a word. These are the ways it can be unplayable.
+ */
+const vProblems = (payload, given = victoryGiven) =>
+  verifyPayload('victory', { ...victoryPayload, ...payload }, { ...victoryGiven, ...given });
+const vPaths = (...args) => vProblems(...args).map((p) => p.path);
+const vSay = (path, ...args) =>
+  vProblems(...args).find((p) => p.path === path)?.message ?? 'no problem reported';
+
+check('victory: a contest with no checks is rejected',
+  vSay('payload.checks', { checks: [] }),
+  'a contest with no checks gives the party nothing to roll');
+
+// exploitsWeakness starts a check hidden, so all-of-them means a blank sheet.
+check('victory: checks that all need groundwork leave the contest empty',
+  vSay('payload.checks', { checks: [vCheck('athletics', 'standard', true), vCheck('thievery', 'hard', true)] }),
+  'every check needs groundwork first, so the contest opens with nothing available');
+
+check('victory: and that is an error, not a warning',
+  vProblems({ checks: [vCheck('athletics', 'standard', true)] })
+    .find((p) => p.path === 'payload.checks')?.severity, 'error');
+
+check('victory: no check rewarding groundwork is only a warning',
+  vProblems({ checks: [vCheck('athletics'), vCheck('crafting'), vCheck('diplomacy'), vCheck('thievery')] })
+    .find((p) => p.path === 'payload.checks')?.severity, 'warning');
+
+check('victory: a Lore check with no subject is caught',
+  vPaths({ checks: [{ ...vCheck('lore'), loreName: '  ' }, vCheck('crafting'), vCheck('diplomacy'), vCheck('thievery', 'hard', true)] })
+    .includes('payload.checks[0].loreName'), true);
+
+check('victory: two checks on one skill leave a character with nothing to try',
+  vSay('payload.checks[1].skill',
+    { checks: [vCheck('athletics'), vCheck('athletics'), vCheck('diplomacy'), vCheck('thievery', 'hard', true)] }),
+  'another check already uses athletics at index 0');
+
+check('victory: fewer checks than characters is flagged',
+  vSay('payload.checks', { checks: [vCheck('athletics'), vCheck('thievery', 'hard', true)] }, { partySize: 6 }),
+  '2 checks for 6 characters; some will have nothing to try');
+
+/*
+ * The scale fixes the endpoint and the number of thresholds; the file only
+ * writes their words. Neither mismatch is a schema error.
+ */
+check('victory: too few thresholds for the scale means some arrive unnamed',
+  vSay('payload.thresholds', { thresholds: [{ name: 'One', description: 'a' }] }),
+  'the "session" scale has 3 thresholds but only 1 are written; the rest arrive unnamed');
+
+check('victory: too many are dropped, and the GM is told how many',
+  vSay('payload.thresholds', {
+    thresholds: [1, 2, 3, 4, 5].map((n) => ({ name: `T${n}`, description: 'x' })),
+  }),
+  '5 written for a scale with 3; the last 2 are dropped');
+
+check('victory: a quick contest wants no thresholds at all',
+  vSay('payload.thresholds', { thresholds: [] }, { scale: 'quick' }),
+  'no problem reported');
+
+check('victory: an event set past the endpoint never fires',
+  vSay('payload.events[0].triggerAt', {
+    events: [{ name: 'Too late', description: 'x', triggerKind: 'points', triggerAt: 99 }],
+  }),
+  '99 points is past the endpoint of 20, so this never fires');
+
+check('victory: one at the endpoint itself is fine',
+  vSay('payload.events[0].triggerAt', {
+    events: [{ name: 'At the wire', description: 'x', triggerKind: 'points', triggerAt: 20 }],
+  }),
+  'no problem reported');
+
+check('victory: an event set past the round limit never fires either',
+  vSay('payload.events[0].triggerAt', {
+    events: [{ name: 'Never', description: 'x', triggerKind: 'rounds', triggerAt: 12 }],
+  }, { roundLimit: 8 }),
+  'round 12 never arrives; the contest runs for 8');
+
+check('victory: an open-ended contest imposes no round ceiling',
+  vSay('payload.events[0].triggerAt', {
+    events: [{ name: 'Someday', description: 'x', triggerKind: 'rounds', triggerAt: 99 }],
+  }, { roundLimit: 0 }),
+  'no problem reported');
+
+const vParsed = parseExchange(JSON.stringify({
+  module: 'matadragones-subsystems-implementation-for-pf2e', kind: 'payload', version: 1, type: 'victory',
+  given: victoryGiven, payload: victoryPayload,
+}));
+check('victory: the file parses', vParsed.ok, true);
+const vStored = await applyExchange(vParsed);
+const vEvent = store.victories.events[vStored.id];
+check(
+  // The endpoint and the threshold positions come from the published scale
+  // table, never from the model, the same rule DCs follow.
+  'victory: the endpoint comes from the scale table, not the payload',
+  vEvent.points,
+  { current: 0, goal: 20 },
+);
+check(
+  'victory: and so do the threshold totals',
+  Object.values(vEvent.thresholds).map((t) => t.points).sort((a, b) => a - b),
+  [5, 10, 15],
+);
+check(
+  'victory: DCs were computed here from the adjustments',
+  Object.values(vEvent.checks).map((c) => c.dc).sort((a, b) => a - b),
+  [18, 20, 22, 25],
+);
+check(
+  'victory: a check that needs groundwork pays more and starts hidden',
+  Object.values(vEvent.checks).filter((c) => c.award > 0).map((c) => [c.award, c.hidden]),
+  [[2, true]],
+);
+check('victory: the GM premise is kept verbatim', vEvent.premise.includes('only bridge left'), true);
+
+// A diminishing contest starts full rather than empty.
+const dimParsed = parseExchange(JSON.stringify({
+  module: 'matadragones-subsystems-implementation-for-pf2e', kind: 'payload', version: 1, type: 'victory',
+  given: { ...victoryGiven, structure: 'diminishing', scale: 'long' },
+  payload: { ...victoryPayload, thresholds: [{ name: 'Fraying', description: 'a' }] },
+}));
+const dimStored = await applyExchange(dimParsed);
+check(
+  'victory: a diminishing contest starts at its endpoint',
+  store.victories.events[dimStored.id].points,
+  { current: 10, goal: 10 },
+);
+
 /* --------------------------------------- every subsystem can build a brief */
 
 for (const key of Object.keys(EXCHANGE)) {
@@ -468,5 +635,5 @@ for (const key of Object.keys(EXCHANGE)) {
 }
 
 if (failed) console.error('\nFAILED');
-else console.log('\nok  briefs, payload verification and import hold for all five subsystems');
+else console.log('\nok  briefs, payload verification and import hold for every subsystem');
 process.exit(failed);
