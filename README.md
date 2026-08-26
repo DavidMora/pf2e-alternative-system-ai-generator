@@ -1,6 +1,6 @@
 # Matadragones Subsystems (AI driven)
 
-**Run PF2e's five subsystems in Foundry without writing them first.** Describe
+**Run PF2e's six subsystems in Foundry without writing them first.** Describe
 the situation in a sentence; get a playable encounter back — obstacles, skill
 approaches, DCs, thresholds and clickable inline checks.
 
@@ -20,10 +20,11 @@ Built at our own table by [**Matadragones**](https://matadragones.org) —
 excellent tracker, but every obstacle, DC and skill option has to be typed in
 first. This module keeps the tracker and replaces the typing.
 
-**Chases, Influence, Research, Infiltration and Leadership** are all here, and
-they all work the same way, so learning one teaches you the rest.
+**Chases, Influence, Research, Infiltration, Leadership and Victory Points**
+are all here, and they all work the same way, so learning one teaches you the
+rest.
 
-![Five subsystems, one window](docs/images/subsystem-tabs.png)
+![Six subsystems, one window](docs/images/subsystem-tabs.png)
 
 ### What it will not do
 
@@ -678,6 +679,56 @@ other four.
 No rounds and no point awards, both waived explicitly in the parity audit with
 reasons, because inventing them would misrepresent the subsystem.
 
+## Victory Points
+
+![A Victory Point contest, with its scale drawn from the published table](docs/images/victory-contest.png)
+
+The generic subsystem the other five are specialisations of.
+[Rules](https://2e.aonprd.com/Rules.aspx?ID=1250). Chases, Influence, Research
+and Infiltration are all Victory Point structures with their own vocabulary
+bolted on; this tab is the toolkit underneath, for the contest at your table
+that the published four do not cover — holding a bridge, arguing a case before a
+magistrate, keeping a ritual stable while something claws at it.
+
+### Two structures, and the difference matters
+
+**Accumulating** climbs from zero to the endpoint: the party is earning
+something. Critical success 2, success 1, failure 0, critical failure −1.
+
+**Diminishing** starts *at* the endpoint and falls: the party is defending
+something, and reaching zero is the bad ending rather than merely not winning
+yet. Critical success 1, success 0, failure −1, critical failure −2.
+
+The published rules make a diminishing critical success worth a point only *if
+regaining ground is possible*, and otherwise treat it as a success. For cracked
+eggs or a burning building it is not, so **Recovery possible** is a switch on
+the event rather than an assumption.
+
+### The scale is the published table
+
+You pick a scale — quick, long, session, sideline or forefront — and the
+endpoint and threshold positions come from Table 3-1, not from the model. A
+forefront contest is 50 points with thresholds at 10, 20, 30 and 40. The model
+writes what each threshold *means*; it never picks the numbers.
+
+### Checks that open up
+
+![Ways to earn points; the Thievery approach stays hidden until the party earns it](docs/images/victory-checks.png)
+
+Any check can be marked as one the party only gets after working something out.
+Those start hidden and pay more when they land, which is what the rules ask for.
+A check can also carry a point total it reveals itself at, so a long contest
+opens up as it goes.
+
+### The GM calls it
+
+The point total says where the track stands. It does not say how the scene
+ended, so the module never declares a winner. When the track fills or empties
+you are told that fact, once, and three buttons in the status bar — **won**,
+**undecided**, **lost** — leave the verdict where it belongs. A party can hit
+the endpoint and still have lost the thing that mattered, or run the clock out
+defending a bridge and have held it long enough.
+
 ## Bringing your own agent
 
 You do not have to spend an OpenAI call here. Every generate dialog has **Save
@@ -782,19 +833,22 @@ scripts/
   ai/research.js               research schema, prompt, mapping
   ai/infiltration.js           infiltration schema, prompt, mapping
   ai/leadership.js             leadership schema, prompt, mapping
+  ai/victory.js                victory schema, prompt, mapping
   exchange.js                  briefs out, agent payloads in, and the verifier
   data/influence.js            Influence / Influences DataModels
   data/research.js             Research / Researches DataModels
   data/infiltration.js         Infiltration / Infiltrations DataModels
   data/leadership.js           Leadership / Leaderships DataModels
+  data/victory.js              Victory / Victories DataModels
   subsystems.js                registry: storage + shared GM operations
   apps/subsystem-view.js       the GM/player window
-  apps/generate-chase-dialog.js the generation form
+  apps/generate-chase-dialog.js the generation form (one per subsystem)
 ```
 
-All state lives in one world setting (`chases`) holding an id-keyed map. Adding a
-subsystem means a new DataModel, a new setting in the same shape, a schema +
-prompt under `ai/`, and a branch in the view.
+Each subsystem's state lives in its own world setting holding an id-keyed map.
+Adding one means a new DataModel, a new setting in the same shape, a schema +
+prompt under `ai/`, an entry in the `subsystems.js` registry — which is what
+makes the shared GM operations work for it — and a branch in the view.
 
 ## Tests
 
@@ -803,19 +857,35 @@ npm install
 npm test
 ```
 
-Three harnesses, no Foundry required — they stub the globals:
+Eleven suites, no Foundry required — `test/harness.mjs` stubs the globals:
 
-- `check-logic.mjs` — DC maths against the published table, HTML escaping,
-  inline-check composition, model-payload mapping, and the Structured Outputs
-  strict-mode invariants (`additionalProperties: false`, every property required)
+- `check-imports.mjs` — every named import resolves to a real export, and every
+  registered action has a handler. A dangling import breaks the whole ES module
+  graph at load time and Foundry reports only an inactive module with no cause
+- `check-helpers.mjs` — DC maths against the published table, the party-scaled
+  formulas, every degree table, and all six stores
+- `check-mappers.mjs` — every model answer mapped to stored data: no DC comes
+  from anywhere but the table, GM prose survives verbatim, provenance recorded
+- `check-registry.mjs` — the registry, how a button resolves to an event, the
+  export/import round trip, and every socket relay including refusal of
+  malformed messages
+- `check-migrate.mjs` — schema migration and the API-key migration, plus what
+  the GM must supply before a generate call
+- `check-logic.mjs` — HTML escaping, inline-check composition, socket targeting,
+  and the Structured Outputs strict-mode invariants
+  (`additionalProperties: false`, every property required)
+- `check-rolls.mjs` — rolling and what a roll does to the track, driven through
+  the real entry points so the message a player sends is the one the GM receives
+- `check-exchange.mjs` — the import verifier, asserting the *diagnostics* rather
+  than just accept/reject
 - `check-openai.mjs` — request shape, model override precedence, and every error
   path (missing key, HTTP error, refusal, malformed JSON, abort)
-- `check-templates.mjs` — compiles and renders every template, asserts the player
-  view omits GM controls and GM notes, and checks that every action button
-  carries the ids its handler reads (a button with a missing id is a silent no-op)
-- `check-imports.mjs` — verifies every named import resolves to a real export. A
-  dangling import breaks the whole ES module graph at load time, and Foundry
-  reports only an inactive module with no obvious cause
+- `check-templates.mjs` — compiles and renders every template, asserts the
+  player view omits GM controls and GM notes, and checks every action button
+  carries the ids its handler reads
+- `check-parity.mjs` — the adversarial audit: asserts all 35 capabilities exist
+  in all six subsystems and prints the matrix, so a gap is visible rather than
+  inferred. A subsystem that genuinely cannot have one must say why
 
 ## Known limits
 
@@ -826,7 +896,6 @@ Three harnesses, no Foundry required — they stub the globals:
   settings form submits an empty number input as `NaN`, which no nullable
   `NumberField` can validate, so a blank field would break the whole sheet.
   Blank means "omit the parameter".
-- Only the Chase subsystem is implemented.
 
 ## Who made this
 

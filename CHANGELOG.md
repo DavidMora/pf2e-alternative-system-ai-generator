@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.1.0
+
+### Victory Points
+
+The generic subsystem the other five are specialisations of, for the contest at
+your table the published four do not cover. Both published structures:
+accumulating rolls climbing to an endpoint, and diminishing rolls that start at
+the endpoint and fall, where running out is the bad ending rather than merely
+not winning yet.
+
+The scale comes from the published table — a forefront contest is 50 points with
+thresholds at 10, 20, 30 and 40 — so the model writes what each threshold means
+and never picks a number. Checks can be marked as ones the party earns by
+working something out; those start hidden and pay more, as the rules ask.
+
+The module never declares a winner. When the track fills or empties it says so,
+once, and the GM calls it won, lost or undecided. The number says where the
+track stands; it does not say how the scene ended.
+
+### Fixed
+
+- The GM's award button credited backwards in a diminishing contest: awarding a
+  point docked the character it was meant to reward. The award now lives beside
+  its three siblings in `rolls.js` rather than inline in the view, which is how
+  it drifted in the first place.
+- Stepping the influence total past a concession revealed it without telling
+  anyone. The reveal loop had three copies and one had lost its announcements;
+  there is one copy now.
+- `loreSlug('')` produced a bare `-lore`, and an unset Victory event reported
+  its track as already finished.
+- Imported Victory files got no playability checks at all — the subsystem was
+  added after the verifier and nobody extended it. A file whose checks all
+  need groundwork (so the contest opens empty), whose thresholds do not match
+  its scale, or whose events fire past the endpoint is now diagnosed with the
+  path and a sentence.
+- Socket messages carrying `kind`, and `objectiveId` on infiltration obstacles,
+  reached their handlers unvalidated.
+
+### Internal
+
+The seven socket predicates were the same five lines with different id names,
+and the two that used the shared helper had already drifted from the five that
+did not. One shape now.
+
+Test coverage went from 67 to 172 of the module's exported functions, across
+eleven suites and 986 assertions. Every new assertion was checked by breaking
+the code it covers and watching it fail — which is how the award bug above was
+found, along with two older assertions that could never have failed.
+
 ## 1.0.1
 
 Generated artwork was invisible. Add art would run, store the image and hide
