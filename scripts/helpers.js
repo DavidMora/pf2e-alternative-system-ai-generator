@@ -4,6 +4,7 @@ import {
   MODULE_ID,
   ORGANIZATION_TABLE,
   SETTINGS,
+  VICTORY_SCALES,
 } from './constants.js';
 
 /** Current chases as a plain, safely-mutable object. */
@@ -105,6 +106,79 @@ export async function deleteInfiltration(id) {
 }
 
 /** Current leadership organizations as a plain, safely-mutable object. */
+/** Victory Point contests, the generic subsystem. */
+export function getVictories() {
+  return game.settings.get(MODULE_ID, SETTINGS.victories).toObject();
+}
+
+export async function setVictories(victories) {
+  return game.settings.set(MODULE_ID, SETTINGS.victories, victories);
+}
+
+export function getVictory(id) {
+  return getVictories().events[id] ?? null;
+}
+
+export async function updateVictory(id, mutate) {
+  const victories = getVictories();
+  const event = victories.events[id];
+  if (!event) return null;
+  mutate(event);
+  await setVictories(victories);
+  return event;
+}
+
+export async function deleteVictory(id) {
+  const victories = getVictories();
+  delete victories.events[id];
+  await setVictories({ events: { ...victories.events } });
+}
+
+/**
+ * Victory points for one check.
+ *
+ * Accumulating rolls are the same table chases, influence and research use, so
+ * that one is shared rather than copied. Diminishing rolls are their own thing:
+ * a success only avoids losing ground, and a critical success recovers a point
+ * where recovering is possible at all.
+ */
+export function victoryPointsForDegree(degree, structure = 'accumulating', recoveryPossible = true) {
+  if (structure !== 'diminishing') return chasePointsForDegree(degree);
+  switch (degree) {
+    case 3:
+      // "If regaining ground is possible ... otherwise, as success."
+      return recoveryPossible ? 1 : 0;
+    case 1:
+      return -1;
+    case 0:
+      return -2;
+    default:
+      return 0;
+  }
+}
+
+/** The published endpoint and threshold positions for a chosen scale. */
+export function victoryScale(scale) {
+  return VICTORY_SCALES[scale] ?? VICTORY_SCALES.session;
+}
+
+/**
+ * Whether the track has run to its end.
+ *
+ * Deliberately not "whether they won". An accumulating contest ends at the
+ * endpoint and a diminishing one at zero, which is why this cannot be a single
+ * comparison — but reaching the end of the track is a fact about the number,
+ * and what it meant is the GM's to say.
+ */
+export function victoryReached(event) {
+  if (!event?.points) return false;
+  const { current = 0, goal = 0 } = event.points;
+  if (event.structure === 'diminishing') return current <= 0;
+  // A track with no length has not been run; without this a blank contest
+  // reads as already won.
+  return goal > 0 && current >= goal;
+}
+
 export function getLeaderships() {
   return game.settings.get(MODULE_ID, SETTINGS.leaderships).toObject();
 }
@@ -372,6 +446,10 @@ export function escapeHTML(value) {
 /** PF2e lore statistic slug, e.g. "Sailing" -> "sailing-lore". */
 export function loreSlug(name) {
   const slug = slugify(name);
+  // A lore with no subject has no slug. Returning "-lore" produced something
+  // that looked like a statistic, resolved to nothing, and failed at the table
+  // instead of at import.
+  if (!slug) return '';
   return slug.endsWith('-lore') ? slug : `${slug}-lore`;
 }
 

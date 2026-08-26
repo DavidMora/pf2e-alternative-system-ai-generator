@@ -7,6 +7,7 @@ export const SETTINGS = {
   researches: 'researches',
   infiltrations: 'infiltrations',
   leaderships: 'leaderships',
+  victories: 'victories',
   apiKey: 'openaiApiKey',
   model: 'openaiModel',
   modelOverride: 'openaiModelOverride',
@@ -101,6 +102,38 @@ export const DC_ADJUSTMENTS = {
   hard: 2,
   'very-hard': 5,
   'incredibly-hard': 10,
+};
+
+/**
+ * Table 3-1, Setting Your Scale, reproduced from GM Core.
+ *
+ * The published endpoints are ranges; the value here is one the GM can move.
+ * Thresholds are printed positions, not arithmetic, which is why they are
+ * written down rather than derived - a GM checking the book should find the
+ * same numbers.
+ */
+export const VICTORY_SCALES = {
+  quick: { label: 'PFAI.Victory.ScaleQuick', goal: 5, thresholds: [] },
+  long: { label: 'PFAI.Victory.ScaleLong', goal: 10, thresholds: [4] },
+  session: { label: 'PFAI.Victory.ScaleSession', goal: 20, thresholds: [5, 10, 15] },
+  sideline: { label: 'PFAI.Victory.ScaleSideline', goal: 18, thresholds: [5, 10, 15] },
+  forefront: { label: 'PFAI.Victory.ScaleForefront', goal: 50, thresholds: [10, 20, 30, 40] },
+};
+
+/**
+ * Two of the three published ways a Victory Point subsystem can run.
+ *
+ * Multiple Points, the third, is not here: the Infiltration tab already is one,
+ * with its own vocabulary, and a second generic implementation would duplicate
+ * it rather than add anything.
+ *
+ * Accumulating starts at zero and climbs to the endpoint. Diminishing starts
+ * AT the endpoint and falls: the party is defending something, and running out
+ * is the negative event rather than simply not winning.
+ */
+export const VICTORY_STRUCTURES = {
+  accumulating: 'PFAI.Victory.StructureAccumulating',
+  diminishing: 'PFAI.Victory.StructureDiminishing',
 };
 
 /** Skills the generator is allowed to call for. Doubles as the AI schema enum. */

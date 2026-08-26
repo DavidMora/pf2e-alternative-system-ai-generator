@@ -10,6 +10,7 @@ export const SOCKET_ACTIONS = {
   applyResearch: 'applyResearch',
   applyInfiltration: 'applyInfiltration',
   applyLeadership: 'applyLeadership',
+  applyVictory: 'applyVictory',
 };
 
 /**
@@ -39,29 +40,40 @@ export function shouldHandle(data, userId) {
  * a GM client. Exactly one GM must act or the points would be counted twice,
  * hence the designated-GM id carried on the message.
  */
-function targetsThisGM(data, { userId, isGM, activeGMId }) {
+function targetsThisGM(data, { userId, isGM, activeGMId }, required = []) {
   if (!isGM) return false;
-  if (!data.chaseId || !data.obstacleId || !data.participantId) return false;
+  // Some relays need a field only in one mode — infiltration carries an
+  // objective id for obstacles and nothing for complications — so a relay may
+  // name its fields as a function of the message.
+  const fields = typeof required === 'function' ? required(data) : required;
+  if (fields.some((field) => !data[field])) return false;
   // Only the designated GM applies; if none was named, the active GM does.
   return data.gmId ? data.gmId === userId : activeGMId === userId;
 }
 
-export function shouldApplyRoll(data, context) {
+/** A degree of success is one of the four published ones, or the roll is junk. */
+const validDegree = (degree) => Number.isInteger(degree) && degree >= 0 && degree <= 3;
+
+/**
+ * Build the predicate for one relay.
+ *
+ * Seven of these existed, six of them the same five lines with different id
+ * names, and the two that used the shared helper had already drifted from the
+ * five that did not. The shape is the contract, so it is written once: the
+ * action must match, the named ids must be present, the degree must be real,
+ * and the message must be addressed to this GM.
+ */
+const applies = (action, required, { degree = true } = {}) => (data, context) => {
   if (!data || typeof data !== 'object') return false;
-  if (data.action !== SOCKET_ACTIONS.applyRoll) return false;
-  if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
-  return targetsThisGM(data, context);
-}
+  if (data.action !== action) return false;
+  if (degree && !validDegree(data.degree)) return false;
+  return targetsThisGM(data, context, required);
+};
+
+export const shouldApplyRoll = applies(SOCKET_ACTIONS.applyRoll, ['chaseId', 'obstacleId', 'participantId']);
 
 /** Influence results are relayed exactly like chase rolls, to one GM only. */
-export function shouldApplyInfluence(data, context) {
-  if (!data || typeof data !== 'object') return false;
-  if (data.action !== SOCKET_ACTIONS.applyInfluence) return false;
-  if (!data.influenceId || !data.participantId || !data.entryId) return false;
-  if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
-  if (!context.isGM) return false;
-  return data.gmId ? data.gmId === context.userId : context.activeGMId === context.userId;
-}
+export const shouldApplyInfluence = applies(SOCKET_ACTIONS.applyInfluence, ['influenceId', 'participantId', 'entryId', 'kind']);
 
 export function emitApplyInfluence({ influenceId, participantId, entryId, kind, degree }) {
   game.socket.emit(SOCKET_EVENT, {
@@ -76,14 +88,7 @@ export function emitApplyInfluence({ influenceId, participantId, entryId, kind, 
 }
 
 /** Research results are relayed exactly like the others, to one GM only. */
-export function shouldApplyResearch(data, context) {
-  if (!data || typeof data !== 'object') return false;
-  if (data.action !== SOCKET_ACTIONS.applyResearch) return false;
-  if (!data.researchId || !data.participantId || !data.sourceId || !data.checkId) return false;
-  if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
-  if (!context.isGM) return false;
-  return data.gmId ? data.gmId === context.userId : context.activeGMId === context.userId;
-}
+export const shouldApplyResearch = applies(SOCKET_ACTIONS.applyResearch, ['researchId', 'participantId', 'sourceId', 'checkId']);
 
 export function emitApplyResearch({ researchId, participantId, sourceId, checkId, degree }) {
   game.socket.emit(SOCKET_EVENT, {
@@ -98,14 +103,11 @@ export function emitApplyResearch({ researchId, participantId, sourceId, checkId
 }
 
 /** Infiltration results are relayed like the rest, to one GM only. */
-export function shouldApplyInfiltration(data, context) {
-  if (!data || typeof data !== 'object') return false;
-  if (data.action !== SOCKET_ACTIONS.applyInfiltration) return false;
-  if (!data.infiltrationId || !data.participantId || !data.ownerId || !data.checkId) return false;
-  if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
-  if (!context.isGM) return false;
-  return data.gmId ? data.gmId === context.userId : context.activeGMId === context.userId;
-}
+export const shouldApplyInfiltration = applies(SOCKET_ACTIONS.applyInfiltration, (data) => [
+  'infiltrationId', 'participantId', 'kind', 'ownerId', 'checkId',
+  // Only an obstacle sits inside an objective.
+  ...(data.kind === 'obstacle' ? ['objectiveId'] : []),
+]);
 
 export function emitApplyInfiltration(payload) {
   game.socket.emit(SOCKET_EVENT, {
@@ -116,14 +118,7 @@ export function emitApplyInfiltration(payload) {
 }
 
 /** Leadership results are relayed like the rest, to one GM only. */
-export function shouldApplyLeadership(data, context) {
-  if (!data || typeof data !== 'object') return false;
-  if (data.action !== SOCKET_ACTIONS.applyLeadership) return false;
-  if (!data.leadershipId || !data.participantId || !data.eventId || !data.checkId) return false;
-  if (!Number.isInteger(data.degree) || data.degree < 0 || data.degree > 3) return false;
-  if (!context.isGM) return false;
-  return data.gmId ? data.gmId === context.userId : context.activeGMId === context.userId;
-}
+export const shouldApplyLeadership = applies(SOCKET_ACTIONS.applyLeadership, ['leadershipId', 'participantId', 'eventId', 'checkId']);
 
 export function emitApplyLeadership(payload) {
   game.socket.emit(SOCKET_EVENT, {
@@ -133,12 +128,19 @@ export function emitApplyLeadership(payload) {
   });
 }
 
-/** A passed turn carries no degree; everything else is validated the same. */
-export function shouldApplyPass(data, context) {
-  if (!data || typeof data !== 'object') return false;
-  if (data.action !== SOCKET_ACTIONS.applyPass) return false;
-  return targetsThisGM(data, context);
+/** Victory Point results are relayed like the rest, to one GM only. */
+export const shouldApplyVictory = applies(SOCKET_ACTIONS.applyVictory, ['victoryId', 'participantId', 'checkId']);
+
+export function emitApplyVictory(payload) {
+  game.socket.emit(SOCKET_EVENT, {
+    action: SOCKET_ACTIONS.applyVictory,
+    ...payload,
+    gmId: game.users.activeGM?.id ?? null,
+  });
 }
+
+/** A passed turn carries no degree; everything else is validated the same. */
+export const shouldApplyPass = applies(SOCKET_ACTIONS.applyPass, ['chaseId', 'obstacleId', 'participantId'], { degree: false });
 
 /**
  * Ask other clients to open the subsystem window on a specific chase.
@@ -187,6 +189,7 @@ export function registerSocket({
   onApplyResearch,
   onApplyInfiltration,
   onApplyLeadership,
+  onApplyVictory,
 }) {
   game.socket.on(SOCKET_EVENT, (data) => {
     if (shouldHandle(data, game.user.id)) {
@@ -207,5 +210,6 @@ export function registerSocket({
     else if (shouldApplyResearch(data, context)) onApplyResearch(data);
     else if (shouldApplyInfiltration(data, context)) onApplyInfiltration(data);
     else if (shouldApplyLeadership(data, context)) onApplyLeadership(data);
+    else if (shouldApplyVictory(data, context)) onApplyVictory(data);
   });
 }

@@ -2,20 +2,25 @@ import { MODULE_ID } from './constants.js';
 import {
   awarenessForDegree,
   chasePointsForDegree,
+  victoryPointsForDegree,
+  victoryReached,
   infiltrationPointsForDegree,
   getChase,
   getInfluence,
   getInfiltration,
   getLeadership,
+  getVictory,
   getResearch,
   updateChase,
   updateInfiltration,
   updateInfluence,
   updateLeadership,
+  updateVictory,
   updateResearch,
 } from './helpers.js';
 import {
   emitApplyLeadership,
+  emitApplyVictory,
   emitApplyInfiltration,
   emitApplyInfluence,
   emitApplyPass,
@@ -428,24 +433,16 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
       participant.contribution.total += applied;
     }
 
-    const unlocked = revealByProgress(event);
-
     summary = {
       participant: participant.name,
       points,
       revealed,
-      unlocked,
       current: event.influencePoints,
       next: Object.values(event.thresholds)
         .sort((a, b) => a.points - b.points)
         .find((t) => event.influencePoints < t.points) ?? null,
-      justReached: Object.values(event.thresholds)
-        .sort((a, b) => a.points - b.points)
-        .filter((t) => event.influencePoints >= t.points && t.hidden),
+      ...advanceInfluence(event),
     };
-
-    // Reaching a threshold is something the party sees happen.
-    for (const threshold of summary.justReached) threshold.hidden = false;
   });
 
   if (!summary) return;
@@ -477,8 +474,33 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
     );
   }
 
+  announceInfluenceProgress(summary);
+}
+
+/**
+ * Surface what the influence total has earned: concessions crossed and
+ * approaches unlocked.
+ *
+ * Three copies of this existed — the roll path, the GM's award, and the point
+ * stepper in the view — and the stepper's had quietly lost its announcements,
+ * so a GM nudging the total past a concession was told nothing. One copy now.
+ */
+export function advanceInfluence(event) {
+  const justReached = Object.values(event.thresholds ?? {})
+    .sort((a, b) => a.points - b.points)
+    .filter((t) => t.hidden && event.influencePoints >= t.points);
+  // Reaching a threshold is something the party sees happen.
+  for (const threshold of justReached) threshold.hidden = false;
+
+  return { justReached, unlocked: revealByProgress(event) };
+}
+
+/** Shared notifications for whatever advanceInfluence surfaced. */
+export function announceInfluenceProgress(summary) {
   for (const threshold of summary.justReached ?? []) {
-    ui.notifications.info(game.i18n.format('PFAI.Influence.ThresholdReached', { name: threshold.name }));
+    ui.notifications.info(
+      game.i18n.format('PFAI.Influence.ThresholdReached', { name: threshold.name }),
+    );
   }
   if (summary.unlocked?.length) {
     ui.notifications.info(
@@ -562,13 +584,12 @@ export async function adjustInfluenceContribution({ influenceId, participantId, 
     // floor is not recorded against anyone.
     participant.contribution.total += applied;
 
-    const justReached = Object.values(event.thresholds)
-      .sort((a, b) => a.points - b.points)
-      .filter((t) => event.influencePoints >= t.points && t.hidden);
-    for (const threshold of justReached) threshold.hidden = false;
-    const unlocked = revealByProgress(event);
-
-    summary = { participant: participant.name, applied, current: event.influencePoints, justReached, unlocked };
+    summary = {
+      participant: participant.name,
+      applied,
+      current: event.influencePoints,
+      ...advanceInfluence(event),
+    };
   });
 
   if (!summary) return null;
@@ -579,14 +600,7 @@ export async function adjustInfluenceContribution({ influenceId, participantId, 
       current: summary.current,
     }),
   );
-  for (const threshold of summary.justReached) {
-    ui.notifications.info(game.i18n.format('PFAI.Influence.ThresholdReached', { name: threshold.name }));
-  }
-  if (summary.unlocked?.length) {
-    ui.notifications.info(
-      game.i18n.format('PFAI.Influence.Unlocked', { what: summary.unlocked.join(', ') }),
-    );
-  }
+  announceInfluenceProgress(summary);
   return summary;
 }
 
@@ -1284,4 +1298,252 @@ export function advanceLeadership(org) {
     revealed.push(event.name);
   }
   return revealed;
+}
+
+
+/**
+ * Roll one Victory Point check.
+ *
+ * The same relay as everywhere else: a player's result is applied by exactly
+ * one GM client, or the points get counted twice.
+ */
+export async function rollVictoryCheck({ victoryId, participantId, checkId, force = false }) {
+  const event = getVictory(victoryId);
+  const participant = event?.participants?.[participantId];
+  const check = event?.checks?.[checkId];
+  if (!event || !participant || !check) return null;
+  // Nothing hidden is rollable, by anyone. Otherwise a player could score off a
+  // check the GM has not revealed by naming its id.
+  if (check.hidden) return null;
+
+  const override = force && game.user.isGM;
+  if (participant.hasActed && !override) {
+    ui.notifications.warn(game.i18n.format('PFAI.Roll.AlreadyActed', { name: participant.name }));
+    return null;
+  }
+
+  const actor = participant.uuid ? await fromUuid(participant.uuid) : null;
+  if (!actor) {
+    ui.notifications.error(game.i18n.format('PFAI.Roll.NoActor', { name: participant.name }));
+    return null;
+  }
+  if (!actor.isOwner) {
+    ui.notifications.error(game.i18n.format('PFAI.Roll.NotOwner', { name: participant.name }));
+    return null;
+  }
+
+  const statistic = actor.getStatistic?.(check.slug);
+  if (!statistic) {
+    ui.notifications.error(
+      game.i18n.format('PFAI.Roll.NoStatistic', { skill: check.label, name: actor.name }),
+    );
+    return null;
+  }
+
+  const roll = await statistic.roll({
+    dc: { value: check.dc },
+    label: `${event.name} — ${check.label}`,
+    extraRollOptions: [`${MODULE_ID}:victory`],
+  });
+  if (!roll) return null;
+
+  const degree = roll.degreeOfSuccess ?? roll.options?.degreeOfSuccess;
+  if (!Number.isInteger(degree)) {
+    ui.notifications.error(game.i18n.localize('PFAI.Roll.NoDegree'));
+    return null;
+  }
+
+  const payload = { victoryId, participantId, checkId, degree };
+  if (game.user.isGM) await applyVictoryResult(payload);
+  else {
+    if (!game.users.activeGM) {
+      ui.notifications.error(game.i18n.localize('PFAI.Roll.NoGM'));
+      return null;
+    }
+    emitApplyVictory(payload);
+  }
+  return { degree };
+}
+
+/** GM-side application of a Victory Point result. */
+export async function applyVictoryResult({ victoryId, participantId, checkId, degree }) {
+  if (!game.user.isGM) return;
+
+  let summary = null;
+  await updateVictory(victoryId, (event) => {
+    const participant = event.participants[participantId];
+    const check = event.checks[checkId];
+    if (!participant || !check) return;
+
+    const diminishing = event.structure === 'diminishing';
+    const base = victoryPointsForDegree(degree, event.structure, event.recoveryPossible !== false);
+    /*
+     * A check the party unlocked by working something out pays more, as the
+     * rules advise. Two things this has to get right:
+     *
+     * An award is a reward, so it always moves the total the way the party
+     * wants — up in an accumulating contest, and up in a diminishing one too,
+     * where "up" means recovering ground. Multiplying by the direction made a
+     * success on the best check in the game cost two points.
+     *
+     * And it must not flatten the degree ladder: if a success is worth the
+     * award, a critical success has to beat it, or the check the GM wanted to
+     * feel special is the one where rolling well stops mattering.
+     */
+    const points = degree >= 2 && check.award
+      ? check.award + (degree === 3 ? 1 : 0)
+      : base;
+
+    const before = event.points.current;
+    // Both ends are real: a diminishing contest cannot fall below zero, and an
+    // accumulating one gains nothing past its endpoint.
+    event.points.current = Math.clamp(before + points, 0, Math.max(event.points.goal, before));
+    const applied = event.points.current - before;
+
+    participant.contribution ??= { total: 0, successes: 0, rolls: 0 };
+    participant.contribution.rolls += 1;
+    if (degree >= 2) participant.contribution.successes += 1;
+    // Credit what actually moved, so a point absorbed by either end costs nobody.
+    participant.contribution.total += applied;
+    participant.hasActed = true;
+
+    summary = {
+      participant: participant.name,
+      check: check.label,
+      applied,
+      current: event.points.current,
+      goal: event.points.goal,
+      // The end of the contest, whichever direction it runs in.
+      // The transition, not the state, so it announces once.
+      finished: victoryReached(event) && !victoryReached({ ...event, points: { ...event.points, current: before } }),
+      lost: diminishing,
+      ...advanceVictory(event),
+    };
+  });
+
+  if (!summary) return;
+
+  const degreeKey = ['CriticalFailure', 'Failure', 'Success', 'CriticalSuccess'][degree];
+  ui.notifications.info(
+    game.i18n.format('PFAI.Victory.Applied', {
+      name: summary.participant,
+      degree: game.i18n.localize(`PFAI.Degree.${degreeKey}`),
+      points: summary.applied >= 0 ? `+${summary.applied}` : String(summary.applied),
+      current: summary.current,
+      goal: summary.goal,
+    }),
+  );
+  announceVictoryProgress(summary);
+}
+
+/**
+ * Surface what the current total has earned: thresholds crossed, checks that
+ * unlock at a total, and events whose trigger has come up.
+ *
+ * Thresholds are compared by direction, because a diminishing contest passes
+ * them on the way down.
+ */
+export function advanceVictory(event) {
+  const diminishing = event.structure === 'diminishing';
+  const at = event.points.current;
+
+  const reached = Object.values(event.thresholds)
+    .sort((a, b) => (diminishing ? b.points - a.points : a.points - b.points))
+    .filter((t) => t.hidden && (diminishing ? at <= t.points : at >= t.points));
+  for (const threshold of reached) threshold.hidden = false;
+
+  const unlocked = [];
+  for (const check of Object.values(event.checks)) {
+    if (!check.hidden || check.revealAt === null) continue;
+    if (diminishing ? at <= check.revealAt : at >= check.revealAt) {
+      check.hidden = false;
+      unlocked.push(check.label);
+    }
+  }
+
+  const fired = [];
+  for (const twist of Object.values(event.events)) {
+    if (twist.fired) continue;
+    const reachedTrigger =
+      twist.trigger.kind === 'rounds'
+        ? event.rounds.current >= twist.trigger.at
+        : diminishing
+          ? at <= twist.trigger.at
+          : at >= twist.trigger.at;
+    if (!reachedTrigger) continue;
+    twist.fired = true;
+    twist.hidden = false;
+    fired.push(twist.name);
+  }
+
+  return { reached, unlocked, fired };
+}
+
+/**
+ * The GM awarding or removing Victory Points by hand.
+ *
+ * This lived inline in the view, which is how it drifted: it negated the credit
+ * in a diminishing contest, so a GM awarding a point docked the character they
+ * meant to reward. Up is helping in both structures — a diminishing critical
+ * success is worth +1 and reaching zero is the party losing the thing — so the
+ * credit is what the total moved, exactly as `applyVictoryResult` records it.
+ *
+ * It sits beside the chase, influence and research versions so the four stay
+ * one shape.
+ */
+export async function adjustVictoryContribution({ victoryId, participantId, delta }) {
+  if (!game.user.isGM) return null;
+  const step = Math.trunc(Number(delta) || 0);
+  if (!step) return null;
+
+  let summary = null;
+  await updateVictory(victoryId, (event) => {
+    const participant = event.participants[participantId];
+    if (!participant) return;
+
+    const before = event.points.current;
+    event.points.current = Math.clamp(before + step, 0, Math.max(event.points.goal, before));
+    const applied = event.points.current - before;
+    if (!applied) return;
+
+    participant.contribution ??= { total: 0, successes: 0, rolls: 0 };
+    // Credit what the total actually moved, so an award absorbed by either end
+    // is not recorded against anyone.
+    participant.contribution.total += applied;
+
+    summary = {
+      participant: participant.name,
+      applied,
+      current: event.points.current,
+      goal: event.points.goal,
+      lost: event.structure === 'diminishing',
+      ...advanceVictory(event),
+    };
+  });
+
+  if (summary) announceVictoryProgress(summary);
+  return summary;
+}
+
+/** Shared notifications for whatever advanceVictory surfaced. */
+export function announceVictoryProgress(summary) {
+  for (const threshold of summary.reached ?? []) {
+    ui.notifications.info(game.i18n.format('PFAI.Victory.ThresholdReached', { name: threshold.name }));
+  }
+  if (summary.unlocked?.length) {
+    ui.notifications.info(game.i18n.format('PFAI.Victory.Unlocked', { what: summary.unlocked.join(', ') }));
+  }
+  for (const name of summary.fired ?? []) {
+    ui.notifications.warn(game.i18n.format('PFAI.Victory.EventFired', { name }), { permanent: true });
+  }
+  if (summary.finished) {
+    // The track has run out, which is a fact. Whether that is a win is not, so
+    // this tells the GM the number has arrived and leaves the call to them.
+    ui.notifications.info(
+      game.i18n.localize(
+        summary.lost ? 'PFAI.Victory.TrackEmpty' : 'PFAI.Victory.TrackFull',
+      ),
+      { permanent: true },
+    );
+  }
 }

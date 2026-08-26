@@ -1,4 +1,9 @@
-import { LEADERSHIP_EVENT_KINDS, MODULE_ID, PF2E_SKILLS } from '../constants.js';
+import {
+  LEADERSHIP_EVENT_KINDS,
+  MODULE_ID,
+  PF2E_SKILLS,
+  VICTORY_STRUCTURES,
+} from '../constants.js';
 import {
   capitalize,
   deleteChase,
@@ -13,6 +18,11 @@ import {
   getInfiltrations,
   getLeadership,
   getLeaderships,
+  getVictories,
+  htmlToPromptText,
+  getVictory,
+  updateVictory,
+  victoryReached,
   getResearch,
   getResearches,
   setInfluences,
@@ -57,10 +67,20 @@ import { GenerateImageDialog } from './generate-image-dialog.js';
 import { emitShowEvent } from '../socket.js';
 import { eventTarget, exportPayload, subsystem } from '../subsystems.js';
 import { applyExchange, parseExchange } from '../exchange.js';
+import { GenerateVictoryDialog } from './generate-victory-dialog.js';
+import { generateVictoryCheck } from '../ai/victory.js';
+import {
+  rollVictoryCheck,
+  advanceVictory,
+  announceVictoryProgress,
+} from '../rolls.js';
 import {
   adjustContribution,
   adjustInfluenceContribution,
+  advanceInfluence,
+  announceInfluenceProgress,
   adjustResearchContribution,
+  adjustVictoryContribution,
   advanceInfiltration,
   advanceLeadership,
   advanceResearch,
@@ -121,6 +141,8 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Selected organisation. */
   #selectedLeadershipId = null;
+
+  #selectedVictoryId = null;
 
   static DEFAULT_OPTIONS = {
     id: 'pfai-subsystem-view',
@@ -222,6 +244,27 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       generateImage: SubsystemView.#onGenerateImage,
       clearImage: SubsystemView.#onClearImage,
       editTitle: SubsystemView.#onEditTitle,
+      backVictory: SubsystemView.#onBackVictory,
+      deleteVictory: SubsystemView.#onDeleteVictory,
+      generateVictory: SubsystemView.#onGenerateVictory,
+      openVictory: SubsystemView.#onOpenVictory,
+      victoryRoundDelta: SubsystemView.#onVictoryRoundDelta,
+      victoryPointDelta: SubsystemView.#onVictoryPointDelta,
+      victoryNextRound: SubsystemView.#onVictoryNextRound,
+      addVictoryCheck: SubsystemView.#onAddVictoryCheck,
+      generateVictoryCheck: SubsystemView.#onGenerateVictoryCheck,
+      editVictoryCheck: SubsystemView.#onEditVictoryCheck,
+      deleteVictoryCheck: SubsystemView.#onDeleteVictoryCheck,
+      addVictoryThreshold: SubsystemView.#onAddVictoryThreshold,
+      editVictoryThreshold: SubsystemView.#onEditVictoryThreshold,
+      deleteVictoryThreshold: SubsystemView.#onDeleteVictoryThreshold,
+      addVictoryEvent: SubsystemView.#onAddVictoryEvent,
+      editVictoryEvent: SubsystemView.#onEditVictoryEvent,
+      deleteVictoryEvent: SubsystemView.#onDeleteVictoryEvent,
+      toggleVictoryReveal: SubsystemView.#onToggleVictoryReveal,
+      rollVictory: SubsystemView.#onRollVictory,
+      setVictoryOutcome: SubsystemView.#onSetVictoryOutcome,
+      awardVictory: SubsystemView.#onAwardVictory,
       createBlank: SubsystemView.#onCreateBlank,
       openChase: SubsystemView.#onOpenChase,
       back: SubsystemView.#onBack,
@@ -299,6 +342,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       case 'leadership':
         this.#selectedLeadershipId = eventId;
         break;
+      case 'victory':
+        this.#selectedVictoryId = eventId;
+        break;
       case 'chase':
         this.#selectedId = eventId;
         // Start on the active obstacle, not wherever this user last browsed.
@@ -363,6 +409,15 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const selectedLeadership =
       selectedLeadershipRaw && (isGM || !selectedLeadershipRaw.hidden) ? selectedLeadershipRaw : null;
 
+    const victories = getVictories().events;
+    const visibleVictories = Object.values(victories)
+      .filter((event) => isGM || !event.hidden)
+      .sort((a, b) => a.position - b.position);
+    const selectedVictoryRaw = this.#selectedVictoryId ? victories[this.#selectedVictoryId] : null;
+    if (!selectedVictoryRaw) this.#selectedVictoryId = null;
+    const selectedVictory =
+      selectedVictoryRaw && (isGM || !selectedVictoryRaw.hidden) ? selectedVictoryRaw : null;
+
     const infiltrations = getInfiltrations().events;
     const visibleInfiltrations = Object.values(infiltrations)
       .filter((event) => isGM || !event.hidden)
@@ -393,6 +448,12 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       isInfluenceTab: this.#subsystem === 'influence',
       isResearchTab: this.#subsystem === 'research',
       isInfiltrationTab: this.#subsystem === 'infiltration',
+      isVictoryTab: this.#subsystem === 'victory',
+      victories: visibleVictories.map((event) => ({
+        ...event,
+        checkCount: Object.keys(event.checks).length,
+      })),
+      selectedVictory: selectedVictory ? await this.#prepareVictory(selectedVictory, isGM) : null,
       isLeadershipTab: this.#subsystem === 'leadership',
       leaderships: visibleLeaderships.map((event) => ({
         ...event,
@@ -434,6 +495,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
             research: selectedResearchRaw,
             infiltration: selectedInfiltrationRaw,
             leadership: selectedLeadershipRaw,
+            victory: selectedVictoryRaw,
           }[this.#subsystem]?.hidden,
         ),
       // Preview of a chase players cannot see yet.
@@ -1056,6 +1118,109 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
             breakpoints: Object.values(event.awarenessBreakpoints).filter((e) => e.hidden).length,
           }
         : null,
+    };
+  }
+
+  /**
+   * Shape one Victory Point contest for display.
+   *
+   * Direction matters here in a way it does not elsewhere: a diminishing
+   * contest counts down, so "next threshold" is the highest one still ahead
+   * rather than the lowest, and reaching zero is the end rather than the start.
+   */
+  async #prepareVictory(event, isGM) {
+    const enrich = (html) =>
+      foundry.applications.ux.TextEditor.implementation.enrichHTML(html ?? '', { async: true });
+    const visible = (record) =>
+      Object.values(record ?? {})
+        .filter((entry) => isGM || !entry.hidden)
+        .sort((a, b) => a.position - b.position);
+
+    const diminishing = event.structure === 'diminishing';
+    const at = event.points.current;
+
+    const checks = visible(event.checks);
+    const thresholds = await Promise.all(
+      visible(event.thresholds).map(async (threshold) => ({
+        ...threshold,
+        reached: diminishing ? at <= threshold.points : at >= threshold.points,
+        enrichedDescription: await enrich(threshold.description),
+      })),
+    );
+    const events = await Promise.all(
+      visible(event.events).map(async (twist) => ({
+        ...twist,
+        triggerLabel:
+          twist.trigger.kind === 'rounds'
+            ? game.i18n.format('PFAI.Victory.AtRound', { at: twist.trigger.at })
+            : game.i18n.format('PFAI.Victory.AtPoints', { at: twist.trigger.at }),
+        enrichedDescription: await enrich(twist.description),
+      })),
+    );
+
+    // Only checks the party can see are offered, the same rule as everywhere.
+    const rollOptions = checks
+      .filter((check) => !check.hidden)
+      .map((check) => ({ id: check.id, label: check.label, dc: check.dc }));
+
+    const participants = Object.values(event.participants)
+      .filter((participant) => isGM || !participant.hidden)
+      .map((participant) => {
+        const actor = participant.uuid ? fromUuidSync(participant.uuid) : null;
+        const contribution = participant.contribution ?? {};
+        const owned = Boolean(actor?.isOwner);
+        return {
+          ...participant,
+          img: participant.img || actor?.img || 'icons/svg/mystery-man.svg',
+          noActor: !participant.uuid,
+          missingActor: Boolean(participant.uuid) && !actor,
+          owned,
+          // The GM may roll for anyone, including someone who has already gone.
+          canRoll: owned && event.started && (isGM || !participant.hasActed) && rollOptions.length > 0,
+          isReroll: isGM && participant.hasActed,
+          canAward: isGM,
+          rollOptions,
+          contributedTotal: contribution.total ?? 0,
+          successCount: contribution.successes ?? 0,
+          rollCount: contribution.rolls ?? 0,
+          hasContributed: (contribution.rolls ?? 0) > 0,
+        };
+      });
+
+    const ahead = thresholds
+      .filter((t) => !t.reached)
+      .sort((a, b) => (diminishing ? b.points - a.points : a.points - b.points));
+
+    return {
+      ...event,
+      isDiminishing: diminishing,
+      structureLabel: game.i18n.localize(
+        diminishing ? 'PFAI.Victory.StructureDiminishing' : 'PFAI.Victory.StructureAccumulating',
+      ),
+      scoringHint: game.i18n.localize(
+        diminishing ? 'PFAI.Victory.ScoringDiminishing' : 'PFAI.Victory.ScoringAccumulating',
+      ),
+      // A fact about the number, and the GM's verdict, kept apart on purpose.
+      atEndOfTrack: victoryReached(event),
+      trackLabel: game.i18n.localize(
+        diminishing ? 'PFAI.Victory.TrackEmpty' : 'PFAI.Victory.TrackFull',
+      ),
+      isWon: event.outcome === 'won',
+      isLost: event.outcome === 'lost',
+      outOfTime: Boolean(event.rounds.max) && event.rounds.current >= event.rounds.max,
+      nextThreshold: ahead[0] ?? null,
+      enrichedPremise: await enrich(event.premise),
+      enrichedObjective: await enrich(event.objective),
+      enrichedGoal: await enrich(event.goal),
+      enrichedFailure: await enrich(event.failure),
+      enrichedGmNotes: await enrich(event.gmNotes),
+      checks,
+      thresholds,
+      events,
+      participants,
+      hiddenCounts: {
+        checks: Object.values(event.checks).filter((c) => c.hidden).length,
+      },
     };
   }
 
@@ -2579,18 +2744,13 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async #onInfluencePointDelta(_event, target) {
     const delta = Number(target.dataset.delta);
-    let unlocked = [];
+    let summary = null;
     await updateInfluence(target.dataset.influenceId, (event) => {
       // Points can fall on a critical failure, but never below zero.
       event.influencePoints = Math.max(0, event.influencePoints + delta);
-      for (const threshold of Object.values(event.thresholds)) {
-        if (event.influencePoints >= threshold.points) threshold.hidden = false;
-      }
-      unlocked = revealByProgress(event);
+      summary = advanceInfluence(event);
     });
-    if (unlocked.length) {
-      ui.notifications.info(game.i18n.format('PFAI.Influence.Unlocked', { what: unlocked.join(', ') }));
-    }
+    if (summary) announceInfluenceProgress(summary);
   }
 
   static async #onInfluenceRoundDelta(_event, target) {
@@ -3123,6 +3283,37 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
         ? `<label class="pfai-field"><span>${game.i18n.localize('PFAI.Research.RoundUnit')}</span>
              <input type="text" name="roundUnit" value="${escapeHTML(event.rounds.unit)}"></label>`
         : '';
+    /*
+     * Only Victory Points lets the GM choose how the contest runs. The comment
+     * on VICTORY_SCALES promises the endpoint is "one the GM can move", and
+     * "Obstacles and DCs" tells a GM running high DCs to pick a lower endpoint,
+     * so there has to be a control for it. Without this, a blank contest was
+     * permanently accumulating at 20 and diminishing was reachable only by
+     * generating one.
+     */
+    const isVictory = key === 'victory';
+    const victoryRows = isVictory
+      ? `<div class="pfai-field-row">
+           <label class="pfai-field"><span>${game.i18n.localize('PFAI.Victory.Structure')}</span>
+             <select name="structure">
+               ${Object.entries(VICTORY_STRUCTURES)
+                 .map(([value, label]) =>
+                   `<option value="${value}" ${event.structure === value ? 'selected' : ''}>${game.i18n.localize(label)}</option>`)
+                 .join('')}
+             </select>
+             <small>${game.i18n.localize('PFAI.Victory.StructureHint')}</small></label>
+           <label class="pfai-field"><span>${game.i18n.localize('PFAI.Victory.Endpoint')}</span>
+             <input type="number" name="pointGoal" min="1" step="1" value="${event.points?.goal ?? 20}">
+             <small>${game.i18n.localize('PFAI.Victory.EndpointHint')}</small></label>
+         </div>
+         <label class="pfai-field"><span>${game.i18n.localize('PFAI.Victory.RecoveryPossible')}</span>
+           <select name="recoveryPossible">
+             <option value="true" ${event.recoveryPossible !== false ? 'selected' : ''}>${game.i18n.localize('PFAI.Victory.RecoveryYes')}</option>
+             <option value="false" ${event.recoveryPossible === false ? 'selected' : ''}>${game.i18n.localize('PFAI.Victory.RecoveryNo')}</option>
+           </select>
+           <small>${game.i18n.localize('PFAI.Victory.RecoveryHint')}</small></label>`
+      : '';
+
     // Infiltration is the only one where simply taking time raises the stakes.
     const perRoundRow =
       event.awareness !== undefined
@@ -3136,6 +3327,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       position: { width: 560 },
       content: `<div class="pfai-form">
         ${npcRows}
+        ${victoryRows}
         <div class="pfai-field-row">
           <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.BaseDC')}</span>
             <input type="number" name="baseDC" min="1" step="1" value="${event.baseDC}">
@@ -3173,6 +3365,20 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
         draft.npc.disposition = String(result.disposition ?? '');
         draft.perception = Number(result.perception) || 0;
         draft.will = Number(result.will) || 0;
+      }
+      if (isVictory) {
+        const wasDiminishing = draft.structure === 'diminishing';
+        draft.structure = result.structure === 'diminishing' ? 'diminishing' : 'accumulating';
+        draft.points.goal = Math.max(1, Number(result.pointGoal) || draft.points.goal);
+        draft.recoveryPossible = result.recoveryPossible !== 'false';
+        const nowDiminishing = draft.structure === 'diminishing';
+        // Switching direction has to re-seed the total, or an accumulating
+        // contest turned diminishing would start already lost.
+        if (wasDiminishing !== nowDiminishing) {
+          draft.points.current = nowDiminishing ? draft.points.goal : 0;
+        } else {
+          draft.points.current = Math.clamp(draft.points.current, 0, draft.points.goal);
+        }
       }
     });
   }
@@ -3289,7 +3495,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async #onAddParticipants(_event, target) {
-    const chaseId = target.dataset.chaseId;
+    // `id` and `api` were free identifiers here: the button threw a
+    // ReferenceError on every subsystem, which is why nobody used it.
+    const { id, api } = eventTarget(target.dataset);
+    if (!id) return;
     const actors = collectCandidateActors();
     if (!actors.length) {
       ui.notifications.warn(game.i18n.localize('PFAI.Errors.NoParticipants'));
@@ -3757,6 +3966,378 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       yes: { label: game.i18n.localize('PFAI.Import.ImportAnyway') },
       no: { label: game.i18n.localize('PFAI.Cancel') },
     });
+  }
+
+  /* ------------------------------------------------------------- victory ---- */
+
+  static #onBackVictory() {
+    this.#selectedVictoryId = null;
+    this.render();
+  }
+
+  static async #onOpenVictory(_event, target) {
+    this.#selectedVictoryId = target.dataset.victoryId;
+    this.render();
+  }
+
+  static async #onDeleteVictory(_event, target) {
+    const id = target.dataset.victoryId;
+    const event = getVictory(id);
+    if (!event) return;
+    const confirmed = await DialogV2.confirm({
+      window: { title: game.i18n.localize('PFAI.View.Delete') },
+      content: `<p>${game.i18n.format('PFAI.Confirm.DeleteChase', { name: escapeHTML(event.name) })}</p>`,
+    });
+    if (!confirmed) return;
+    await subsystem('victory').remove(id);
+    this.#selectedVictoryId = null;
+    this.render();
+  }
+
+  static #onGenerateVictory() {
+    new GenerateVictoryDialog({
+      onGenerated: (id) => {
+        this.#subsystem = 'victory';
+        this.#selectedVictoryId = id;
+        this.render();
+      },
+    }).render({ force: true });
+  }
+
+  static async #onVictoryRoundDelta(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const delta = Number(target.dataset.delta) || 0;
+    await updateVictory(id, (draft) => {
+      draft.rounds.current = Math.max(0, draft.rounds.current + delta);
+    });
+    this.render();
+  }
+
+  /**
+   * The GM nudging the total by hand.
+   *
+   * Clamped the same way a roll is, so the manual control cannot put the
+   * contest into a state a roll could never produce.
+   */
+  static async #onVictoryPointDelta(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const delta = Number(target.dataset.delta) || 0;
+    let summary = null;
+    await updateVictory(id, (draft) => {
+      // The same bounds a roll uses, including the case where the total is
+      // already above the endpoint because the GM put it there.
+      draft.points.current = Math.clamp(
+        draft.points.current + delta,
+        0,
+        Math.max(draft.points.goal, draft.points.current),
+      );
+      summary = advanceVictory(draft);
+    });
+    if (summary) announceVictoryProgress(summary);
+    this.render();
+  }
+
+  static async #onVictoryNextRound(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    let summary = null;
+    await updateVictory(id, (draft) => {
+      draft.rounds.current += 1;
+      for (const participant of Object.values(draft.participants)) participant.hasActed = false;
+      summary = advanceVictory(draft);
+    });
+    if (summary) announceVictoryProgress(summary);
+    this.render();
+  }
+
+  static async #onAddVictoryCheck(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    await updateVictory(id, (draft) => {
+      const cid = foundry.utils.randomID();
+      draft.checks[cid] = {
+        id: cid,
+        position: nextPosition(draft.checks),
+        slug: 'diplomacy',
+        label: 'Diplomacy',
+        dc: draft.baseDC,
+        description: '',
+        award: 0,
+        hidden: false,
+        revealAt: null,
+      };
+    });
+    this.render();
+  }
+
+  static async #onGenerateVictoryCheck(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const event = getVictory(id);
+    if (!event) return;
+    if (!hasApiKey()) {
+      ui.notifications.error(game.i18n.localize('PFAI.Errors.NoApiKey'));
+      return;
+    }
+    try {
+      const [entry] = await generateVictoryCheck({
+        premise: htmlToPromptText(event.premise),
+        objective: htmlToPromptText(event.objective),
+        goal: htmlToPromptText(event.goal),
+        failure: htmlToPromptText(event.failure),
+        baseDC: event.baseDC,
+        level: event.level,
+        partySize: event.partySize,
+        structure: event.structure,
+        scale: event.scale,
+      });
+      if (!entry) return;
+      await updateVictory(id, (draft) => {
+        entry.position = nextPosition(draft.checks);
+        draft.checks[entry.id] = entry;
+      });
+      this.render();
+    } catch (error) {
+      console.error(`${MODULE_ID} | victory check generation failed`, error);
+      ui.notifications.error(error.message, { permanent: true });
+    }
+  }
+
+  static async #onEditVictoryCheck(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const entryId = target.dataset.entryId;
+    const event = getVictory(id);
+    const entry = event?.checks?.[entryId];
+    if (!entry) return;
+
+    // The stored slug may be a lore or a save, which are not in the skill list;
+    // append it only when it is genuinely absent, or the dropdown shows the
+    // same statistic twice.
+    const known = PF2E_SKILLS.filter((skill) => skill !== 'lore');
+    const options = known
+      .map((skill) => `<option value="${skill}" ${skill === entry.slug ? 'selected' : ''}>${capitalize(skill)}</option>`)
+      .join('') +
+      (known.includes(entry.slug)
+        ? ''
+        : `<option value="${escapeHTML(entry.slug)}" selected>${escapeHTML(entry.label)}</option>`);
+
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Victory.EditCheck') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.ApproachLabel')}</span>
+          <input type="text" name="label" value="${escapeHTML(entry.label)}"></label>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Statistic')}</span>
+            <select name="slug">${options}</select></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.DC')}</span>
+            <input type="number" name="dc" min="1" step="1" value="${entry.dc}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Victory.Award')}</span>
+            <input type="number" name="award" min="0" step="1" value="${entry.award}">
+            <small>${game.i18n.localize('PFAI.Victory.AwardHint')}</small></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Victory.RevealAt')}</span>
+            <input type="number" name="revealAt" min="0" step="1" value="${entry.revealAt ?? ''}">
+            <small>${game.i18n.localize('PFAI.Victory.RevealAtHint')}</small></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.ApproachDescription')}</span>
+          <input type="text" name="description" value="${escapeHTML(entry.description)}"></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+
+    await updateVictory(id, (draft) => {
+      const edited = draft.checks[entryId];
+      if (!edited) return;
+      edited.label = String(result.label ?? edited.label);
+      edited.slug = String(result.slug ?? edited.slug);
+      edited.dc = Math.max(1, Number(result.dc) || edited.dc);
+      edited.award = Math.max(0, Number(result.award) || 0);
+      const revealAt = String(result.revealAt ?? '').trim();
+      edited.revealAt = revealAt === '' ? null : Math.max(0, Number(revealAt) || 0);
+      edited.description = String(result.description ?? '');
+    });
+    this.render();
+  }
+
+  static async #onDeleteVictoryCheck(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const entryId = target.dataset.entryId;
+    await updateVictory(id, (draft) => {
+      delete draft.checks[entryId];
+    });
+    this.render();
+  }
+
+  static async #onAddVictoryThreshold(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    await updateVictory(id, (draft) => {
+      const tid = foundry.utils.randomID();
+      draft.thresholds[tid] = {
+        id: tid,
+        position: nextPosition(draft.thresholds),
+        points: 1,
+        name: game.i18n.localize('PFAI.Victory.NewThreshold'),
+        description: '',
+        hidden: true,
+      };
+    });
+    this.render();
+  }
+
+  static async #onEditVictoryThreshold(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const entryId = target.dataset.entryId;
+    const entry = getVictory(id)?.thresholds?.[entryId];
+    if (!entry) return;
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Victory.EditThreshold') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Victory.Points')}</span>
+            <input type="number" name="points" min="0" step="1" value="${entry.points}"></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.ThresholdName')}</span>
+            <input type="text" name="name" value="${escapeHTML(entry.name)}"></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.ApproachDescription')}</span>
+          <textarea name="description" rows="4">${escapeHTML(entry.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+    await updateVictory(id, (draft) => {
+      const edited = draft.thresholds[entryId];
+      if (!edited) return;
+      edited.points = Math.max(0, Number(result.points) || 0);
+      edited.name = String(result.name ?? edited.name);
+      edited.description = String(result.description ?? '');
+    });
+    this.render();
+  }
+
+  static async #onDeleteVictoryThreshold(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const entryId = target.dataset.entryId;
+    await updateVictory(id, (draft) => {
+      delete draft.thresholds[entryId];
+    });
+    this.render();
+  }
+
+  static async #onAddVictoryEvent(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    await updateVictory(id, (draft) => {
+      const eid = foundry.utils.randomID();
+      draft.events[eid] = {
+        id: eid,
+        position: nextPosition(draft.events),
+        name: game.i18n.localize('PFAI.Victory.NewEvent'),
+        description: '',
+        trigger: { kind: 'points', at: 0 },
+        fired: false,
+        hidden: true,
+      };
+    });
+    this.render();
+  }
+
+  static async #onEditVictoryEvent(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const entryId = target.dataset.entryId;
+    const entry = getVictory(id)?.events?.[entryId];
+    if (!entry) return;
+    const isRounds = entry.trigger.kind === 'rounds';
+    const result = await DialogV2.prompt({
+      window: { title: game.i18n.localize('PFAI.Victory.EditEvent') },
+      position: { width: 560 },
+      content: `<div class="pfai-form">
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.ThresholdName')}</span>
+          <input type="text" name="name" value="${escapeHTML(entry.name)}"></label>
+        <div class="pfai-field-row">
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Victory.TriggerKind')}</span>
+            <select name="triggerKind">
+              <option value="points" ${isRounds ? '' : 'selected'}>${game.i18n.localize('PFAI.Victory.TriggerPoints')}</option>
+              <option value="rounds" ${isRounds ? 'selected' : ''}>${game.i18n.localize('PFAI.Victory.TriggerRounds')}</option>
+            </select></label>
+          <label class="pfai-field"><span>${game.i18n.localize('PFAI.Victory.TriggerAt')}</span>
+            <input type="number" name="triggerAt" min="0" step="1" value="${entry.trigger.at}"></label>
+        </div>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.ApproachDescription')}</span>
+          <textarea name="description" rows="4">${escapeHTML(entry.description)}</textarea></label>
+      </div>`,
+      ok: { label: game.i18n.localize('PFAI.Save'), callback: (_e, button) => formValues(button) },
+    });
+    if (!result) return;
+    await updateVictory(id, (draft) => {
+      const edited = draft.events[entryId];
+      if (!edited) return;
+      edited.name = String(result.name ?? edited.name);
+      edited.trigger.kind = result.triggerKind === 'rounds' ? 'rounds' : 'points';
+      edited.trigger.at = Math.max(0, Number(result.triggerAt) || 0);
+      edited.description = String(result.description ?? '');
+    });
+    this.render();
+  }
+
+  static async #onDeleteVictoryEvent(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const entryId = target.dataset.entryId;
+    await updateVictory(id, (draft) => {
+      delete draft.events[entryId];
+    });
+    this.render();
+  }
+
+  static async #onToggleVictoryReveal(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const { collection, entryId } = target.dataset;
+    await updateVictory(id, (draft) => {
+      const entry = draft[collection]?.[entryId];
+      if (entry) entry.hidden = !entry.hidden;
+    });
+    this.render();
+  }
+
+  static async #onRollVictory(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const participantId = target.dataset.participantId;
+    const row = target.closest('.pfai-participant');
+    const checkId = row?.querySelector('.pfai-roll-option')?.value;
+    if (!checkId) return;
+    await rollVictoryCheck({ victoryId: id, participantId, checkId, force: this.isGM });
+    this.render();
+  }
+
+  /**
+   * The GM calls it.
+   *
+   * Reaching the endpoint is not the same as winning, and running out is not
+   * the same as losing — a party can hold a bridge for eight rounds, run the
+   * clock out and have done exactly what was needed. The module counts; the GM
+   * decides what the count meant, and can change their mind.
+   */
+  static async #onSetVictoryOutcome(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    const outcome = target.dataset.outcome === 'won' || target.dataset.outcome === 'lost'
+      ? target.dataset.outcome
+      : '';
+    await updateVictory(id, (draft) => {
+      draft.outcome = outcome;
+    });
+    if (outcome) {
+      ui.notifications.info(
+        game.i18n.localize(outcome === 'won' ? 'PFAI.Victory.CalledWon' : 'PFAI.Victory.CalledLost'),
+      );
+    }
+    this.render();
+  }
+
+  static async #onAwardVictory(_event, target) {
+    const { id } = eventTarget(target.dataset);
+    await adjustVictoryContribution({
+      victoryId: id,
+      participantId: target.dataset.participantId,
+      delta: Number(target.dataset.delta) || 0,
+    });
+    this.render();
   }
 }
 
