@@ -8,6 +8,7 @@ import { registerSocket } from './socket.js';
 import {
   applyInfiltrationResult,
   applyLeadershipResult,
+  applyVictoryResult,
   applyInfluenceResult,
   applyPassResult,
   applyResearchResult,
@@ -43,6 +44,7 @@ async function registerPartials() {
     pfaiResearchDetail: `modules/${MODULE_ID}/templates/partials/research-detail.hbs`,
     pfaiInfiltrationDetail: `modules/${MODULE_ID}/templates/partials/infiltration-detail.hbs`,
     pfaiLeadershipDetail: `modules/${MODULE_ID}/templates/partials/leadership-detail.hbs`,
+    pfaiVictoryDetail: `modules/${MODULE_ID}/templates/partials/victory-detail.hbs`,
   });
 }
 
@@ -70,6 +72,7 @@ Hooks.once('ready', async () => {
     onApplyResearch: (data) => applyResearchResult(data),
     onApplyInfiltration: (data) => applyInfiltrationResult(data),
     onApplyLeadership: (data) => applyLeadershipResult(data),
+    onApplyVictory: (data) => applyVictoryResult(data),
   });
 });
 

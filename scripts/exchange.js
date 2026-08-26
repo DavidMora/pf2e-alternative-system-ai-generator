@@ -1,5 +1,5 @@
 import { DEFAULT_BASE_DC, MODULE_ID } from './constants.js';
-import { guessPartyLevel, guessPartySize, nextPosition } from './helpers.js';
+import { guessPartyLevel, guessPartySize, nextPosition, victoryScale } from './helpers.js';
 import { isSubsystem, subsystem } from './subsystems.js';
 import { BRIEF as CHASE_BRIEF, CHASE_SCHEMA, toChaseData } from './ai/chase.js';
 import { BRIEF as INFLUENCE_BRIEF, INFLUENCE_SCHEMA, toInfluenceData } from './ai/influence.js';
@@ -9,6 +9,7 @@ import {
   INFILTRATION_SCHEMA,
   toInfiltrationData,
 } from './ai/infiltration.js';
+import { BRIEF as VICTORY_BRIEF, VICTORY_SCHEMA, toVictoryData } from './ai/victory.js';
 import {
   BRIEF as LEADERSHIP_BRIEF,
   LEADERSHIP_SCHEMA,
@@ -70,6 +71,13 @@ export const EXCHANGE = {
     toData: toInfiltrationData,
     required: ['premise', 'target'],
     optional: ['title', 'goal', 'roundLimit', 'tone', 'language'],
+  },
+  victory: {
+    schema: VICTORY_SCHEMA,
+    brief: VICTORY_BRIEF,
+    toData: toVictoryData,
+    required: ['premise', 'objective'],
+    optional: ['title', 'goal', 'failure', 'structure', 'scale', 'roundLimit', 'tone', 'language'],
   },
   leadership: {
     schema: LEADERSHIP_SCHEMA,
@@ -387,6 +395,89 @@ export function checkSemantics(key, payload, given = {}) {
             `payload.lieutenants[${index}].level`,
             `level ${lt.level} outranks the organisation itself (${top})`,
             'warning',
+          ),
+        );
+      }
+    });
+  }
+
+  if (key === 'victory') {
+    const checks = payload.checks ?? [];
+    problems.push(
+      ...loreNamed(checks, 'payload.checks'),
+      ...distinctSkills(checks, 'payload.checks', 'another check'),
+    );
+
+    if (!checks.length) {
+      problems.push(problem('payload.checks', 'a contest with no checks gives the party nothing to roll'));
+    } else if (checks.every((c) => c.exploitsWeakness)) {
+      /*
+       * exploitsWeakness makes a check start hidden, so a file where every
+       * check is one opens on an empty sheet. The GM can reveal them by hand,
+       * but they would have no way of knowing that is why the sheet is blank.
+       */
+      problems.push(
+        problem('payload.checks', 'every check needs groundwork first, so the contest opens with nothing available'),
+      );
+    } else if (!checks.some((c) => c.exploitsWeakness)) {
+      problems.push(
+        problem('payload.checks', 'no check rewards the party for working something out', 'warning'),
+      );
+    }
+
+    const size = Number(given.partySize) || 0;
+    if (checks.length < size) {
+      problems.push(
+        problem(
+          'payload.checks',
+          `${checks.length} checks for ${size} characters; some will have nothing to try`,
+          'warning',
+        ),
+      );
+    }
+
+    /*
+     * The scale fixes both the endpoint and how many thresholds there are; the
+     * file only supplies their words. Too few and thresholds land unnamed, too
+     * many and the extras are dropped — neither shows up as a schema error.
+     */
+    const { goal: endpoint, thresholds: positions } = victoryScale(given.scale);
+    const written = payload.thresholds ?? [];
+    if (written.length < positions.length) {
+      problems.push(
+        problem(
+          'payload.thresholds',
+          `the ${quote(given.scale ?? 'session')} scale has ${positions.length} thresholds but only ${written.length} are written; the rest arrive unnamed`,
+        ),
+      );
+    } else if (written.length > positions.length) {
+      problems.push(
+        problem(
+          'payload.thresholds',
+          `${written.length} written for a scale with ${positions.length}; the last ${written.length - positions.length} are dropped`,
+          'warning',
+        ),
+      );
+    }
+
+    const limit = Number(given.roundLimit) || 0;
+    (payload.events ?? []).forEach((event, index) => {
+      const at = Number(event.triggerAt);
+      if (!Number.isFinite(at)) return;
+      if (event.triggerKind === 'rounds') {
+        if (limit > 0 && at > limit) {
+          problems.push(
+            problem(
+              `payload.events[${index}].triggerAt`,
+              `round ${at} never arrives; the contest runs for ${limit}`,
+            ),
+          );
+        }
+      } else if (at > endpoint) {
+        problems.push(
+          problem(
+            `payload.events[${index}].triggerAt`,
+            `${at} points is past the endpoint of ${endpoint}, so this never fires`,
           ),
         );
       }

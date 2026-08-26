@@ -1389,7 +1389,8 @@
 }
 
 /* who | points | turn | controls */
-.pfai .pfai-roster-influence {
+.pfai .pfai-roster-influence,
+.pfai .pfai-roster-victory {
   grid-template-columns: minmax(9rem, 1fr) auto minmax(0, auto) auto;
 }
 
@@ -1552,4 +1553,24 @@
   word-break: break-all;
   font-size: 0.8rem;
   opacity: 0.85;
+}
+
+/* The GM's verdict sits in the status bar beside the tally it is not derived
+   from. Three states, one of them always lit, so it reads as a decision that
+   has been made rather than a button that might do something. */
+
+.pfai .pfai-outcome-buttons {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.pfai .pfai-outcome-buttons .pfai-icon {
+  opacity: 0.35;
+  transition: opacity 120ms ease;
+}
+
+.pfai .pfai-outcome-buttons .pfai-icon:hover,
+.pfai .pfai-outcome-buttons .pfai-icon:focus-visible,
+.pfai .pfai-outcome-buttons .pfai-toggle-on {
+  opacity: 1;
 }

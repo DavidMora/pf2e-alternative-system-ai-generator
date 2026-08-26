@@ -1,0 +1,442 @@
+{{#with selectedVictory}}
+<header class="pfai-detail-header">
+  <button type="button" class="pfai-icon" data-action="backVictory" data-tooltip="{{localize 'PFAI.Back'}}">
+    <i class="fa-solid fa-chevron-left"></i>
+  </button>
+  <h2 class="pfai-title">
+    {{name}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-title-edit" data-action="editTitle"
+              data-subsystem="victory" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.EditTitle'}}"><i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+    {{#if ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
+  </h2>
+  <div class="pfai-header-actions">
+    {{#if ../isRealGM}}
+      <button type="button" class="pfai-icon {{#if ../previewAsPlayer}}pfai-toggle-on{{/if}}"
+              data-action="togglePlayerPreview" data-tooltip="{{localize 'PFAI.View.PreviewAsPlayer'}}">
+        <i class="fa-solid {{#if ../previewAsPlayer}}fa-user-check{{else}}fa-user{{/if}}"></i>
+      </button>
+    {{/if}}
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon pfai-show-players" data-action="showToPlayers"
+              data-subsystem="victory" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.ShowToPlayersHint'}}"><i class="fa-solid fa-tv"></i></button>
+      <button type="button" class="pfai-icon" data-action="toggleHidden"
+              data-subsystem="victory" data-event-id="{{id}}"
+              data-tooltip="{{#if hidden}}{{localize 'PFAI.View.ShowToPlayers'}}{{else}}{{localize 'PFAI.View.HideFromPlayers'}}{{/if}}">
+        <i class="fa-solid {{#if hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+      </button>
+      <button type="button" class="pfai-icon" data-action="exportEvent"
+              data-subsystem="victory" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Export'}}"><i class="fa-solid fa-file-export"></i></button>
+      <button type="button" class="pfai-icon pfai-danger" data-action="deleteVictory" data-victory-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-trash"></i></button>
+    {{/if}}
+  </div>
+</header>
+
+{{#if img}}
+  <figure class="pfai-chase-art">
+    <img src="{{img}}" alt="{{name}}">
+    {{#if ../isGM}}
+      <figcaption>
+        <button type="button" class="pfai-icon" data-action="generateImage"
+                data-subsystem="victory" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.Regenerate'}}"><i class="fa-solid fa-arrows-rotate"></i></button>
+        <button type="button" class="pfai-icon pfai-danger" data-action="clearImage"
+                data-subsystem="victory" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.Remove'}}"><i class="fa-solid fa-trash"></i></button>
+      </figcaption>
+    {{/if}}
+  </figure>
+{{/if}}
+
+<section class="pfai-status">
+  <div class="pfai-status-item">
+    <span class="pfai-label">{{localize 'PFAI.Chase.Round'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Round'}}"></i></span>
+    <span class="pfai-round">
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="victoryRoundDelta"
+                data-subsystem="victory" data-event-id="{{id}}" data-delta="-1">&minus;</button>
+      {{/if}}
+      <strong>{{rounds.current}}</strong>{{#if rounds.max}} / {{rounds.max}}{{/if}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="victoryRoundDelta"
+                data-subsystem="victory" data-event-id="{{id}}" data-delta="1">+</button>
+      {{/if}}
+    </span>
+    {{#if rounds.unit}}<span class="pfai-live-name">{{rounds.unit}}</span>{{/if}}
+  </div>
+
+  <div class="pfai-status-item">
+    <span class="pfai-label">{{localize 'PFAI.Victory.Points'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.VictoryPoints'}}"></i></span>
+    <span class="pfai-round">
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="victoryPointDelta"
+                data-subsystem="victory" data-event-id="{{id}}" data-delta="-1">&minus;</button>
+      {{/if}}
+      <strong class="pfai-points-big">{{points.current}}</strong> / {{points.goal}}
+      {{#if ../isGM}}
+        <button type="button" class="pfai-step" data-action="victoryPointDelta"
+                data-subsystem="victory" data-event-id="{{id}}" data-delta="1">+</button>
+      {{/if}}
+    </span>
+    <span class="pfai-live-name">{{structureLabel}}</span>
+  </div>
+
+  {{#if nextThreshold}}
+    <div class="pfai-status-item pfai-live-obstacle">
+      <span class="pfai-label">{{localize 'PFAI.Victory.NextThreshold'}}</span>
+      <span class="pfai-live-points">
+        <strong>{{points.current}} / {{nextThreshold.points}}</strong>
+        <span class="pfai-live-name">{{nextThreshold.name}}</span>
+      </span>
+    </div>
+  {{/if}}
+
+  {{#if outcome}}
+    <div class="pfai-flag {{#if isWon}}pfai-flag-good{{else}}pfai-flag-bad{{/if}}">
+      {{#if isWon}}{{localize 'PFAI.Victory.Won'}}{{else}}{{localize 'PFAI.Victory.Lost'}}{{/if}}
+    </div>
+  {{else if atEndOfTrack}}
+    <div class="pfai-flag">{{trackLabel}}</div>
+  {{/if}}
+  {{#if outOfTime}}<div class="pfai-flag pfai-flag-bad">{{localize 'PFAI.Chase.OutOfTime'}}</div>{{/if}}
+
+  {{#if ../isGM}}
+    {{!-- The number says where the track stands. Only the GM says what it meant. --}}
+    <div class="pfai-status-item pfai-outcome">
+      <span class="pfai-label">{{localize 'PFAI.Victory.Outcome'}}
+        <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.VictoryOutcome'}}"></i></span>
+      <span class="pfai-outcome-buttons">
+        <button type="button" class="pfai-icon {{#if isWon}}pfai-toggle-on{{/if}}"
+                data-action="setVictoryOutcome" data-subsystem="victory" data-event-id="{{id}}" data-outcome="won"
+                data-tooltip="{{localize 'PFAI.Victory.CallWon'}}"><i class="fa-solid fa-trophy"></i></button>
+        <button type="button" class="pfai-icon {{#unless outcome}}pfai-toggle-on{{/unless}}"
+                data-action="setVictoryOutcome" data-subsystem="victory" data-event-id="{{id}}" data-outcome=""
+                data-tooltip="{{localize 'PFAI.Victory.CallUndecided'}}"><i class="fa-solid fa-hourglass-half"></i></button>
+        <button type="button" class="pfai-icon pfai-danger {{#if isLost}}pfai-toggle-on{{/if}}"
+                data-action="setVictoryOutcome" data-subsystem="victory" data-event-id="{{id}}" data-outcome="lost"
+                data-tooltip="{{localize 'PFAI.Victory.CallLost'}}"><i class="fa-solid fa-skull"></i></button>
+      </span>
+    </div>
+  {{/if}}
+
+  {{#if ../isGM}}
+    <div class="pfai-status-actions">
+      {{#unless img}}
+        <button type="button" data-action="generateImage" data-subsystem="victory" data-event-id="{{id}}"
+                data-tooltip="{{localize 'PFAI.Image.ForChaseHint'}}">
+          <i class="fa-solid fa-image"></i> {{localize 'PFAI.Image.AddArt'}}
+        </button>
+      {{/unless}}
+      <button type="button" data-action="editStats" data-subsystem="victory" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Settings.EventSettingsHint'}}">
+        <i class="fa-solid fa-sliders"></i> {{localize 'PFAI.Settings.EventSettings'}}
+      </button>
+      <button type="button" data-action="victoryNextRound" data-subsystem="victory" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Info.NextRound'}}">
+        <i class="fa-solid fa-forward-step"></i> {{localize 'PFAI.Chase.NextRound'}}
+      </button>
+      <button type="button" data-action="toggleStarted" data-subsystem="victory" data-event-id="{{id}}">
+        <i class="fa-solid {{#if started}}fa-pause{{else}}fa-play{{/if}}"></i>
+        {{#if started}}{{localize 'PFAI.Chase.Pause'}}{{else}}{{localize 'PFAI.Chase.Start'}}{{/if}}
+      </button>
+    </div>
+  {{/if}}
+</section>
+
+<section class="pfai-panel">
+  <h3>{{localize 'PFAI.Victory.Situation'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Premise'}}"></i>
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon" data-action="editText"
+              data-subsystem="victory" data-event-id="{{id}}" data-field="premise"
+              data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-prose">{{{enrichedPremise}}}</div>
+
+  <div class="pfai-subfield">
+    <span class="pfai-label">{{localize 'PFAI.Victory.Objective'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.VictoryObjective'}}"></i>
+      {{#if ../isGM}}
+        <button type="button" class="pfai-icon" data-action="editText"
+                data-subsystem="victory" data-event-id="{{id}}" data-field="objective"
+                data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+      {{/if}}
+    </span>
+    <div class="pfai-prose">{{{enrichedObjective}}}</div>
+  </div>
+
+  {{#if enrichedGoal}}
+    <div class="pfai-subfield">
+      <span class="pfai-label">{{localize 'PFAI.Victory.Goal'}}
+        {{#if ../isGM}}
+          <button type="button" class="pfai-icon" data-action="editText"
+                  data-subsystem="victory" data-event-id="{{id}}" data-field="goal"
+                  data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+        {{/if}}
+      </span>
+      <div class="pfai-prose">{{{enrichedGoal}}}</div>
+    </div>
+  {{/if}}
+
+  {{#if ../isGM}}
+    <div class="pfai-subfield">
+      <span class="pfai-label">{{localize 'PFAI.Victory.Failure'}}
+        <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.VictoryFailure'}}"></i>
+        <button type="button" class="pfai-icon" data-action="editText"
+                data-subsystem="victory" data-event-id="{{id}}" data-field="failure"
+                data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+      </span>
+      <div class="pfai-prose">{{{enrichedFailure}}}</div>
+    </div>
+  {{/if}}
+</section>
+
+{{#if ../isGM}}
+  <section class="pfai-panel pfai-gm-notes">
+    <h3>{{localize 'PFAI.Chase.GmNotes'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.GmNotes'}}"></i>
+      <button type="button" class="pfai-icon" data-action="editText"
+              data-subsystem="victory" data-event-id="{{id}}" data-field="gmNotes"
+              data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+    </h3>
+    <div class="pfai-prose">{{{enrichedGmNotes}}}</div>
+  </section>
+{{/if}}
+
+<section class="pfai-panel">
+  <h3>{{localize 'PFAI.Victory.Checks'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.VictoryChecks'}}"></i>
+    {{#if hiddenCounts.checks}}<span class="pfai-hidden-count">{{hiddenCounts.checks}} {{localize 'PFAI.Research.Pending'}}</span>{{/if}}
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" data-action="addVictoryCheck" data-subsystem="victory" data-event-id="{{id}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+        <button type="button" data-action="generateVictoryCheck" data-subsystem="victory" data-event-id="{{id}}">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.Victory.AiCheck'}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+  <p class="pfai-panel-hint">{{scoringHint}}</p>
+  <ul class="pfai-checks">
+    {{#each checks as |check|}}
+      <li class="pfai-check {{#if check.hidden}}is-hidden{{/if}}">
+        <span class="pfai-check-dc">DC {{check.dc}}</span>
+        <div class="pfai-check-body">
+          <strong>{{check.label}}</strong>
+          {{#if check.award}}
+            <span class="pfai-flag pfai-flag-good" data-tooltip="{{localize 'PFAI.Info.VictoryAward'}}">
+              +{{check.award}}
+            </span>
+          {{/if}}
+          <div class="pfai-prose">{{check.description}}</div>
+        </div>
+        {{#if ../../isGM}}
+          <span class="pfai-trait-actions">
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleVictoryReveal"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-collection="checks" data-entry-id="{{check.id}}"
+                    data-tooltip="{{#if check.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+              <i class="fa-solid {{#if check.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="editVictoryCheck"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-entry-id="{{check.id}}"
+                    data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteVictoryCheck"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-entry-id="{{check.id}}"
+                    data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+          </span>
+        {{/if}}
+      </li>
+    {{else}}
+      <p class="pfai-empty">{{localize 'PFAI.Victory.NoChecks'}}</p>
+    {{/each}}
+  </ul>
+</section>
+
+<section class="pfai-panel">
+  <h3>{{localize 'PFAI.Victory.Thresholds'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.VictoryThresholds'}}"></i>
+    {{#if ../isGM}}
+      <span class="pfai-panel-actions">
+        <button type="button" data-action="addVictoryThreshold" data-subsystem="victory" data-event-id="{{id}}">
+          <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+        </button>
+      </span>
+    {{/if}}
+  </h3>
+  <ol class="pfai-thresholds">
+    {{#each thresholds as |threshold|}}
+      <li class="pfai-threshold {{#if threshold.reached}}is-reached{{/if}} {{#if threshold.hidden}}is-hidden{{/if}}">
+        <span class="pfai-threshold-points">{{threshold.points}}</span>
+        <div class="pfai-threshold-body">
+          <strong>{{threshold.name}}</strong>
+          <div class="pfai-prose">{{{threshold.enrichedDescription}}}</div>
+        </div>
+        {{#if ../../isGM}}
+          <span class="pfai-trait-actions">
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleVictoryReveal"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-collection="thresholds" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{#if threshold.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+              <i class="fa-solid {{#if threshold.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-row-control" data-action="editVictoryThreshold"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteVictoryThreshold"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-entry-id="{{threshold.id}}"
+                    data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+          </span>
+        {{/if}}
+      </li>
+    {{else}}
+      <p class="pfai-empty">{{localize 'PFAI.Victory.NoThresholds'}}</p>
+    {{/each}}
+  </ol>
+</section>
+
+  <section class="pfai-panel">
+    <h3>{{localize 'PFAI.Victory.Events'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.VictoryEvents'}}"></i>
+      {{#if ../isGM}}
+        <span class="pfai-panel-actions">
+          <button type="button" data-action="addVictoryEvent" data-subsystem="victory" data-event-id="{{id}}">
+            <i class="fa-solid fa-plus"></i> {{localize 'PFAI.Chase.AddBlank'}}
+          </button>
+        </span>
+      {{/if}}
+    </h3>
+    <ul class="pfai-checks">
+      {{#each events as |twist|}}
+        <li class="pfai-check {{#if twist.hidden}}is-hidden{{/if}} {{#if twist.fired}}is-used{{/if}}">
+          <span class="pfai-check-dc">{{twist.triggerLabel}}</span>
+          <div class="pfai-check-body">
+            <strong>{{twist.name}}</strong>
+            <div class="pfai-prose">{{{twist.enrichedDescription}}}</div>
+          </div>
+          {{#if ../../isGM}}
+            <span class="pfai-trait-actions">
+              <button type="button" class="pfai-icon pfai-row-control" data-action="toggleVictoryReveal"
+                      data-subsystem="victory" data-event-id="{{../id}}" data-collection="events" data-entry-id="{{twist.id}}"
+                      data-tooltip="{{#if twist.hidden}}{{localize 'PFAI.Influence.Reveal'}}{{else}}{{localize 'PFAI.Influence.Conceal'}}{{/if}}">
+                <i class="fa-solid {{#if twist.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+              </button>
+              <button type="button" class="pfai-icon pfai-row-control" data-action="editVictoryEvent"
+                      data-subsystem="victory" data-event-id="{{../id}}" data-entry-id="{{twist.id}}"
+                      data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="deleteVictoryEvent"
+                      data-subsystem="victory" data-event-id="{{../id}}" data-entry-id="{{twist.id}}"
+                      data-tooltip="{{localize 'PFAI.View.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
+            </span>
+          {{/if}}
+        </li>
+      {{else}}
+        <p class="pfai-empty">{{localize 'PFAI.Victory.NoEvents2'}}</p>
+      {{/each}}
+    </ul>
+  </section>
+
+<section class="pfai-panel">
+  <h3>{{localize 'PFAI.Chase.Participants'}}
+    <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Participants'}}"></i>
+    {{#if ../isGM}}
+      <button type="button" class="pfai-icon" data-action="addParticipants"
+              data-subsystem="victory" data-event-id="{{id}}"
+              data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>
+    {{/if}}
+  </h3>
+  <div class="pfai-roster pfai-roster-victory pfai-dropzone"
+       data-subsystem="victory" data-event-id="{{id}}">
+    <div class="pfai-roster-head">
+      <span>{{localize 'PFAI.Chase.Participant'}}</span>
+      <span>{{localize 'PFAI.Chase.Points'}}</span>
+      <span>{{localize 'PFAI.Chase.Turn'}}</span>
+      <span></span>
+    </div>
+    {{#each participants as |participant|}}
+      <div class="pfai-participant {{#if participant.hasActed}}has-acted{{/if}}">
+        <span class="pfai-p-who">
+          <img src="{{participant.img}}" alt="">
+          <span class="pfai-p-name">{{participant.name}}</span>
+          {{#if participant.hasActed}}
+            <i class="fa-solid fa-check pfai-acted-mark" data-tooltip="{{localize 'PFAI.Chase.ActedTooltip'}}"></i>
+          {{/if}}
+        </span>
+
+        <span class="pfai-p-points"
+              data-tooltip="{{localize 'PFAI.Victory.ContributionTooltip'}} {{participant.successCount}}/{{participant.rollCount}}">
+          {{#if participant.canAward}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="awardVictory"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-participant-id="{{participant.id}}" data-delta="-1"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveSuccess'}}">&minus;</button>
+          {{/if}}
+          <span class="pfai-tally {{#unless participant.hasContributed}}is-empty{{/unless}}">
+            <i class="fa-solid fa-star"></i><strong>{{participant.contributedTotal}}</strong>
+          </span>
+          {{#if participant.canAward}}
+            <button type="button" class="pfai-step pfai-hover-only" data-action="awardVictory"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-participant-id="{{participant.id}}" data-delta="1"
+                    data-tooltip="{{localize 'PFAI.Chase.AwardSuccess'}}">+</button>
+          {{/if}}
+        </span>
+
+        <span class="pfai-p-turn">
+          {{#if participant.canRoll}}
+            <select class="pfai-roll-option" aria-label="{{localize 'PFAI.Roll.PickSkill'}}">
+              {{#each participant.rollOptions as |option|}}
+                <option value="{{option.id}}" data-kind="{{option.kind}}">{{option.label}} DC {{option.dc}}</option>
+              {{/each}}
+            </select>
+            <button type="button" class="pfai-roll-button {{#if participant.isReroll}}pfai-reroll{{/if}}"
+                    data-action="rollVictory" data-subsystem="victory" data-event-id="{{../id}}"
+                    data-participant-id="{{participant.id}}"
+                    data-tooltip="{{#if participant.isReroll}}{{localize 'PFAI.Roll.RerollHint'}}{{else}}{{localize 'PFAI.Roll.Roll'}}{{/if}}">
+              <i class="fa-solid fa-dice-d20"></i>
+            </button>
+          {{else if participant.noActor}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NoActorLinked'}}</span>
+          {{else if participant.missingActor}}
+            <span class="pfai-p-note is-bad">{{localize 'PFAI.Roll.ActorMissing'}}</span>
+          {{else if participant.hasActed}}
+            <span class="pfai-p-note">{{localize 'PFAI.Chase.Acted'}}</span>
+          {{else}}
+            <span class="pfai-p-note">{{localize 'PFAI.Roll.NotYours'}}</span>
+          {{/if}}
+        </span>
+
+        <span class="pfai-p-end">
+          {{#if ../../isGM}}
+            <button type="button" class="pfai-icon pfai-row-control" data-action="toggleActed"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.ToggleActed'}}">
+              <i class="fa-solid {{#if participant.hasActed}}fa-circle-check{{else}}fa-circle{{/if}}"></i>
+            </button>
+            <button type="button" class="pfai-icon pfai-danger pfai-row-control" data-action="removeParticipant"
+                    data-subsystem="victory" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                    data-tooltip="{{localize 'PFAI.Chase.RemoveParticipant'}}">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          {{/if}}
+        </span>
+      </div>
+    {{/each}}
+    {{#unless participants.length}}
+      <p class="pfai-empty pfai-drop-hint">
+        {{#if ../isGM}}
+          <i class="fa-solid fa-hand-pointer"></i> {{localize 'PFAI.Chase.DropHint'}}
+        {{else}}
+          {{localize 'PFAI.Chase.NoParticipants'}}
+        {{/if}}
+      </p>
+    {{/unless}}
+  </div>
+</section>
+{{/with}}

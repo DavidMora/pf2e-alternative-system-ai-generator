@@ -370,7 +370,9 @@ check('a JSON array is not a file', parseExchange('[]').problems[0].message, 'ex
 check(
   'an unknown subsystem lists the real ones',
   parseExchange(file({ type: 'heist' })).problems[0].message,
-  '"heist" is not one of: chase, influence, research, infiltration, leadership',
+  // Derived from the registry, so adding a subsystem does not silently
+  // falsify this the way a hardcoded list does.
+  `"heist" is not one of: ${Object.keys(EXCHANGE).join(', ')}`,
 );
 check(
   'a brief handed back unfilled is told what to do with it',

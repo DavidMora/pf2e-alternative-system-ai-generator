@@ -17,6 +17,10 @@
           data-action="switchSubsystem" data-subsystem="infiltration">
     <i class="fa-solid fa-user-secret"></i> {{localize 'PFAI.Infiltration.Tab'}}
   </button>
+  <button type="button" class="pfai-tab {{#if isVictoryTab}}is-active{{/if}}"
+          data-action="switchSubsystem" data-subsystem="victory">
+    <i class="fa-solid fa-trophy"></i> {{localize 'PFAI.Victory.Tab'}}
+  </button>
   <button type="button" class="pfai-tab {{#if isLeadershipTab}}is-active{{/if}}"
           data-action="switchSubsystem" data-subsystem="leadership">
     <i class="fa-solid fa-flag"></i> {{localize 'PFAI.Leadership.Tab'}}
@@ -34,7 +38,53 @@
   </p>
 {{/if}}
 
-{{#if isLeadershipTab}}
+{{#if isVictoryTab}}
+
+  {{#if selectedVictory}}
+    {{> pfaiVictoryDetail}}
+  {{else if previewHiddenEvent}}
+    {{!-- Held rather than silently dropped, the way a hidden chase is. --}}
+    <p class="pfai-empty">
+      <i class="fa-solid fa-eye-slash"></i>
+      {{localize 'PFAI.View.PreviewHiddenEvent'}}
+    </p>
+  {{else}}
+    <header class="pfai-list-header">
+      <h2>{{localize 'PFAI.Victory.Tab'}}</h2>
+      {{#if isGM}}
+        <div class="pfai-header-actions">
+          <button type="button" class="pfai-primary" data-action="generateVictory">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> {{localize 'PFAI.View.Generate'}}
+          </button>
+          <button type="button" data-action="createBlank" data-subsystem="victory">
+            <i class="fa-solid fa-plus"></i> {{localize 'PFAI.View.CreateBlank'}}
+          </button>
+          <button type="button" data-action="importEvent">
+            <i class="fa-solid fa-file-import"></i> {{localize 'PFAI.View.Import'}}
+          </button>
+        </div>
+      {{/if}}
+    </header>
+
+    <div class="pfai-list">
+      {{#each victories as |event|}}
+        <article class="pfai-card {{#if event.hidden}}is-hidden{{/if}}"
+                 data-action="openVictory" data-victory-id="{{event.id}}">
+          <h3>{{event.name}}
+            {{#if event.ai.generated}}<i class="fa-solid fa-wand-magic-sparkles pfai-ai-badge"></i>{{/if}}
+          </h3>
+          <p class="pfai-card-meta">
+            {{event.points.current}} / {{event.points.goal}} {{localize 'PFAI.Victory.PointsShort'}}
+            &middot; {{event.checkCount}} {{localize 'PFAI.Victory.ChecksShort'}}
+          </p>
+        </article>
+      {{else}}
+        <p class="pfai-empty">{{localize 'PFAI.Victory.NoEvents'}}</p>
+      {{/each}}
+    </div>
+  {{/if}}
+
+{{else if isLeadershipTab}}
 
   {{#if selectedLeadership}}
     {{> pfaiLeadershipDetail}}

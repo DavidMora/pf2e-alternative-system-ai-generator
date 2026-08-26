@@ -372,7 +372,9 @@ const { shouldApplyInfluence, shouldApplyResearch, shouldApplyInfiltration, shou
 const relays = [
   ['influence', shouldApplyInfluence, { action: 'applyInfluence', influenceId: 'e', participantId: 'p', entryId: 'x', kind: 'influence', degree: 2 }, 'entryId'],
   ['research', shouldApplyResearch, { action: 'applyResearch', researchId: 'e', participantId: 'p', sourceId: 's', checkId: 'c', degree: 2 }, 'sourceId'],
-  ['infiltration', shouldApplyInfiltration, { action: 'applyInfiltration', infiltrationId: 'e', participantId: 'p', ownerId: 'o', checkId: 'c', degree: 2 }, 'ownerId'],
+  // `kind` is part of every message the emitter builds and the handler reads it
+  // to know where to look, so the predicate requires it too.
+  ['infiltration', shouldApplyInfiltration, { action: 'applyInfiltration', infiltrationId: 'e', participantId: 'p', kind: 'complication', ownerId: 'o', checkId: 'c', degree: 2 }, 'ownerId'],
   ['leadership', shouldApplyLeadership, { action: 'applyLeadership', leadershipId: 'e', participantId: 'p', eventId: 'v', checkId: 'c', degree: 2 }, 'eventId'],
 ];
 for (const [name, predicate, base_, idField] of relays) {
