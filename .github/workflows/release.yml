@@ -89,10 +89,33 @@ jobs:
             -x '*.DS_Store'
           unzip -l module.zip
 
+      # Foundry's package form takes a Release Notes URL, and it points here.
+      # Auto-generated notes are a compare link, which tells a GM nothing about
+      # what changed, so the release body is this version's CHANGELOG section.
+      - name: Take the release notes from the changelog
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const version = process.env.TAG.replace(/^v/, "");
+            const log = fs.readFileSync("CHANGELOG.md", "utf8");
+            const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const section = new RegExp(`^## ${escaped}\\n([\\s\\S]*?)(?=^## |$(?![\\s\\S]))`, "m").exec(log);
+            if (!section || !section[1].trim()) {
+              console.error(`CHANGELOG.md has no section for ${version}.`);
+              console.error("The Release Notes URL on the Foundry package page points at this release,");
+              console.error("so shipping it empty leaves that link describing nothing.");
+              process.exit(1);
+            }
+            fs.writeFileSync("RELEASE_NOTES.md", section[1].trim() + "\n");
+            console.log(section[1].trim().split("\n").length, "lines of notes");
+          '
+
       - name: Publish
         uses: softprops/action-gh-release@v2
         with:
           files: |
             module.json
             module.zip
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
