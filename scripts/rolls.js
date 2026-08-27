@@ -1300,6 +1300,20 @@ export function advanceLeadership(org) {
   return revealed;
 }
 
+/**
+ * Shared notification for whatever advanceLeadership surfaced.
+ *
+ * The other five subsystems pair advance with announce; leadership announced
+ * inline in the view instead, which is the shape that let the influence
+ * stepper lose its announcements without anyone noticing.
+ */
+export function announceLeadershipProgress(revealed) {
+  if (!revealed?.length) return;
+  ui.notifications.info(
+    game.i18n.format('PFAI.Leadership.Unlocked', { what: revealed.join(', ') }),
+  );
+}
+
 
 /**
  * Roll one Victory Point check.

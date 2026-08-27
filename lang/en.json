@@ -741,5 +741,15 @@
   "PFAI.Victory.CalledLost": "Called: the party lost this one.",
   "PFAI.Victory.TrackFull": "The endpoint has been reached.",
   "PFAI.Victory.TrackEmpty": "The points have run out.",
-  "PFAI.Info.VictoryOutcome": "Yours to call, and you can change it. Reaching the endpoint is not automatically a win, and running out is not automatically a loss — a party can hold a bridge until the clock runs out and have done exactly what was needed. The module counts; you decide what the count meant."
+  "PFAI.Info.VictoryOutcome": "Yours to call, and you can change it. Reaching the endpoint is not automatically a win, and running out is not automatically a loss — a party can hold a bridge until the clock runs out and have done exactly what was needed. The module counts; you decide what the count meant.",
+  "PFAI.Usage.Reported": "Generated: {input} tokens in, {output} out — about ${cost}. ${total} through this module so far.",
+  "PFAI.Usage.TokensOnly": "Generated: {input} tokens in, {output} out. No published price for this model, so no estimate.",
+  "PFAI.Usage.Spend": "OpenAI spend so far",
+  "PFAI.Usage.SpendHint": "{requests} requests, {input} tokens in and {output} out, about ${cost}. Estimated from published prices — it is not a bill, and it only counts this browser.",
+  "PFAI.Usage.Reset": "Reset",
+  "PFAI.Usage.WasReset": "Spend counter reset.",
+  "PFAI.Errors.Timeout": "The model did not answer within {seconds} seconds.",
+  "PFAI.Errors.Retrying": "That call failed ({message}). Trying once more.",
+  "PFAI.Settings.Timeout.Name": "Request timeout (seconds)",
+  "PFAI.Settings.Timeout.Hint": "How long to wait for the model before giving up. Blank uses 120. A large infiltration on a slow model is legitimately slow, so leave room."
 }

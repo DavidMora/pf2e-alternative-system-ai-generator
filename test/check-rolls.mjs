@@ -1029,6 +1029,17 @@ check('leadership: and not before',
 check('leadership: one with no level waits for the GM',
   rolls.advanceLeadership(org(20, null)), []);
 
+// Paired with an announcer like the other five, rather than announced inline.
+notes.length = 0;
+rolls.announceLeadershipProgress(rolls.advanceLeadership(org(4, 4)));
+check('leadership: a surfaced event is announced',
+  notes.some((n) => n.includes('Leadership.Unlocked')), true);
+notes.length = 0;
+rolls.announceLeadershipProgress(rolls.advanceLeadership(org(3, 4)));
+check('leadership: and nothing is said when nothing surfaced', notes.length, 0);
+check('leadership: an empty result is not an error',
+  (rolls.announceLeadershipProgress([]), rolls.announceLeadershipProgress(undefined), notes.length), 0);
+
 /* ----------------------------------------------------- spending an edge point */
 
 /*

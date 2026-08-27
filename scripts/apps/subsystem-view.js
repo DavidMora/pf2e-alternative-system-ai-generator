@@ -83,6 +83,7 @@ import {
   adjustVictoryContribution,
   advanceInfiltration,
   advanceLeadership,
+  announceLeadershipProgress,
   advanceResearch,
   announceInfiltrationProgress,
   announceResearchProgress,
@@ -2220,9 +2221,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       org.organizationLevel = Math.clamp(org.organizationLevel + delta, 1, 20);
       revealed = advanceLeadership(org);
     });
-    if (revealed.length) {
-      ui.notifications.info(game.i18n.format('PFAI.Leadership.Unlocked', { what: revealed.join(', ') }));
-    }
+    announceLeadershipProgress(revealed);
   }
 
   static async #onRollLeadership(_event, target) {

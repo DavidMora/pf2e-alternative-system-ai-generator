@@ -883,14 +883,27 @@ Eleven suites, no Foundry required — `test/harness.mjs` stubs the globals:
 - `check-templates.mjs` — compiles and renders every template, asserts the
   player view omits GM controls and GM notes, and checks every action button
   carries the ids its handler reads
+- `check-image.mjs` — artwork: which model, what gets posted, rasterising an
+  SVG reference the endpoint would reject, and where the file lands
 - `check-parity.mjs` — the adversarial audit: asserts all 35 capabilities exist
   in all six subsystems and prints the matrix, so a gap is visible rather than
   inferred. A subsystem that genuinely cannot have one must say why
+
+One thing `npm test` cannot cover: the player→GM relay only works if a message
+crosses the server between two processes, and every suite runs in one with a
+stubbed socket. `test/manual/README.md` walks through checking it by hand with a
+real second client — the positive case and the five messages that must be
+refused. It takes about two minutes.
 
 ## Known limits
 
 - A GM must be connected for player rolls to be recorded; the module says so
   rather than dropping the result silently.
+- **A relayed roll is trusted as it arrives.** Foundry gives a module's socket
+  handler no way to know which client sent a message, so a player could emit a
+  critical success they never rolled. Every module that relays results works
+  this way and there is no module-level fix. Every applied result raises a
+  notification on the GM's screen, which is the mitigation available.
 - The premise and GM notes editors are plain textareas, not ProseMirror.
 - **Temperature** is a free-text field rather than a number input. Foundry's
   settings form submits an empty number input as `NaN`, which no nullable

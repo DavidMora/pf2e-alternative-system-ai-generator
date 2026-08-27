@@ -17,6 +17,8 @@ export const SETTINGS = {
   imageModel: 'openaiImageModel',
   imageSize: 'openaiImageSize',
   imageQuality: 'openaiImageQuality',
+  requestTimeout: 'openaiRequestTimeout',
+  spend: 'openaiSpend',
 };
 
 /**
@@ -30,6 +32,35 @@ export const OPENAI_MODELS = {
 };
 
 export const DEFAULT_MODEL = 'gpt-5.6-terra';
+
+/**
+ * Seconds before a generation is abandoned.
+ *
+ * The dialogs have always been cancellable, but only by a GM who noticed and
+ * clicked; a hung request otherwise waits for ever behind a spinner. Generous,
+ * because a large infiltration on a slow model is legitimately slow.
+ */
+export const DEFAULT_TIMEOUT_SECONDS = 120;
+
+/**
+ * One automatic retry, because a Structured Outputs answer that will not parse
+ * has already been paid for and is usually transient. Anything worse than
+ * transient fails the same way it did before.
+ */
+export const RETRY_ATTEMPTS = 1;
+
+/**
+ * Rough USD per million tokens, for telling a GM what a generation cost.
+ *
+ * Prices move and a GM may point the base URL somewhere else entirely, so this
+ * is labelled an estimate everywhere it surfaces and a model that is not listed
+ * reports tokens without a figure rather than inventing one.
+ */
+export const MODEL_PRICES = {
+  'gpt-5.6-sol': { input: 1.25, output: 10 },
+  'gpt-5.6-terra': { input: 0.25, output: 2 },
+  'gpt-5.6-luna': { input: 0.05, output: 0.4 },
+};
 export const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
 export const DEFAULT_IMAGE_MODEL = 'gpt-image-2';

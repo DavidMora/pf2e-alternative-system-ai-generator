@@ -2,6 +2,9 @@ import Handlebars from 'handlebars';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// One copy of the contexts, shared with check-parity — a fixture that drifts
+// from the view makes every suite lie.
+import { CONTEXTS } from './fixtures.mjs';
 
 const dir = process.argv[2] ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates');
 let failed = 0;
@@ -752,6 +755,74 @@ for (const isGM of [true, false]) {
     .map((h) => h.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40));
   if (bare.length) { failed = 1; console.error(`  infiltration unexplained sections: ${bare.join(' | ')}`); }
   console.log(`infiltration parity: shared=${SHARED.length - missing.length}/${SHARED.length} dropzone=${zone} explained=${headings.length - bare.length}/${headings.length}`);
+}
+
+/*
+ * The same contract, over every subsystem there is.
+ *
+ * The blocks above were written one at a time and only ever reached four of the
+ * six — leadership and victory were added and nobody extended them, so the file
+ * looked like coverage while asserting nothing about either. This loop is
+ * driven by the shared context map, so a seventh subsystem is covered the day
+ * it gets a fixture rather than whenever somebody remembers.
+ *
+ * check-parity asserts a much longer capability list across the same six. This
+ * stays because it renders through the real template chain and catches a broken
+ * partial, which a capability matrix does not.
+ */
+{
+  const SHARED = ['togglePlayerPreview', 'showToPlayers', 'toggleHidden', 'exportEvent',
+                  'editTitle', 'toggleStarted'];
+  const names = Object.keys(CONTEXTS);
+  if (names.length !== 6) {
+    failed = 1;
+    console.error(`  expected six subsystems with fixtures, found ${names.length}: ${names}`);
+  }
+
+  for (const name of names) {
+    const gmOut = view(CONTEXTS[name](true));
+    const playerOut = view(CONTEXTS[name](false));
+
+    const missing = SHARED.filter((a) => !gmOut.includes(`data-action="${a}"`));
+    if (missing.length) {
+      failed = 1;
+      console.error(`  ${name} missing shared operations: ${missing}`);
+    }
+
+    // A shared button that does not say which event it belongs to is a no-op.
+    const pattern = /<[^>]*data-action="(?:showToPlayers|toggleHidden|exportEvent|editTitle|toggleStarted)"[^>]*>/g;
+    for (const tag of gmOut.match(pattern) ?? []) {
+      if (!/data-subsystem="/.test(tag) || !/data-event-id="/.test(tag)) {
+        failed = 1;
+        console.error(`  ${name} shared action not wired: ${tag.slice(0, 90)}`);
+      }
+    }
+
+    // Hover is for adjustment; a roster you cannot drop onto is not a roster.
+    const zone = gmOut.includes('pfai-dropzone');
+    if (!zone) { failed = 1; console.error(`  ${name} roster is not a drop target`); }
+
+    // Every section explains itself, so a GM meeting "source cap" for the first
+    // time does not have to go and read the rulebook.
+    const headings = gmOut.match(/<h3\b[\s\S]*?<\/h3>/g) ?? [];
+    const bare = headings.filter((h) => !h.includes('pfai-info'))
+      .map((h) => h.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40));
+    if (bare.length) {
+      failed = 1;
+      console.error(`  ${name} unexplained sections: ${bare.join(' | ')}`);
+    }
+
+    // The player view must not carry the GM's authoring controls.
+    const leakedActions = ['editTitle', 'toggleHidden', 'exportEvent', 'editText']
+      .filter((a) => playerOut.includes(`data-action="${a}"`));
+    if (leakedActions.length) {
+      failed = 1;
+      console.error(`  ${name} authoring leaked to players: ${leakedActions}`);
+    }
+
+    console.log(`${name} parity: shared=${SHARED.length - missing.length}/${SHARED.length} `
+      + `dropzone=${zone} explained=${headings.length - bare.length}/${headings.length} leaked=${leakedActions.length}`);
+  }
 }
 
 process.exit(failed);
