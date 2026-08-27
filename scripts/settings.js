@@ -2,6 +2,7 @@ import {
   DEFAULT_BASE_URL,
   DEFAULT_IMAGE_MODEL,
   DEFAULT_MODEL,
+  DEFAULT_TIMEOUT_SECONDS,
   IMAGE_QUALITIES,
   IMAGE_SIZES,
   MODULE_ID,
@@ -162,6 +163,33 @@ export function registerSettings() {
     restricted: true,
     type: String,
     default: '',
+  });
+
+  game.settings.register(MODULE_ID, SETTINGS.requestTimeout, {
+    name: 'PFAI.Settings.Timeout.Name',
+    hint: 'PFAI.Settings.Timeout.Hint',
+    scope: 'client',
+    config: true,
+    restricted: true,
+    // String, not Number: Foundry submits an empty number input as NaN, which
+    // no nullable NumberField can validate, and that breaks the whole sheet.
+    type: String,
+    default: String(DEFAULT_TIMEOUT_SECONDS),
+  });
+
+  /*
+   * What this GM has spent, kept beside the key it is spent with.
+   *
+   * Client scope for the same reason the key is: one GM's spending is not a
+   * fact about the world, and every world setting is sent to every player who
+   * joins regardless of `restricted`.
+   */
+  game.settings.register(MODULE_ID, SETTINGS.spend, {
+    scope: 'client',
+    config: false,
+    restricted: true,
+    type: Object,
+    default: { requests: 0, inputTokens: 0, outputTokens: 0, cost: 0 },
   });
 
   game.settings.register(MODULE_ID, SETTINGS.imageModel, {

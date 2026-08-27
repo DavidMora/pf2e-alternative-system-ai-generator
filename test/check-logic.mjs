@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -507,5 +507,38 @@ assertStrict(OBSTACLES_SCHEMA);
 assertStrict(FORK_SCHEMA);
 if (CHASE_SCHEMA.properties.premise) { failed = 1; console.error('FAIL: schema must not let the model author the premise'); }
 console.log('ok  both schemas satisfy strict-mode rules, and neither generates a premise');
+
+/* ------------------------------------------------- every language, in step */
+
+/*
+ * A translation drifts the moment somebody adds an English string and forgets
+ * the rest. Worse, a missing placeholder is invisible until a GM sees "Generated
+ * chase" with no name in it, so those are compared rather than just the keys.
+ */
+{
+  const manifest = JSON.parse(readFileSync(path.join(root, 'module.json'), 'utf8'));
+  const english = JSON.parse(readFileSync(path.join(root, 'lang/en.json'), 'utf8'));
+  const placeholders = (value) => [...String(value).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+
+  check('every language in the manifest has a file that exists',
+    manifest.languages.filter((l) => !existsSync(path.join(root, l.path))), []);
+
+  for (const { lang, path: file } of manifest.languages) {
+    if (lang === 'en') continue;
+    const other = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
+
+    check(`${lang}: nothing is missing`,
+      Object.keys(english).filter((k) => !(k in other)), []);
+    check(`${lang}: nothing is left over from a removed string`,
+      Object.keys(other).filter((k) => !(k in english)), []);
+    check(`${lang}: every placeholder survives translation`,
+      Object.keys(english)
+        .filter((k) => k in other)
+        .filter((k) => String(placeholders(english[k])) !== String(placeholders(other[k]))),
+      []);
+    check(`${lang}: nothing was left blank`,
+      Object.entries(other).filter(([, v]) => !String(v).trim()).map(([k]) => k), []);
+  }
+}
 
 process.exit(failed);

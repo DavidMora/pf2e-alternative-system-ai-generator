@@ -1,5 +1,59 @@
 # Changelog
 
+## Unreleased
+
+### Spanish
+
+`lang/es.json`, all 753 strings, with PF2e terminology as Devir translates it —
+DJ, CD, asaltos. A test now compares every language against English on keys,
+placeholders and empty values, so a translation cannot quietly fall behind the
+way one silently would before.
+
+### What a generation costs
+
+The API has always returned its token usage and the module threw it away. Every
+generation now reports what it used and roughly what it cost, and keeps a
+running total beside the key it is spent with — client scope, because one GM's
+spending is not a fact about the world. A model with no published price reports
+tokens and no figure rather than inventing one.
+
+### Timeouts and one retry
+
+A hung request used to wait for ever behind the dialog's spinner; the only way
+out was a GM noticing and cancelling. There is a timeout now, configurable,
+composed with the caller's signal so cancelling still works and the two stay
+distinguishable.
+
+A call that fails transiently — a rate limit, a 5xx, an answer that will not
+parse — is retried once, because the GM has already paid for it. A refusal, a
+bad key or a rejected schema fails at once, since asking again would spend more
+money to fail identically.
+
+### Fixed
+
+- Leadership announced revealed events inline in the view rather than through a
+  paired announcer like the other five. That shape is what let the influence
+  stepper lose its announcements without anyone noticing.
+
+### Internal
+
+`ai/image.js` had no coverage at all — the file that touches the world's data
+directory and an endpoint that rejects SVG while Foundry ships SVG icons. It has
+36 assertions now, including the zero-sized-SVG case that would otherwise
+produce a blank reference.
+
+`check-templates.mjs` asserted its shared contract against four of the six
+subsystems, having been written one at a time and never extended. It is driven
+by the shared context map now, so a seventh is covered the day it gets a
+fixture.
+
+The relay was verified for the first time across two genuine clients — a real
+second session emitting over the wire — for victory, influence and research,
+including five malformed messages that had to be refused. `test/manual/`
+records how, since no automated suite can reach it.
+
+CI moved off the deprecated Node 20.
+
 ## 1.1.0
 
 ### Victory Points
