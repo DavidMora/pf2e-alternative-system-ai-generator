@@ -377,10 +377,16 @@ export async function rollInfluenceCheck({ influenceId, participantId, entryId, 
     0,
   );
 
+  // The scene a check belongs to goes in the label, so a chat log full of
+  // rolls against one running total still says which scene each came from.
+  const scene = entry.tags?.[0] ? `${entry.tags[0]} — ` : '';
   const roll = await statistic.roll({
     dc: { value: entry.dc + modifier },
-    label: `${event.name} — ${entry.label}`,
-    extraRollOptions: [`${MODULE_ID}:influence`],
+    label: `${event.name} — ${scene}${entry.label}`,
+    extraRollOptions: [
+      `${MODULE_ID}:influence`,
+      ...(entry.tags ?? []).map((tag) => `${MODULE_ID}:tag:${tag.toLowerCase().replace(/\s+/g, '-')}`),
+    ],
   });
   if (!roll) return null;
 

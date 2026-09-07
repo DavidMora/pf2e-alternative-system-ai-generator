@@ -1,4 +1,5 @@
 import { MODULE_ID } from './constants.js';
+import { tagKey } from './helpers.js';
 import { registerSettings } from './settings.js';
 import { SubsystemView } from './apps/subsystem-view.js';
 import { GenerateChaseDialog } from './apps/generate-chase-dialog.js';
@@ -54,6 +55,8 @@ function registerHandlebarsHelpers() {
   Handlebars.registerHelper('pfaiOr', (...args) => args.slice(0, -1).some(Boolean));
   Handlebars.registerHelper('pfaiSubtract', (a, b) => Number(a) - Number(b));
   Handlebars.registerHelper('pfaiLt', (a, b) => Number(a) < Number(b));
+  // A row's tag chip has to filter by the same key the filter bar uses.
+  Handlebars.registerHelper('pfaiTagKey', (tag) => tagKey(tag));
 }
 
 // The socket is only live once the game is ready.

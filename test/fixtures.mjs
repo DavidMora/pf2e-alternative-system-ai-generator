@@ -22,6 +22,7 @@ export function prepareHandlebars() {
   Handlebars.registerHelper('pfaiOr', (...a) => a.slice(0, -1).some(Boolean));
   Handlebars.registerHelper('pfaiSubtract', (a, b) => Number(a) - Number(b));
   Handlebars.registerHelper('pfaiLt', (a, b) => Number(a) < Number(b));
+  Handlebars.registerHelper('pfaiTagKey', (tag) => String(tag).trim().toLowerCase().replace(/\s+/g, '-'));
 
   const partialsDir = path.join(templatesDir, 'partials');
   for (const file of readdirSync(partialsDir).filter((f) => f.endsWith('.hbs'))) {
@@ -100,15 +101,40 @@ const influenceCtx = (isGM) => ({
     enrichedNpcWants: '<p>SECRET-WANTS</p>',
     enrichedGmNotes: '<p>INFLUENCE-SECRET</p>',
     discoveries: [{ id: 'd1', label: 'Society', dc: 18, effectiveDC: 16, description: 'Ask around.',
-                    hidden: false, enrichedReveals: '<p>Her bias.</p>' }],
+                    hidden: false, tags: ['The Feast'], enrichedReveals: '<p>Her bias.</p>' }],
     influenceSkills: isGM
-      ? [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false },
-         { id: 's2', label: 'Deception', dc: 22, effectiveDC: 20, description: 'Lie.', hidden: true },
+      ? [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false,
+           tags: ['The Feast'] },
+         { id: 's2', label: 'Deception', dc: 22, effectiveDC: 20, description: 'Lie.', hidden: true,
+           tags: ['The Hunt'] },
          // Locked until the encounter advances, which reads differently from
          // merely undiscovered.
          { id: 's3', label: 'Intimidation', dc: 24, effectiveDC: 22, description: 'Threaten.',
-           hidden: true, revealAt: 6, lockedUntil: 6 }]
-      : [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false }],
+           hidden: true, revealAt: 6, lockedUntil: 6, tags: [] }]
+      : [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false,
+           tags: ['The Feast'] }],
+    /*
+     * The scene filter, as the view builds it. A GM sees the bar with its
+     * per-scene hidden counts and the bulk reveal; a player sees only the
+     * tags on the rows they can already see.
+     */
+    tagFilter: {
+      isGM,
+      tags: [
+        { key: 'the-feast', label: 'The Feast', total: 2, hidden: 0, active: false },
+        { key: 'the-hunt', label: 'The Hunt', total: 1, hidden: 1, active: false },
+      ],
+      untaggedCount: isGM ? 1 : 0,
+      untaggedActive: false,
+      activeTag: null,
+      activeLabel: '',
+      reveal: 'all',
+      revealHidden: false,
+      revealShown: false,
+      filtering: false,
+      matchedHidden: isGM ? 2 : 0,
+      matchedShown: isGM ? 2 : 1,
+    },
     thresholds: isGM
       ? [{ id: 't1', points: 2, name: 'Listens', reached: true, hidden: false, enrichedDescription: '<p>x</p>' },
          { id: 't2', points: 6, name: 'Votes', reached: false, hidden: true, enrichedDescription: '<p>y</p>' }]

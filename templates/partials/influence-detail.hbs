@@ -190,6 +190,72 @@
   </section>
 {{/if}}
 
+{{#if tagFilter.tags.length}}
+  <section class="pfai-panel pfai-tag-filter">
+    <h3>{{localize 'PFAI.Influence.Scenes'}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Scenes'}}"></i>
+      {{#if tagFilter.filtering}}
+        <span class="pfai-panel-actions">
+          <button type="button" class="pfai-generate-obstacles" data-action="clearCheckFilter">
+            <i class="fa-solid fa-xmark"></i> {{localize 'PFAI.Influence.ShowAll'}}
+          </button>
+        </span>
+      {{/if}}
+    </h3>
+
+    <div class="pfai-tag-row">
+      {{#each tagFilter.tags}}
+        <button type="button" class="pfai-tag {{#if active}}is-active{{/if}}"
+                data-action="filterCheckTag" data-tag="{{key}}"
+                data-tooltip="{{localize 'PFAI.Influence.FilterTagHint'}}">
+          {{label}}
+          {{#if hidden}}
+            <span class="pfai-tag-count is-hidden-count"
+                  data-tooltip="{{localize 'PFAI.Influence.StillHiddenHint'}}">{{hidden}}/{{total}}</span>
+          {{else}}
+            <span class="pfai-tag-count">{{total}}</span>
+          {{/if}}
+        </button>
+      {{/each}}
+      {{#if tagFilter.untaggedCount}}
+        <button type="button" class="pfai-tag {{#if tagFilter.untaggedActive}}is-active{{/if}}"
+                data-action="filterCheckTag" data-tag="__untagged__"
+                data-tooltip="{{localize 'PFAI.Influence.UntaggedHint'}}">
+          {{localize 'PFAI.Influence.Untagged'}}
+          <span class="pfai-tag-count">{{tagFilter.untaggedCount}}</span>
+        </button>
+      {{/if}}
+
+      <button type="button" class="pfai-tag pfai-tag-reveal {{#if tagFilter.filtering}}is-active{{/if}}"
+              data-action="cycleRevealFilter" data-tooltip="{{localize 'PFAI.Influence.RevealFilterHint'}}">
+        <i class="fa-solid {{#if tagFilter.revealHidden}}fa-eye-slash{{else if tagFilter.revealShown}}fa-eye{{else}}fa-layer-group{{/if}}"></i>
+        {{#if tagFilter.revealHidden}}{{localize 'PFAI.Influence.OnlyHidden'}}
+        {{else if tagFilter.revealShown}}{{localize 'PFAI.Influence.OnlyRevealed'}}
+        {{else}}{{localize 'PFAI.Influence.AllStates'}}{{/if}}
+      </button>
+    </div>
+
+    {{#if tagFilter.isGM}}
+      <div class="pfai-tag-bulk">
+        {{#if tagFilter.matchedHidden}}
+          <button type="button" class="pfai-generate-obstacles" data-action="revealFiltered"
+                  data-influence-id="{{id}}" data-tooltip="{{localize 'PFAI.Influence.RevealFilteredHint'}}">
+            <i class="fa-solid fa-eye"></i>
+            {{localize 'PFAI.Influence.RevealFiltered' count=tagFilter.matchedHidden}}
+          </button>
+        {{/if}}
+        {{#if tagFilter.matchedShown}}
+          <button type="button" class="pfai-generate-obstacles" data-action="concealFiltered"
+                  data-influence-id="{{id}}" data-tooltip="{{localize 'PFAI.Influence.ConcealFilteredHint'}}">
+            <i class="fa-solid fa-eye-slash"></i>
+            {{localize 'PFAI.Influence.ConcealFiltered' count=tagFilter.matchedShown}}
+          </button>
+        {{/if}}
+      </div>
+    {{/if}}
+  </section>
+{{/if}}
+
 {{> pfaiInfluenceChecks entries=discoveries kind="discovery" collection="discoveries"
     title=(localize 'PFAI.Influence.Discoveries') hint=(localize 'PFAI.Influence.DiscoveriesHint')
     info=(localize 'PFAI.Info.Discovery')

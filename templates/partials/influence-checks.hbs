@@ -38,6 +38,14 @@
             </span>
           {{/if}}
           <span class="pfai-check-desc">{{entry.description}}</span>
+          {{#if entry.tags.length}}
+            <span class="pfai-check-tags">
+              {{#each entry.tags}}
+                <button type="button" class="pfai-tag pfai-tag-inline" data-action="filterCheckTag"
+                        data-tag="{{pfaiTagKey this}}" data-tooltip="{{localize 'PFAI.Influence.FilterTagHint'}}">{{this}}</button>
+              {{/each}}
+            </span>
+          {{/if}}
           {{#if entry.enrichedReveals}}
             <div class="pfai-check-reveals">
               <span class="pfai-label">{{localize 'PFAI.Influence.Reveals'}}</span>

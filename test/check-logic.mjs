@@ -541,4 +541,46 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
   }
 }
 
+// --- Scene tags on influence checks ------------------------------------------
+/*
+ * An adventure can hang forty checks off one influence total across many
+ * scenes. Tags group them; the filter is what turns "which of these forty can
+ * the party roll right now" into one glance.
+ */
+const { tagKey, parseTags, matchesCheckFilter, UNTAGGED } = await import(`file://${base}/helpers.js`);
+
+check('tags compare without case or spacing',
+  [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
+check('a comma list becomes trimmed, deduplicated tags',
+  parseTags(' the feast , Pepper Contest ,the  feast, '), ['the feast', 'Pepper Contest']);
+check('an empty field is no tags', [parseTags(''), parseTags(null), parseTags(' , , ')], [[], [], []]);
+
+const feastRow = { tags: ['The Feast'], hidden: true };
+const huntRow = { tags: ['The Hunt'], hidden: false };
+const bothRow = { tags: ['The Feast', 'The Hunt'], hidden: false };
+const untaggedRow = { tags: [], hidden: true };
+const noFilter = { tag: null, reveal: 'all' };
+
+check('no filter shows everything',
+  [feastRow, huntRow, bothRow, untaggedRow].every((e) => matchesCheckFilter(e, noFilter)), true);
+check('a scene filter shows only that scene, including multi-tagged rows',
+  [feastRow, huntRow, bothRow, untaggedRow].map((e) => matchesCheckFilter(e, { tag: 'the-feast', reveal: 'all' })),
+  [true, false, true, false]);
+check('the filter matches by key, so capitalisation cannot hide a row',
+  matchesCheckFilter({ tags: ['the feast'], hidden: false }, { tag: 'the-feast', reveal: 'all' }), true);
+check('the untagged bucket is only rows with no tags at all',
+  [feastRow, untaggedRow].map((e) => matchesCheckFilter(e, { tag: UNTAGGED, reveal: 'all' })), [false, true]);
+check('the reveal filter narrows to what is still hidden',
+  [feastRow, huntRow].map((e) => matchesCheckFilter(e, { tag: null, reveal: 'hidden' })), [true, false]);
+check('and to what is already revealed',
+  [feastRow, huntRow].map((e) => matchesCheckFilter(e, { tag: null, reveal: 'revealed' })), [false, true]);
+check('scene and reveal filters combine',
+  matchesCheckFilter(bothRow, { tag: 'the-feast', reveal: 'hidden' }), false);
+// A row saved before tags existed has no array at all.
+check('a legacy row with no tags field survives every filter without throwing', [
+  matchesCheckFilter({ hidden: true }, noFilter),
+  matchesCheckFilter({ hidden: true }, { tag: 'the-feast', reveal: 'all' }),
+  matchesCheckFilter({ hidden: true }, { tag: UNTAGGED, reveal: 'all' }),
+], [true, false, true]);
+
 process.exit(failed);

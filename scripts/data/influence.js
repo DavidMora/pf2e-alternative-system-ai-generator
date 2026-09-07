@@ -36,6 +36,20 @@ function skillEntryField(extra = {}) {
        * discovery check finds it or the GM reveals it by hand.
        */
       revealAt: new fields.NumberField({ integer: true, nullable: true, initial: null }),
+      /**
+       * Free-text labels grouping entries by scene.
+       *
+       * A published influence encounter is one conversation, but an adventure
+       * often runs one running total across many scenes - Age of Ashes book 2
+       * puts forty-odd checks under a single Ekujae score. Without a grouping
+       * the GM scrolls a flat list looking for the six rows this scene needs.
+       * Stored as typed so a GM's capitalisation survives; compared without
+       * case, so "The Feast" and "the feast" are one tag.
+       */
+      tags: new fields.ArrayField(new fields.StringField({ required: true, blank: false }), {
+        required: true,
+        initial: () => [],
+      }),
       ...extra,
     }),
   );

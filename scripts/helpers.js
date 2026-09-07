@@ -576,3 +576,37 @@ export function guessPartyLevel() {
   const total = members.reduce((acc, m) => acc + (m.system?.details?.level?.value ?? 1), 0);
   return Math.max(1, Math.round(total / members.length));
 }
+
+// --- Scene tags on influence checks ------------------------------------------
+
+/** The sentinel for "rows nobody has tagged yet". */
+export const UNTAGGED = '__untagged__';
+
+/** Tags compare without case or spacing, so one scene is one tag. */
+export const tagKey = (tag) => String(tag).trim().toLowerCase().replace(/\s+/g, '-');
+
+/** Split a comma-separated tag field, trimmed and deduplicated. */
+export function parseTags(input) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of String(input ?? '').split(',')) {
+    const tag = raw.trim().replace(/\s+/g, ' ');
+    if (!tag || seen.has(tagKey(tag))) continue;
+    seen.add(tagKey(tag));
+    out.push(tag);
+  }
+  return out;
+}
+
+/** Does an entry survive the current scene filter? */
+export function matchesCheckFilter(entry, filter) {
+  const tags = entry.tags ?? [];
+  if (filter.tag === UNTAGGED) {
+    if (tags.length) return false;
+  } else if (filter.tag && !tags.some((tag) => tagKey(tag) === filter.tag)) {
+    return false;
+  }
+  if (filter.reveal === 'hidden' && !entry.hidden) return false;
+  if (filter.reveal === 'revealed' && entry.hidden) return false;
+  return true;
+}

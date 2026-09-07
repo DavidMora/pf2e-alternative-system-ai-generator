@@ -15,6 +15,7 @@ Handlebars.registerHelper('pfaiEq', (a, b) => a === b);
 Handlebars.registerHelper('pfaiAdd', (a, b) => Number(a) + Number(b));
 Handlebars.registerHelper('pfaiOr', (...a) => a.slice(0, -1).some(Boolean));
 Handlebars.registerHelper('pfaiSubtract', (a, b) => Number(a) - Number(b));
+Handlebars.registerHelper('pfaiTagKey', (tag) => String(tag).trim().toLowerCase().replace(/\s+/g, '-'));
 
 /*
  * Partials must be registered before the templates that use them compile.
@@ -231,54 +232,21 @@ const INFLUENCE_ROLL_OPTIONS = [
   { id: 's1', kind: 'influence', label: 'Diplomacy', dc: 18, hidden: false },
 ];
 
-const influenceCtx = (isGM) => ({
-  isGM, isRealGM: isGM, previewAsPlayer: false, isInfluenceTab: true, isChaseTab: false,
-  influences: [], chases: [],
-  selectedInfluence: {
-    id: 'i1', name: 'The Consul', hidden: false, influencePoints: 3, baseDC: 20,
-    perception: 12, will: 14, rounds: { current: 1, max: 4 }, outOfTime: false,
-    npc: { name: 'Consul Venn', disposition: 'guarded' },
-    ai: { generated: true }, dcModifier: -2,
-    enrichedPremise: '<p>A ball.</p>', enrichedGoal: '<p>Her vote.</p>',
-    enrichedNpcDescription: '<p>A diplomat.</p>',
-    enrichedNpcWants: '<p>SECRET-WANTS</p>',
-    enrichedGmNotes: '<p>SECRET-NOTES</p>',
-    discoveries: [{ id: 'd1', label: 'Society', dc: 18, effectiveDC: 16, description: 'Ask around.',
-                    hidden: false, enrichedReveals: '<p>Her bias.</p>' }],
-    influenceSkills: isGM
-      ? [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false },
-         { id: 's2', label: 'Deception', dc: 22, effectiveDC: 20, description: 'Lie.', hidden: true },
-         // Locked until the encounter advances, which reads differently from
-         // merely undiscovered.
-         { id: 's3', label: 'Intimidation', dc: 24, effectiveDC: 22, description: 'Threaten.',
-           hidden: true, revealAt: 6, lockedUntil: 6 }]
-      : [{ id: 's1', label: 'Diplomacy', dc: 20, effectiveDC: 18, description: 'Flatter.', hidden: false }],
-    thresholds: isGM
-      ? [{ id: 't1', points: 2, name: 'Listens', reached: true, hidden: false, enrichedDescription: '<p>x</p>' },
-         { id: 't2', points: 6, name: 'Votes', reached: false, hidden: true, enrichedDescription: '<p>y</p>' }]
-      : [{ id: 't1', points: 2, name: 'Listens', reached: true, hidden: false, enrichedDescription: '<p>x</p>' }],
-    nextThreshold: { id: 't2', points: 6, name: 'Votes' }, allThresholdsReached: false,
-    weaknesses: [{ id: 'w1', name: 'Vanity', modifier: -5, used: true, hidden: false, enrichedDescription: '<p>z</p>' }],
-    resistances: isGM
-      ? [{ id: 'r1', name: 'Duty', modifier: 2, used: false, hidden: true, enrichedDescription: '<p>z</p>' }]
-      : [],
-    penalties: [],
-    rollOptions: INFLUENCE_ROLL_OPTIONS,
-    participants: [
-      { id: 'p1', name: 'Kyra', img: 'a.png', hasActed: false, canRoll: true, owned: true, noActor: false,
-        canAward: isGM, isReroll: false, rollOptions: INFLUENCE_ROLL_OPTIONS,
-        contributedTotal: 2, successCount: 2, rollCount: 3, discoveryCount: 1, hasContributed: true },
-      { id: 'p2', name: 'Seelah', img: 'b.png', hasActed: true, canRoll: isGM, owned: true, noActor: false,
-        canAward: isGM, isReroll: isGM, rollOptions: INFLUENCE_ROLL_OPTIONS,
-        contributedTotal: 0, successCount: 0, rollCount: 0, discoveryCount: 0, hasContributed: false },
-    ],
-    hiddenCounts: isGM ? { influenceSkills: 1, weaknesses: 0, resistances: 1, thresholds: 1 } : null,
-  },
-});
+/*
+ * The influence context comes from the shared fixtures rather than a copy.
+ *
+ * There used to be a second copy here, and it drifted: scene tags were added
+ * to the shared fixture and this suite went on rendering a tagless event, so
+ * assertions about the new filter bar failed against a fixture that simply
+ * predated it. One copy, as CLAUDE.md says.
+ */
+const influenceCtx = CONTEXTS.influence;
 
 for (const isGM of [true, false]) {
   const out = view(influenceCtx(isGM));
-  const leaks = ['SECRET-WANTS', 'SECRET-NOTES'].filter((t) => out.includes(t));
+  // The markers the shared fixture actually plants: the local copy this
+  // suite used to carry spelled the second one differently.
+  const leaks = ['SECRET-WANTS', 'INFLUENCE-SECRET'].filter((t) => out.includes(t));
   if (isGM !== (leaks.length === 2)) { failed = 1; console.error(`  influence GM content leak: ${leaks}`); }
 
   const revealBtns = (out.match(/data-action="toggleReveal"/g) ?? []).length;
@@ -311,7 +279,33 @@ for (const isGM of [true, false]) {
   }
   console.log(`  influence roster: rolls=${rollBtns} options=${optionTags} award=${awardBtns}`);
 
-  console.log(`influence isGM=${isGM}: bytes=${out.length} reveal=${revealBtns} apply=${applyBtns} rolls=${rollBtns} gmProse=${leaks.length}`);
+  /*
+   * Scene tags and the filter bar.
+   *
+   * The bar is a GM tool - it reveals and conceals - so a player must get the
+   * tag chips on rows they can already see and none of the machinery.
+   */
+  const tagChips = (out.match(/data-action="filterCheckTag"/g) ?? []).length;
+  const bulkReveal = out.includes('data-action="revealFiltered"');
+  const bulkConceal = out.includes('data-action="concealFiltered"');
+  const cycleBtn = out.includes('data-action="cycleRevealFilter"');
+  if (tagChips === 0) { failed = 1; console.error('  influence: no scene tag chips rendered'); }
+  if (isGM !== bulkReveal) { failed = 1; console.error(`  bulk reveal shown to the wrong role (isGM=${isGM})`); }
+  if (isGM !== bulkConceal) { failed = 1; console.error(`  bulk conceal shown to the wrong role (isGM=${isGM})`); }
+  if (!cycleBtn) { failed = 1; console.error('  influence: reveal-state filter missing'); }
+  // The chip has to carry the same key the filter bar filters by, or clicking
+  // a row's tag silently matches nothing.
+  if (!out.includes('data-tag="the-feast"')) {
+    failed = 1;
+    console.error('  influence: tag chip does not carry its normalised key');
+  }
+  // The count that answers "what still needs enabling".
+  if (isGM && !/is-hidden-count/.test(out)) {
+    failed = 1;
+    console.error('  influence: no still-hidden count on any scene tag');
+  }
+
+  console.log(`influence isGM=${isGM}: bytes=${out.length} reveal=${revealBtns} apply=${applyBtns} rolls=${rollBtns} gmProse=${leaks.length} tags=${tagChips}`);
 }
 
 // The two subsystems must offer the same operations on an event, or the UI

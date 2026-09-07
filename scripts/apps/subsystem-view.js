@@ -38,6 +38,10 @@ import {
   guessPartySize,
   suggestedBaseDC,
   getChase,
+  UNTAGGED,
+  tagKey,
+  parseTags,
+  matchesCheckFilter,
   getChases,
   branchesAt,
   nextBranchLabel,
@@ -100,6 +104,7 @@ import { activeModel, hasApiKey } from '../ai/openai.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
+
 /** Read a dialog form into a plain object. */
 function formValues(button) {
   return new foundry.applications.ux.FormDataExtended(button.form).object;
@@ -124,6 +129,13 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Guards the on-demand generate button against double submits. */
   #generatingObstacle = false;
+
+  /*
+   * Which slice of an influence event's checks to show. One filter serves both
+   * the discovery and the influence panels: a GM narrowing to a scene wants
+   * that scene's whole toolkit, not half of it.
+   */
+  #checkFilter = { tag: null, reveal: 'all' };
 
   /** GM-only: render the whole view as a player would see it. */
   #previewAsPlayer = false;
@@ -230,6 +242,11 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleModifierUsed: SubsystemView.#onToggleModifierUsed,
       rollInfluence: SubsystemView.#onRollInfluence,
       awardInfluence: SubsystemView.#onAwardInfluence,
+      filterCheckTag: SubsystemView.#onFilterCheckTag,
+      cycleRevealFilter: SubsystemView.#onCycleRevealFilter,
+      clearCheckFilter: SubsystemView.#onClearCheckFilter,
+      revealFiltered: SubsystemView.#onRevealFiltered,
+      concealFiltered: SubsystemView.#onConcealFiltered,
       addApproach: SubsystemView.#onAddApproach,
       generateApproach: SubsystemView.#onGenerateApproach,
       editApproach: SubsystemView.#onEditApproach,
@@ -329,7 +346,13 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Record the open event for a subsystem. */
+  /** A filter belongs to the event it was set on, not to the window. */
+  #clearCheckFilter() {
+    this.#checkFilter = { tag: null, reveal: 'all' };
+  }
+
   #select(subsystemKey, eventId) {
+    this.#clearCheckFilter();
     switch (subsystemKey) {
       case 'influence':
         this.#selectedInfluenceId = eventId;
@@ -776,13 +799,62 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
         };
       });
 
+    /*
+     * Scene tags, and the filter over them.
+     *
+     * The counts are what make this useful rather than decorative: a tag
+     * shows how many of its checks are still hidden, so "the party reached
+     * the feast" becomes one glance and one button rather than hunting a flat
+     * list of forty rows for the six this scene needs.
+     */
+    const tagged = [...Object.values(event.discoveries ?? {}), ...Object.values(event.influenceSkills ?? {})];
+    const summary = new Map();
+    for (const entry of tagged) {
+      for (const tag of entry.tags ?? []) {
+        const key = tagKey(tag);
+        const row = summary.get(key) ?? { key, label: tag, total: 0, hidden: 0 };
+        row.total += 1;
+        if (entry.hidden) row.hidden += 1;
+        summary.set(key, row);
+      }
+    }
+    const untaggedCount = tagged.filter((entry) => !(entry.tags ?? []).length).length;
+    const activeTag = this.#checkFilter.tag;
+    const activeReveal = this.#checkFilter.reveal;
+    const matches = (entry) => matchesCheckFilter(entry, this.#checkFilter);
+
+    const tagFilter = {
+      // Sorted by name so the bar does not reshuffle as rows are revealed.
+      tags: [...summary.values()]
+        .sort((a, b) => a.label.localeCompare(b.label))
+        .map((row) => ({ ...row, active: activeTag === row.key })),
+      untaggedCount,
+      untaggedActive: activeTag === UNTAGGED,
+      activeTag,
+      activeLabel: activeTag === UNTAGGED
+        ? game.i18n.localize('PFAI.Influence.Untagged')
+        : summary.get(activeTag)?.label ?? '',
+      reveal: activeReveal,
+      revealHidden: activeReveal === 'hidden',
+      revealShown: activeReveal === 'revealed',
+      filtering: Boolean(activeTag) || activeReveal !== 'all',
+      // What a bulk reveal would act on, so the button can say so rather than
+      // asking the GM to trust it.
+      matchedHidden: tagged.filter((e) => matches(e) && e.hidden).length,
+      matchedShown: tagged.filter((e) => matches(e) && !e.hidden).length,
+      isGM,
+    };
+
+    const filtered = (record) => visible(record).filter(matches);
+
     return {
       ...event,
       dcModifier: modifier,
       // An untitled encounter falls back to the NPC's name, so don't print it twice.
       showNpcSubtitle: Boolean(event.npc?.name) && event.npc.name !== event.name,
-      discoveries: await withEnriched(visible(event.discoveries), 'Reveals'),
-      influenceSkills: await withEnriched(visible(event.influenceSkills)),
+      tagFilter,
+      discoveries: await withEnriched(filtered(event.discoveries), 'Reveals'),
+      influenceSkills: await withEnriched(filtered(event.influenceSkills)),
       thresholds: enrichedThresholds,
       nextThreshold: next,
       allThresholdsReached: enrichedThresholds.length > 0 && !next,
@@ -1476,9 +1548,28 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
         description: '',
         hidden: true,
         revealAt: null,
+        /*
+         * A row added while a scene is in view belongs to that scene. Without
+         * this the GM tags every new row by hand immediately after making it,
+         * which is the tedium the filter exists to remove.
+         */
+        tags: this.#activeTagLabel(event),
         ...(collection === 'discoveries' ? { reveals: '' } : {}),
       };
     });
+  }
+
+  /** The active tag as a one-element list, in the spelling already in use. */
+  #activeTagLabel(event) {
+    const key = this.#checkFilter.tag;
+    if (!key || key === UNTAGGED) return [];
+    for (const collection of ['discoveries', 'influenceSkills']) {
+      for (const entry of Object.values(event[collection] ?? {})) {
+        const match = (entry.tags ?? []).find((tag) => tagKey(tag) === key);
+        if (match) return [match];
+      }
+    }
+    return [];
   }
 
   /** Generate one further approach, aware of the ones already present. */
@@ -1543,6 +1634,62 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
+  /** Narrow both check panels to one scene; clicking the active tag clears it. */
+  static async #onFilterCheckTag(_event, target) {
+    const tag = target.dataset.tag ?? null;
+    this.#checkFilter.tag = this.#checkFilter.tag === tag ? null : tag;
+    await this.render();
+  }
+
+  /** All → still hidden → already revealed → all. */
+  static async #onCycleRevealFilter() {
+    const order = ['all', 'hidden', 'revealed'];
+    const next = order[(order.indexOf(this.#checkFilter.reveal) + 1) % order.length];
+    this.#checkFilter.reveal = next;
+    await this.render();
+  }
+
+  static async #onClearCheckFilter() {
+    this.#clearCheckFilter();
+    await this.render();
+  }
+
+  /**
+   * Reveal everything the filter is showing.
+   *
+   * This is the point of the tags: a scene begins, and its checks become
+   * rollable in one action instead of a dozen clicks on eye icons. It only
+   * ever touches what is on screen, so a mis-set filter cannot quietly reveal
+   * the rest of the adventure.
+   */
+  static async #onRevealFiltered(_event, target) {
+    await this.#setFilteredHidden(target.dataset.influenceId, false);
+  }
+
+  static async #onConcealFiltered(_event, target) {
+    await this.#setFilteredHidden(target.dataset.influenceId, true);
+  }
+
+  async #setFilteredHidden(influenceId, hidden) {
+    const filter = this.#checkFilter;
+    let touched = 0;
+    await updateInfluence(influenceId, (draft) => {
+      for (const collection of ['discoveries', 'influenceSkills']) {
+        for (const entry of Object.values(draft[collection] ?? {})) {
+          if (entry.hidden === hidden || !matchesCheckFilter(entry, filter)) continue;
+          entry.hidden = hidden;
+          touched += 1;
+        }
+      }
+    });
+    if (!touched) return;
+    ui.notifications.info(
+      game.i18n.format(hidden ? 'PFAI.Influence.BulkConcealed' : 'PFAI.Influence.BulkRevealed', {
+        count: touched,
+      }),
+    );
+  }
+
   /** Edit an approach, including when it should surface on its own. */
   static async #onEditApproach(_event, target) {
     const { influenceId, collection, entryId } = target.dataset;
@@ -1575,6 +1722,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
         </div>
         <label class="pfai-field"><span>${game.i18n.localize('PFAI.Chase.ApproachDescription')}</span>
           <input type="text" name="description" value="${escapeHTML(entry.description)}"></label>
+        <label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Tags')}</span>
+          <input type="text" name="tags" value="${escapeHTML((entry.tags ?? []).join(', '))}"
+                 placeholder="${game.i18n.localize('PFAI.Influence.TagsPlaceholder')}">
+          <small>${game.i18n.localize('PFAI.Influence.TagsHint')}</small></label>
         ${isDiscovery ? `<label class="pfai-field"><span>${game.i18n.localize('PFAI.Influence.Reveals')}</span>
           <textarea name="reveals" rows="3">${escapeHTML(entry.reveals ?? '')}</textarea></label>` : ''}
       </div>`,
@@ -1589,6 +1740,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       edited.slug = String(result.slug ?? edited.slug);
       edited.dc = Math.max(1, Number(result.dc) || edited.dc);
       edited.description = String(result.description ?? '');
+      edited.tags = parseTags(result.tags);
       if (isDiscovery) edited.reveals = String(result.reveals ?? '');
       const at = String(result.revealAt ?? '').trim();
       edited.revealAt = at === '' ? null : Math.max(0, Number(at) || 0);
