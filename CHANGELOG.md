@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.3.0
+
+Tested on Foundry 13.351 with pf2e 7.12.2 and on Foundry 14.367 with pf2e
+8.4.1, with a GM and a player connected at once.
+
+### Scenes in an influence event
+
+An influence event that runs across a whole evening — an arrival, a feast, a
+hunt — is now one event with tagged checks rather than an unnavigable list.
+Tag a check with its scene and the event grows a scene bar: click a scene to
+narrow to it, see how many of its checks are still hidden, and reveal or hide
+a whole scene at once.
+
+The chosen scene is shared with the table. It is stored on the event, so
+picking one narrows every open player window to the same scene. Players get
+the bar read-only and only for scenes something has been revealed in — a
+scene they have nothing in is not named to them, and its counts are not shown,
+since `Pepper contest 10/10` in a status bar is a spoiler. A player with
+nothing revealed in the chosen scene keeps their own list rather than being
+shown an empty panel.
+
+Rolls carry their scene in the chat card and as a roll option.
+
 ## 1.2.0
 
 ### Spanish

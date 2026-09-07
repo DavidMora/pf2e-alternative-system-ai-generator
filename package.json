@@ -1,6 +1,6 @@
 {
   "name": "matadragones-subsystems-implementation-for-pf2e",
-  "version": "1.0.1",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "description": "Foundry VTT module: PF2e subsystems with OpenAI-generated encounters.",
