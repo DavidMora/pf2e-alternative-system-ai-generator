@@ -304,6 +304,19 @@ for (const isGM of [true, false]) {
     failed = 1;
     console.error('  influence: no still-hidden count on any scene tag');
   }
+  /*
+   * The bar is built from rows the viewer can see. Live testing caught a
+   * player being shown every scene name and its hidden count - "Pepper
+   * contest 10/10" told them how much of the adventure was still coming.
+   */
+  if (!isGM && out.includes('The Hunt')) {
+    failed = 1;
+    console.error('  influence: a scene with no revealed checks leaked to a player');
+  }
+  if (!isGM && /is-hidden-count/.test(out)) {
+    failed = 1;
+    console.error('  influence: still-hidden counts leaked to a player');
+  }
 
   console.log(`influence isGM=${isGM}: bytes=${out.length} reveal=${revealBtns} apply=${applyBtns} rolls=${rollBtns} gmProse=${leaks.length} tags=${tagChips}`);
 }

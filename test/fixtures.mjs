@@ -120,10 +120,15 @@ const influenceCtx = (isGM) => ({
      */
     tagFilter: {
       isGM,
-      tags: [
-        { key: 'the-feast', label: 'The Feast', total: 2, hidden: 0, active: false },
-        { key: 'the-hunt', label: 'The Hunt', total: 1, hidden: 1, active: false },
-      ],
+      tags: isGM
+        ? [
+            { key: 'the-feast', label: 'The Feast', total: 2, hidden: 0, active: false },
+            // Entirely hidden: the GM sees it, the player must not.
+            { key: 'the-hunt', label: 'The Hunt', total: 1, hidden: 1, active: false },
+          ]
+        : [{ key: 'the-feast', label: 'The Feast', total: 1, hidden: 0, active: false }],
+      // A player's bar is built from rows they can see, so a scene whose
+      // checks are all hidden must not appear in it at all.
       untaggedCount: isGM ? 1 : 0,
       untaggedActive: false,
       activeTag: null,

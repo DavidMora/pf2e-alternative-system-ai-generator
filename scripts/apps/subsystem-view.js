@@ -42,6 +42,7 @@ import {
   tagKey,
   parseTags,
   matchesCheckFilter,
+  buildTagSummary,
   getChases,
   branchesAt,
   nextBranchLabel,
@@ -807,27 +808,24 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
      * the feast" becomes one glance and one button rather than hunting a flat
      * list of forty rows for the six this scene needs.
      */
-    const tagged = [...Object.values(event.discoveries ?? {}), ...Object.values(event.influenceSkills ?? {})];
-    const summary = new Map();
-    for (const entry of tagged) {
-      for (const tag of entry.tags ?? []) {
-        const key = tagKey(tag);
-        const row = summary.get(key) ?? { key, label: tag, total: 0, hidden: 0 };
-        row.total += 1;
-        if (entry.hidden) row.hidden += 1;
-        summary.set(key, row);
-      }
-    }
-    const untaggedCount = tagged.filter((entry) => !(entry.tags ?? []).length).length;
+    /*
+     * Built from what this viewer may see, not from everything.
+     *
+     * A player given the whole bar would read the names of scenes not yet in
+     * play, and the counts would tell them how much is still coming - "Pepper
+     * contest 10/10" is a spoiler in a status bar. The GM sees every scene;
+     * a player sees only scenes with a check already revealed to them.
+     */
+    const tagged = [...visible(event.discoveries), ...visible(event.influenceSkills)];
+    const { tags: summaryRows, untaggedCount } = buildTagSummary(tagged);
+    const summary = new Map(summaryRows.map((row) => [row.key, row]));
     const activeTag = this.#checkFilter.tag;
     const activeReveal = this.#checkFilter.reveal;
     const matches = (entry) => matchesCheckFilter(entry, this.#checkFilter);
 
     const tagFilter = {
       // Sorted by name so the bar does not reshuffle as rows are revealed.
-      tags: [...summary.values()]
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .map((row) => ({ ...row, active: activeTag === row.key })),
+      tags: summaryRows.map((row) => ({ ...row, active: activeTag === row.key })),
       untaggedCount,
       untaggedActive: activeTag === UNTAGGED,
       activeTag,

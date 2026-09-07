@@ -610,3 +610,35 @@ export function matchesCheckFilter(entry, filter) {
   if (filter.reveal === 'revealed' && entry.hidden) return false;
   return true;
 }
+
+/**
+ * Summarise scene tags over the entries a viewer may see.
+ *
+ * The visibility argument is the whole point, and it was a real bug: built
+ * over every entry, a player's scene bar lists the names of scenes not yet in
+ * play and counts how many checks each still holds - "Pepper contest 10/10"
+ * is a spoiler dressed as a status bar. Pass only what the viewer can see.
+ */
+export function buildTagSummary(entries) {
+  const summary = new Map();
+  let untaggedCount = 0;
+  for (const entry of entries) {
+    const tags = entry.tags ?? [];
+    if (!tags.length) {
+      untaggedCount += 1;
+      continue;
+    }
+    for (const tag of tags) {
+      const key = tagKey(tag);
+      const row = summary.get(key) ?? { key, label: tag, total: 0, hidden: 0 };
+      row.total += 1;
+      if (entry.hidden) row.hidden += 1;
+      summary.set(key, row);
+    }
+  }
+  return {
+    // Sorted by name so the bar does not reshuffle as rows are revealed.
+    tags: [...summary.values()].sort((a, b) => a.label.localeCompare(b.label)),
+    untaggedCount,
+  };
+}

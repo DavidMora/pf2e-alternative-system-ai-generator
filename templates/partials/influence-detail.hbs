@@ -209,9 +209,13 @@
                 data-action="filterCheckTag" data-tag="{{key}}"
                 data-tooltip="{{localize 'PFAI.Influence.FilterTagHint'}}">
           {{label}}
-          {{#if hidden}}
-            <span class="pfai-tag-count is-hidden-count"
-                  data-tooltip="{{localize 'PFAI.Influence.StillHiddenHint'}}">{{hidden}}/{{total}}</span>
+          {{#if ../tagFilter.isGM}}
+            {{#if hidden}}
+              <span class="pfai-tag-count is-hidden-count"
+                    data-tooltip="{{localize 'PFAI.Influence.StillHiddenHint'}}">{{hidden}}/{{total}}</span>
+            {{else}}
+              <span class="pfai-tag-count">{{total}}</span>
+            {{/if}}
           {{else}}
             <span class="pfai-tag-count">{{total}}</span>
           {{/if}}

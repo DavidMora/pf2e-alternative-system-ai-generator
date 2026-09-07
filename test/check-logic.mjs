@@ -547,7 +547,7 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
  * scenes. Tags group them; the filter is what turns "which of these forty can
  * the party roll right now" into one glance.
  */
-const { tagKey, parseTags, matchesCheckFilter, UNTAGGED } = await import(`file://${base}/helpers.js`);
+const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, UNTAGGED } = await import(`file://${base}/helpers.js`);
 
 check('tags compare without case or spacing',
   [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
@@ -582,5 +582,55 @@ check('a legacy row with no tags field survives every filter without throwing', 
   matchesCheckFilter({ hidden: true }, { tag: 'the-feast', reveal: 'all' }),
   matchesCheckFilter({ hidden: true }, { tag: UNTAGGED, reveal: 'all' }),
 ], [true, false, true]);
+
+/*
+ * The scene bar, and the leak it caused.
+ *
+ * Built over every entry it listed scenes the party had not reached and said
+ * how many checks each still held - a spoiler in a status bar. It is a pure
+ * function over "the rows this viewer may see" precisely so that rule is
+ * testable rather than buried in a context builder.
+ */
+const sceneRows = [
+  { tags: ['The Feast'], hidden: false },
+  { tags: ['The Feast'], hidden: true },
+  { tags: ['Pepper contest'], hidden: true },
+  { tags: [], hidden: false },
+];
+const gmSummary = buildTagSummary(sceneRows);
+check('a GM sees every scene, with its still-hidden count',
+  gmSummary.tags.map((t) => [t.label, t.total, t.hidden]),
+  [['Pepper contest', 1, 1], ['The Feast', 2, 1]]);
+check('and untagged rows are counted separately', gmSummary.untaggedCount, 1);
+
+// What the view passes for a player: only rows the player can see.
+const playerSummary = buildTagSummary(sceneRows.filter((r) => !r.hidden));
+check('a player never sees a scene with nothing revealed in it',
+  playerSummary.tags.map((t) => t.label), ['The Feast']);
+check('and never a count of what is still to come',
+  playerSummary.tags.every((t) => t.hidden === 0), true);
+check('an entirely hidden scene contributes nothing to a player\'s bar',
+  playerSummary.tags.some((t) => t.label === 'Pepper contest'), false);
+
+check('scenes are ordered by name, so the bar does not reshuffle on reveal',
+  buildTagSummary([{ tags: ['Zither'] }, { tags: ['Arrival'] }, { tags: ['Marsh'] }])
+    .tags.map((t) => t.label), ['Arrival', 'Marsh', 'Zither']);
+check('one scene spelled two ways is still one scene',
+  buildTagSummary([{ tags: ['The Feast'] }, { tags: ['the feast'] }]).tags.map((t) => [t.label, t.total]),
+  [['The Feast', 2]]);
+
+/*
+ * The call site, guarded at source level.
+ *
+ * buildTagSummary is pure and tested above, but the leak was in what the view
+ * *passed* it, and no suite can call _prepareContext without Foundry. This is
+ * the same trick check-imports uses: read the source and assert the wiring.
+ */
+const viewSource = readFileSync(path.join(base, 'apps', 'subsystem-view.js'), 'utf8');
+const taggedLine = viewSource.match(/const tagged = \[([^\]]*)\];/)?.[1] ?? '';
+check('the scene bar is built from entries the viewer may see',
+  /visible\(event\.discoveries\)/.test(taggedLine) && /visible\(event\.influenceSkills\)/.test(taggedLine), true);
+check('and never from the raw collections',
+  /Object\.values\(event\.(discoveries|influenceSkills)/.test(taggedLine), false);
 
 process.exit(failed);
