@@ -75,6 +75,25 @@ These exist because getting them wrong produced real bugs:
 - **World settings are GM-writable only.** Anything a player does that changes
   state goes over the socket and is applied by exactly one designated GM
   (`activeGM`), or two GMs double-count it.
+- **Shared table state lives on the event, not on the window.** The chosen
+  scene in an influence event is a field on the event for one reason: the
+  store's `onChange` re-renders every open view on every client, so writing it
+  there moves the players' windows too. A filter kept on the instance moves
+  only the window that set it, which is the bug the feature was fixing. What
+  is genuinely one GM's working state - the reveal-state cycle - stays local,
+  and the two must not share a lit indicator.
+- **A field the view writes must be in the DataModel.** The stores are
+  settings typed by those models, so Foundry cleans every save through the
+  schema and drops what it does not know: an undeclared field writes without
+  error, reads back undefined, and syncs to nobody. `check-logic` asserts every
+  `draft.x` the view assigns is declared.
+- **What a player is shown is built from what a player may see.** The scene bar
+  is derived from visible rows only - a scene with nothing revealed is not
+  named to them and its counts are not shown, because `Pepper contest 10/10`
+  in a status bar tells the party how much adventure is left. This shipped
+  broken once and the first regression test did not catch it; the logic is in
+  `buildTagSummary`/`resolveSharedScene` in `helpers.js` so it is testable
+  without Foundry.
 - **World settings are also world-*readable*.** `restricted: true` stops a
   player editing a setting, not reading one: the server's `Setting.dump()` goes
   to every client that joins, with no filter on role. The OpenAI key is client

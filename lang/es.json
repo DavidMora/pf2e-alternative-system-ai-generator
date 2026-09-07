@@ -771,5 +771,8 @@
   "PFAI.Influence.Tags": "Etiquetas de escena",
   "PFAI.Influence.TagsPlaceholder": "el festín, concurso de pimienta",
   "PFAI.Influence.TagsHint": "Separadas por comas. Agrupa esta prueba con el resto de su escena para filtrarlas y revelarlas juntas.",
-  "PFAI.Info.Scenes": "Una aventura suele llevar un único total de influencia a lo largo de muchas escenas. Etiqueta cada prueba con su escena, filtra por ella cuando el grupo llegue y revélalas juntas. El número de cada etiqueta son las pruebas que siguen ocultas para los jugadores."
+  "PFAI.Info.Scenes": "Una aventura suele llevar un único total de influencia a lo largo de muchas escenas. Etiqueta cada prueba con su escena, filtra por ella cuando el grupo llegue y revélalas juntas. El número de cada etiqueta son las pruebas que siguen ocultas para los jugadores.",
+  "PFAI.Influence.SceneReadOnly": "El DJ elige qué escena está mirando la mesa.",
+  "PFAI.Influence.SceneSharedGM": "Toda la mesa está viendo {scene}. Elige otra escena, o Mostrar todo, para moverlos.",
+  "PFAI.Influence.SceneSharedPlayer": "Mostrando {scene}."
 }

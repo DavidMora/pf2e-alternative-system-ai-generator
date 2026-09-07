@@ -117,26 +117,33 @@ const influenceCtx = (isGM) => ({
      * The scene filter, as the view builds it. A GM sees the bar with its
      * per-scene hidden counts and the bulk reveal; a player sees only the
      * tags on the rows they can already see.
+     *
+     * The chosen scene lives on the event, so both roles are shown mid-choice
+     * here - the GM having picked "The Feast", the player being moved to it.
      */
     tagFilter: {
       isGM,
       tags: isGM
         ? [
-            { key: 'the-feast', label: 'The Feast', total: 2, hidden: 0, active: false },
+            { key: 'the-feast', label: 'The Feast', total: 2, hidden: 0, active: true },
             // Entirely hidden: the GM sees it, the player must not.
             { key: 'the-hunt', label: 'The Hunt', total: 1, hidden: 1, active: false },
           ]
-        : [{ key: 'the-feast', label: 'The Feast', total: 1, hidden: 0, active: false }],
+        : [{ key: 'the-feast', label: 'The Feast', total: 1, hidden: 0, active: true }],
       // A player's bar is built from rows they can see, so a scene whose
       // checks are all hidden must not appear in it at all.
       untaggedCount: isGM ? 1 : 0,
       untaggedActive: false,
-      activeTag: null,
-      activeLabel: '',
+      activeTag: 'the-feast',
+      activeLabel: 'The Feast',
+      sharedWithPlayers: true,
       reveal: 'all',
       revealHidden: false,
       revealShown: false,
-      filtering: false,
+      filtering: true,
+      // A scene is chosen but the reveal cycle is untouched: the two are
+      // separate lights, and one must not claim the other's state.
+      revealFiltering: false,
       matchedHidden: isGM ? 2 : 0,
       matchedShown: isGM ? 2 : 1,
     },

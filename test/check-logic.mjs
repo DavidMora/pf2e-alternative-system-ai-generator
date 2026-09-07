@@ -547,7 +547,7 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
  * scenes. Tags group them; the filter is what turns "which of these forty can
  * the party roll right now" into one glance.
  */
-const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, UNTAGGED } = await import(`file://${base}/helpers.js`);
+const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, nextActiveScene, resolveSharedScene, UNTAGGED } = await import(`file://${base}/helpers.js`);
 
 check('tags compare without case or spacing',
   [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
@@ -620,6 +620,28 @@ check('one scene spelled two ways is still one scene',
   [['The Feast', 2]]);
 
 /*
+ * The scene is shared: the GM picks it and every open window follows, because
+ * it is stored on the event rather than in one window. What that means per
+ * viewer is `resolveSharedScene`.
+ */
+const playerKeys = new Set(playerSummary.tags.map((t) => t.key));
+const gmKeys = new Set(gmSummary.tags.map((t) => t.key));
+check('the GM\'s chosen scene is the scene a player is put on',
+  resolveSharedScene('the-feast', playerKeys), 'the-feast');
+check('a scene nothing is revealed in leaves that player on their whole list',
+  resolveSharedScene('pepper-contest', playerKeys), null);
+check('the GM is never filtered out of their own choice',
+  resolveSharedScene('pepper-contest', gmKeys), 'pepper-contest');
+check('no scene chosen means no filter', resolveSharedScene('', playerKeys), null);
+check('clicking a scene moves the table to it', nextActiveScene('', 'the-feast'), 'the-feast');
+check('clicking another moves it there', nextActiveScene('the-feast', 'the-hunt'), 'the-hunt');
+check('clicking the one already showing releases the table',
+  nextActiveScene('the-feast', 'the-feast'), '');
+check('the untagged bucket is not a scene and is never withheld',
+  resolveSharedScene(UNTAGGED, playerKeys), UNTAGGED);
+
+
+/*
  * The call site, guarded at source level.
  *
  * buildTagSummary is pure and tested above, but the leak was in what the view
@@ -627,10 +649,101 @@ check('one scene spelled two ways is still one scene',
  * the same trick check-imports uses: read the source and assert the wiring.
  */
 const viewSource = readFileSync(path.join(base, 'apps', 'subsystem-view.js'), 'utf8');
+
+/*
+ * And the guards on the shared state itself. Both are one line in the view and
+ * both are the difference between a shared scene and a broken one, so they are
+ * asserted against the source: a player must not be able to move the table,
+ * and choosing a scene must write to the event - a local field would leave
+ * every other window where it was.
+ */
+const sceneHandler = viewSource.match(
+  /static async #onFilterCheckTag\([^)]*\) \{([\s\S]*?)\n  \}/,
+)?.[1] ?? '';
+check('only a GM may choose the scene the table sees',
+  /if \(!game\.user\.isGM\) return;/.test(sceneHandler), true);
+check('and the choice is written to the event, which is what syncs it',
+  /updateInfluence\(/.test(sceneHandler)
+  && /draft\.activeScene = nextActiveScene\(draft\.activeScene, tag\)/.test(sceneHandler), true);
+/*
+ * The hint that says the table is following. Cosmetic, but it is the only
+ * thing telling a GM that picking a scene moved everyone, so it is pinned to
+ * the chosen scene rather than to anything a caller passes in.
+ */
+check('and both sides are told the view is shared, from the chosen scene',
+  /sharedWithPlayers: Boolean\(activeTag\) && activeTag !== UNTAGGED,/.test(viewSource), true);
+check('the reveal-state filter stays local to the window that set it',
+  /this\.#revealFilter = order\[/.test(viewSource)
+  && !/draft\.\w*[Rr]evealFilter/.test(viewSource), true);
 const taggedLine = viewSource.match(/const tagged = \[([^\]]*)\];/)?.[1] ?? '';
 check('the scene bar is built from entries the viewer may see',
   /visible\(event\.discoveries\)/.test(taggedLine) && /visible\(event\.influenceSkills\)/.test(taggedLine), true);
 check('and never from the raw collections',
   /Object\.values\(event\.(discoveries|influenceSkills)/.test(taggedLine), false);
+// The per-viewer resolution sits between the two and is the reason a player
+// is never filtered to a scene that means nothing to them yet.
+check('and the shared scene is resolved against what this viewer can see',
+  /resolveSharedScene\(shared\.tag, summary\)/.test(viewSource), true);
+
+/*
+ * Every field the view writes must be declared in its DataModel.
+ *
+ * The stores are settings typed by those models, so Foundry cleans each save
+ * through the schema and drops what it does not know. An undeclared field
+ * therefore writes without error, reads back as undefined, and syncs to
+ * nobody - which is what a missing `activeScene` would have looked like: the
+ * GM picks a scene, their own window filters because it re-rendered from its
+ * own call, and no other window ever moves.
+ */
+const MODELS = {
+  Chase: 'chase.js',
+  Influence: 'influence.js',
+  Research: 'research.js',
+  Infiltration: 'infiltration.js',
+  Leadership: 'leadership.js',
+  Victory: 'victory.js',
+};
+const undeclared = [];
+for (const [subsystem, file] of Object.entries(MODELS)) {
+  const schema = readFileSync(path.join(base, 'data', file), 'utf8');
+  const calls = new RegExp(`update${subsystem}\\(([\\s\\S]{0,700}?)\\}\\);`, 'g');
+  for (const [, body] of viewSource.matchAll(calls)) {
+    for (const [, field] of body.matchAll(/\bdraft\.([A-Za-z_$][\w$]*)/g)) {
+      // Declared, however it is built: some schemas share field factories.
+      if (!new RegExp(`^\\s*${field}:`, 'm').test(schema)) undeclared.push(`${subsystem}.${field}`);
+    }
+  }
+}
+check('nothing the view writes is missing from its schema', undeclared, []);
+
+/*
+ * The release contract, checked here rather than discovered on a pushed tag.
+ *
+ * The workflow refuses a tag that disagrees with `module.json`, and refuses a
+ * version with no changelog section - both correct, and both failing after the
+ * tag is public, which then has to be deleted and re-pushed. The same three
+ * facts are cheap to assert now.
+ *
+ * `package.json` drifting matters less to Foundry, which never reads it, and
+ * more to anyone reading the repo: it sat at 1.0.1 through two releases
+ * because nothing compared them.
+ */
+const manifest = JSON.parse(readFileSync(path.join(root, 'module.json'), 'utf8'));
+const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+check('the manifest and the package agree on the version', pkg.version, manifest.version);
+check('the version is a plain x.y.z, which is what the tag is built from',
+  /^\d+\.\d+\.\d+$/.test(manifest.version), true);
+const changelog = readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
+const section = new RegExp(`^## ${manifest.version.replace(/\./g, '\\.')}\\n([\\s\\S]*?)(?=^## |$(?![\\s\\S]))`, 'm')
+  .exec(changelog);
+check(`the changelog has notes for ${manifest.version}`, Boolean(section?.[1].trim()), true);
+// Every path the manifest names has to exist, or Foundry loads a module that
+// is missing a script and says nothing useful about why.
+const missing = [
+  ...(manifest.esmodules ?? []),
+  ...(manifest.styles ?? []),
+  ...(manifest.languages ?? []).map((l) => l.path),
+].filter((rel) => !existsSync(path.join(root, rel)));
+check('every file the manifest names is present', missing, []);
 
 process.exit(failed);

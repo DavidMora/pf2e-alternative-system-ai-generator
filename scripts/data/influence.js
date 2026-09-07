@@ -109,6 +109,17 @@ export class Influence extends foundry.abstract.DataModel {
       hidden: new fields.BooleanField({ required: true, initial: true }),
       started: new fields.BooleanField({ required: true, initial: false }),
 
+      /**
+       * The scene the table is in, as a tag key. Empty means the whole list.
+       *
+       * It lives on the event rather than in a window's state so it is shared:
+       * the GM picks the scene and every open window follows, players included,
+       * because this store is a world setting and open views re-render when it
+       * changes. A GM's own reveal-state filter stays local, since "still
+       * hidden" is not a thing a player has an opinion about.
+       */
+      activeScene: new fields.StringField({ required: true, initial: '' }),
+
       /** Points accumulated so far. Unlike chases this is one running total. */
       influencePoints: new fields.NumberField({ required: true, integer: true, initial: 0 }),
 

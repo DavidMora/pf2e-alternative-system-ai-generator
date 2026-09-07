@@ -289,10 +289,42 @@ for (const isGM of [true, false]) {
   const bulkReveal = out.includes('data-action="revealFiltered"');
   const bulkConceal = out.includes('data-action="concealFiltered"');
   const cycleBtn = out.includes('data-action="cycleRevealFilter"');
-  if (tagChips === 0) { failed = 1; console.error('  influence: no scene tag chips rendered'); }
   if (isGM !== bulkReveal) { failed = 1; console.error(`  bulk reveal shown to the wrong role (isGM=${isGM})`); }
   if (isGM !== bulkConceal) { failed = 1; console.error(`  bulk conceal shown to the wrong role (isGM=${isGM})`); }
-  if (!cycleBtn) { failed = 1; console.error('  influence: reveal-state filter missing'); }
+  /*
+   * Choosing the scene is the GM's, because it moves everyone's view: the
+   * chosen scene lives on the event, not on one window. A player still sees
+   * the bar - that is how they know which scene the table is on - but as
+   * labels, and the reveal-state cycle is a GM working tool that is not
+   * theirs at all.
+   */
+  if (isGM && tagChips === 0) { failed = 1; console.error('  influence: GM cannot pick a scene'); }
+  if (!isGM && tagChips > 0) {
+    failed = 1;
+    console.error('  influence: a player can change the scene the whole table sees');
+  }
+  if (!isGM && !/class="pfai-tag[^"]*"[^>]*disabled/.test(out)) {
+    failed = 1;
+    console.error("  influence: player scene chips are not inert");
+  }
+  if (isGM !== cycleBtn) { failed = 1; console.error(`  reveal-state filter shown to the wrong role (isGM=${isGM})`); }
+  if (isGM && /pfai-tag-reveal is-active/.test(out)) {
+    failed = 1;
+    console.error('  influence: the reveal cycle reads as filtering when only a scene is chosen');
+  }
+  if (isGM && !out.includes('data-action="filterCheckTag" data-influence-id="i1"')) {
+    failed = 1;
+    console.error('  influence: scene chip carries no event id for its handler');
+  }
+  /*
+   * And when a scene is chosen, both sides are told the view is shared - the
+   * GM so they know they moved the table, the player so an incomplete list
+   * reads as a scene rather than as missing content.
+   */
+  if (!out.includes('pfai-scene-shared')) {
+    failed = 1;
+    console.error('  influence: no sign that the chosen scene is shared');
+  }
   // The chip has to carry the same key the filter bar filters by, or clicking
   // a row's tag silently matches nothing.
   if (!out.includes('data-tag="the-feast"')) {

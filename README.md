@@ -503,6 +503,35 @@ Players see only what has been discovered. The GM sees everything, marked, with
 a count of what is still hidden. In the GM's roll picker an approach the party
 has not unlocked is prefixed with a padlock, so rolling one is never an accident.
 
+### Scenes, for an event that runs across a whole evening
+
+![The scene bar](docs/images/influence-scenes.png)
+
+A long influence event is not one conversation. *Befriending the Ekujae* is
+seven — an arrival, a feast, a hunt, a pepper contest — sharing one point
+total, and forty-odd checks in one list is impossible to run from.
+
+Tag any check with the scene it belongs to (the pencil takes a comma-separated
+list) and the event grows a **scene bar**. Click a scene and the list narrows to
+it; click it again to release. Beside it, a cycle through **All / Still hidden /
+Already revealed** and, once you are looking at one scene, **Reveal these** and
+**Hide these** — which is how you open a scene to the party in one click rather
+than twelve. Each scene shows how many of its checks are still hidden, so the
+bar answers "what do I still need to enable here" at a glance.
+
+**The chosen scene is the table's, not your window's.** Pick one and every open
+player window narrows to it too, so nobody is scrolling a list of forty looking
+for the check you just called for. Players get the bar as labels — choosing is
+yours — and only for scenes something has been revealed in: a scene they have
+nothing in stays off their bar entirely, name and counts included, because a bar
+reading `Pepper contest 10/10` is a spoiler. If you move to a scene the party
+has seen nothing of yet, their view simply stays where it was rather than
+emptying.
+
+Rolls carry their scene too: the chat card reads *Befriending the Ekujae — The
+feast — Diplomacy*, and each roll gets a `tag:` roll option, so a macro or an
+effect can key off the scene.
+
 ### Letting an encounter open up
 
 A conversation should not show all its cards at the start. Any approach can

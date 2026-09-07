@@ -26,6 +26,7 @@
   </h3>
   <p class="pfai-panel-hint">{{hint}}</p>
 
+  {{#with . as |panel|}}
   <ul class="pfai-check-list">
     {{#each entries as |entry|}}
       <li class="pfai-check {{#if entry.hidden}}is-hidden{{/if}}">
@@ -41,8 +42,13 @@
           {{#if entry.tags.length}}
             <span class="pfai-check-tags">
               {{#each entry.tags}}
-                <button type="button" class="pfai-tag pfai-tag-inline" data-action="filterCheckTag"
-                        data-tag="{{pfaiTagKey this}}" data-tooltip="{{localize 'PFAI.Influence.FilterTagHint'}}">{{this}}</button>
+                {{#if panel.isGM}}
+                  <button type="button" class="pfai-tag pfai-tag-inline" data-action="filterCheckTag"
+                          data-influence-id="{{panel.influenceId}}" data-tag="{{pfaiTagKey this}}"
+                          data-tooltip="{{localize 'PFAI.Influence.FilterTagHint'}}">{{this}}</button>
+                {{else}}
+                  <span class="pfai-tag pfai-tag-inline" data-tag="{{pfaiTagKey this}}">{{this}}</span>
+                {{/if}}
               {{/each}}
             </span>
           {{/if}}
@@ -79,4 +85,5 @@
       <p class="pfai-empty">{{localize 'PFAI.Influence.NothingDiscovered'}}</p>
     {{/each}}
   </ul>
+  {{/with}}
 </section>

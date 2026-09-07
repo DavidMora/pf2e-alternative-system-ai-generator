@@ -196,7 +196,8 @@
       <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Scenes'}}"></i>
       {{#if tagFilter.filtering}}
         <span class="pfai-panel-actions">
-          <button type="button" class="pfai-generate-obstacles" data-action="clearCheckFilter">
+          <button type="button" class="pfai-generate-obstacles" data-action="clearCheckFilter"
+                  data-influence-id="{{id}}">
             <i class="fa-solid fa-xmark"></i> {{localize 'PFAI.Influence.ShowAll'}}
           </button>
         </span>
@@ -206,8 +207,9 @@
     <div class="pfai-tag-row">
       {{#each tagFilter.tags}}
         <button type="button" class="pfai-tag {{#if active}}is-active{{/if}}"
-                data-action="filterCheckTag" data-tag="{{key}}"
-                data-tooltip="{{localize 'PFAI.Influence.FilterTagHint'}}">
+                {{#if ../tagFilter.isGM}}data-action="filterCheckTag" data-influence-id="{{../id}}" data-tag="{{key}}"
+                data-tooltip="{{localize 'PFAI.Influence.FilterTagHint'}}"
+                {{else}}disabled data-tooltip="{{localize 'PFAI.Influence.SceneReadOnly'}}"{{/if}}>
           {{label}}
           {{#if ../tagFilter.isGM}}
             {{#if hidden}}
@@ -221,23 +223,36 @@
           {{/if}}
         </button>
       {{/each}}
-      {{#if tagFilter.untaggedCount}}
+      {{#if tagFilter.isGM}}{{#if tagFilter.untaggedCount}}
         <button type="button" class="pfai-tag {{#if tagFilter.untaggedActive}}is-active{{/if}}"
-                data-action="filterCheckTag" data-tag="__untagged__"
+                data-action="filterCheckTag" data-influence-id="{{id}}" data-tag="__untagged__"
                 data-tooltip="{{localize 'PFAI.Influence.UntaggedHint'}}">
           {{localize 'PFAI.Influence.Untagged'}}
           <span class="pfai-tag-count">{{tagFilter.untaggedCount}}</span>
         </button>
-      {{/if}}
+      {{/if}}{{/if}}
 
-      <button type="button" class="pfai-tag pfai-tag-reveal {{#if tagFilter.filtering}}is-active{{/if}}"
+      {{#if tagFilter.isGM}}
+      <button type="button" class="pfai-tag pfai-tag-reveal {{#if tagFilter.revealFiltering}}is-active{{/if}}"
               data-action="cycleRevealFilter" data-tooltip="{{localize 'PFAI.Influence.RevealFilterHint'}}">
         <i class="fa-solid {{#if tagFilter.revealHidden}}fa-eye-slash{{else if tagFilter.revealShown}}fa-eye{{else}}fa-layer-group{{/if}}"></i>
         {{#if tagFilter.revealHidden}}{{localize 'PFAI.Influence.OnlyHidden'}}
         {{else if tagFilter.revealShown}}{{localize 'PFAI.Influence.OnlyRevealed'}}
         {{else}}{{localize 'PFAI.Influence.AllStates'}}{{/if}}
       </button>
+      {{/if}}
     </div>
+
+    {{#if tagFilter.sharedWithPlayers}}
+      <p class="pfai-panel-hint pfai-scene-shared">
+        <i class="fa-solid fa-users"></i>
+        {{#if tagFilter.isGM}}
+          {{localize 'PFAI.Influence.SceneSharedGM' scene=tagFilter.activeLabel}}
+        {{else}}
+          {{localize 'PFAI.Influence.SceneSharedPlayer' scene=tagFilter.activeLabel}}
+        {{/if}}
+      </p>
+    {{/if}}
 
     {{#if tagFilter.isGM}}
       <div class="pfai-tag-bulk">

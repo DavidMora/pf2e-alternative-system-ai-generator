@@ -642,3 +642,36 @@ export function buildTagSummary(entries) {
     untaggedCount,
   };
 }
+
+/**
+ * The scene a click on a scene chip leaves the event on.
+ *
+ * Clicking the scene already showing clears it, so the same chip both moves
+ * the table to a scene and releases it - there is no separate "off" control
+ * for a bar of scenes.
+ *
+ * @param {string} current The event's activeScene.
+ * @param {string} clicked The tag key of the chip that was clicked.
+ */
+export function nextActiveScene(current, clicked) {
+  return current === clicked ? '' : clicked;
+}
+
+/**
+ * The scene a viewer is actually put on, given the one the GM chose.
+ *
+ * Normally that is the GM's scene: choosing one moves the table. But a player
+ * may have no check revealed in it yet - the GM is setting up ahead of the
+ * party, or the scene has only hidden rows - and filtering them to it would
+ * empty their panel with nothing to explain why. That reads as the module
+ * breaking, so they keep their whole list until the scene means something to
+ * them. Naming the scene instead is not an option: it is the spoiler the bar
+ * is already built to avoid.
+ *
+ * @param {string|null} chosen The event's activeScene, as a tag key.
+ * @param {Set<string>|Map<string, unknown>} known Tag keys this viewer can see.
+ */
+export function resolveSharedScene(chosen, known) {
+  if (!chosen || chosen === UNTAGGED) return chosen || null;
+  return known?.has(chosen) ? chosen : null;
+}

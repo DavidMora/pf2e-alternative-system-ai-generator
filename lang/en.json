@@ -771,5 +771,8 @@
   "PFAI.Influence.Tags": "Scene tags",
   "PFAI.Influence.TagsPlaceholder": "the feast, pepper contest",
   "PFAI.Influence.TagsHint": "Comma-separated. Groups this check with the rest of its scene so you can filter and reveal them together.",
-  "PFAI.Info.Scenes": "An adventure often runs one influence total across many scenes. Tag each check with the scene it belongs to, then filter to that scene when the party reaches it and reveal its checks together. The number on each tag is how many of its checks are still hidden from the players."
+  "PFAI.Info.Scenes": "An adventure often runs one influence total across many scenes. Tag each check with the scene it belongs to, then filter to that scene when the party reaches it and reveal its checks together. The number on each tag is how many of its checks are still hidden from the players.",
+  "PFAI.Influence.SceneReadOnly": "The GM chooses which scene the table is looking at.",
+  "PFAI.Influence.SceneSharedGM": "Everyone at the table is seeing {scene}. Pick another scene, or Show all, to move them.",
+  "PFAI.Influence.SceneSharedPlayer": "Showing {scene}."
 }

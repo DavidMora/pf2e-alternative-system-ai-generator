@@ -43,6 +43,8 @@ import {
   parseTags,
   matchesCheckFilter,
   buildTagSummary,
+  nextActiveScene,
+  resolveSharedScene,
   getChases,
   branchesAt,
   nextBranchLabel,
@@ -132,11 +134,14 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   #generatingObstacle = false;
 
   /*
-   * Which slice of an influence event's checks to show. One filter serves both
-   * the discovery and the influence panels: a GM narrowing to a scene wants
-   * that scene's whole toolkit, not half of it.
+   * The GM's own reveal-state filter: all, still hidden, or already revealed.
+   *
+   * The *scene* is deliberately not here. It lives on the event so it is
+   * shared with the table - see `activeScene` - while this stays local,
+   * because "show me what is still hidden" is a GM's working view and means
+   * nothing to a player, who never sees a hidden row at all.
    */
-  #checkFilter = { tag: null, reveal: 'all' };
+  #revealFilter = 'all';
 
   /** GM-only: render the whole view as a player would see it. */
   #previewAsPlayer = false;
@@ -347,9 +352,14 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Record the open event for a subsystem. */
-  /** A filter belongs to the event it was set on, not to the window. */
+  /** A working view belongs to the event it was set on, not to the window. */
   #clearCheckFilter() {
-    this.#checkFilter = { tag: null, reveal: 'all' };
+    this.#revealFilter = 'all';
+  }
+
+  /** Scene from the event (shared), reveal state from this window (local). */
+  #effectiveFilter(event) {
+    return { tag: event?.activeScene || null, reveal: this.#revealFilter };
   }
 
   #select(subsystemKey, eventId) {
@@ -819,9 +829,11 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const tagged = [...visible(event.discoveries), ...visible(event.influenceSkills)];
     const { tags: summaryRows, untaggedCount } = buildTagSummary(tagged);
     const summary = new Map(summaryRows.map((row) => [row.key, row]));
-    const activeTag = this.#checkFilter.tag;
-    const activeReveal = this.#checkFilter.reveal;
-    const matches = (entry) => matchesCheckFilter(entry, this.#checkFilter);
+    const shared = this.#effectiveFilter(event);
+    const filter = { ...shared, tag: resolveSharedScene(shared.tag, summary) };
+    const activeTag = filter.tag;
+    const activeReveal = filter.reveal;
+    const matches = (entry) => matchesCheckFilter(entry, filter);
 
     const tagFilter = {
       // Sorted by name so the bar does not reshuffle as rows are revealed.
@@ -836,11 +848,17 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       revealHidden: activeReveal === 'hidden',
       revealShown: activeReveal === 'revealed',
       filtering: Boolean(activeTag) || activeReveal !== 'all',
+      // The reveal cycle is lit by its own state only. Lighting it because a
+      // scene is chosen said "you are filtering by reveal state" when the
+      // button still read "All", which is two different claims at once.
+      revealFiltering: activeReveal !== 'all',
       // What a bulk reveal would act on, so the button can say so rather than
       // asking the GM to trust it.
       matchedHidden: tagged.filter((e) => matches(e) && e.hidden).length,
       matchedShown: tagged.filter((e) => matches(e) && !e.hidden).length,
       isGM,
+      // The scene is shared, so the GM should be told rather than surprised.
+      sharedWithPlayers: Boolean(activeTag) && activeTag !== UNTAGGED,
     };
 
     const filtered = (record) => visible(record).filter(matches);
@@ -1559,7 +1577,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** The active tag as a one-element list, in the spelling already in use. */
   #activeTagLabel(event) {
-    const key = this.#checkFilter.tag;
+    const key = event?.activeScene || null;
     if (!key || key === UNTAGGED) return [];
     for (const collection of ['discoveries', 'influenceSkills']) {
       for (const entry of Object.values(event[collection] ?? {})) {
@@ -1632,23 +1650,37 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
-  /** Narrow both check panels to one scene; clicking the active tag clears it. */
+  /**
+   * Set the table's scene. Clicking the active one clears it.
+   *
+   * This writes to the event rather than to this window, so every open view
+   * follows - the players' included. Only a GM may: the store is a world
+   * setting, and a player choosing what the table is looking at would be the
+   * wrong way round.
+   */
   static async #onFilterCheckTag(_event, target) {
-    const tag = target.dataset.tag ?? null;
-    this.#checkFilter.tag = this.#checkFilter.tag === tag ? null : tag;
-    await this.render();
+    if (!game.user.isGM) return;
+    const { influenceId } = target.dataset;
+    const tag = target.dataset.tag ?? '';
+    await updateInfluence(influenceId, (draft) => {
+      draft.activeScene = nextActiveScene(draft.activeScene, tag);
+    });
   }
 
   /** All → still hidden → already revealed → all. */
   static async #onCycleRevealFilter() {
     const order = ['all', 'hidden', 'revealed'];
-    const next = order[(order.indexOf(this.#checkFilter.reveal) + 1) % order.length];
-    this.#checkFilter.reveal = next;
+    this.#revealFilter = order[(order.indexOf(this.#revealFilter) + 1) % order.length];
     await this.render();
   }
 
-  static async #onClearCheckFilter() {
+  /** Clear both the shared scene and this window's reveal state. */
+  static async #onClearCheckFilter(_event, target) {
     this.#clearCheckFilter();
+    if (game.user.isGM && target.dataset.influenceId) {
+      await updateInfluence(target.dataset.influenceId, (draft) => { draft.activeScene = ''; });
+      return;
+    }
     await this.render();
   }
 
@@ -1669,7 +1701,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   async #setFilteredHidden(influenceId, hidden) {
-    const filter = this.#checkFilter;
+    const filter = this.#effectiveFilter(getInfluence(influenceId));
     let touched = 0;
     await updateInfluence(influenceId, (draft) => {
       for (const collection of ['discoveries', 'influenceSkills']) {
