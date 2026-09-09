@@ -774,5 +774,15 @@
   "PFAI.Info.Scenes": "An adventure often runs one influence total across many scenes. Tag each check with the scene it belongs to, then filter to that scene when the party reaches it and reveal its checks together. The number on each tag is how many of its checks are still hidden from the players.",
   "PFAI.Influence.SceneReadOnly": "The GM chooses which scene the table is looking at.",
   "PFAI.Influence.SceneSharedGM": "Everyone at the table is seeing {scene}. Pick another scene, or Show all, to move them.",
-  "PFAI.Influence.SceneSharedPlayer": "Showing {scene}."
+  "PFAI.Influence.SceneSharedPlayer": "Showing {scene}.",
+  "PFAI.Influence.SceneDescription": "Scene description",
+  "PFAI.Influence.EditSceneDescription": "Edit what the party sees here",
+  "PFAI.Influence.WriteScene": "Write it up",
+  "PFAI.Influence.RewriteScene": "Write it again",
+  "PFAI.Influence.GenerateSceneHint": "Describe this scene from the checks tagged to it: what the party sees, and how to run it.",
+  "PFAI.Influence.SceneWritten": "Wrote up {name}.",
+  "PFAI.Influence.SceneUndescribed": "Nothing written down yet. {count} checks happen here.",
+  "PFAI.Influence.SceneArtHint": "Picture of this scene",
+  "PFAI.Info.SceneCard": "The scene the table is on: what the party sees when they arrive, how to run it, and a picture. The description is shared with them; the GM notes are not.",
+  "PFAI.Errors.SceneNumbers": "The write-up kept stating numbers the GM owns ({quoted}), twice over, so it was not saved. Try again, or write the scene by hand."
 }

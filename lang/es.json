@@ -774,5 +774,15 @@
   "PFAI.Info.Scenes": "Una aventura suele llevar un único total de influencia a lo largo de muchas escenas. Etiqueta cada prueba con su escena, filtra por ella cuando el grupo llegue y revélalas juntas. El número de cada etiqueta son las pruebas que siguen ocultas para los jugadores.",
   "PFAI.Influence.SceneReadOnly": "El DJ elige qué escena está mirando la mesa.",
   "PFAI.Influence.SceneSharedGM": "Toda la mesa está viendo {scene}. Elige otra escena, o Mostrar todo, para moverlos.",
-  "PFAI.Influence.SceneSharedPlayer": "Mostrando {scene}."
+  "PFAI.Influence.SceneSharedPlayer": "Mostrando {scene}.",
+  "PFAI.Influence.SceneDescription": "Descripción de la escena",
+  "PFAI.Influence.EditSceneDescription": "Editar lo que el grupo ve aquí",
+  "PFAI.Influence.WriteScene": "Redactarla",
+  "PFAI.Influence.RewriteScene": "Redactarla de nuevo",
+  "PFAI.Influence.GenerateSceneHint": "Describe esta escena a partir de las pruebas etiquetadas en ella: lo que ve el grupo y cómo dirigirla.",
+  "PFAI.Influence.SceneWritten": "Se ha redactado {name}.",
+  "PFAI.Influence.SceneUndescribed": "Aún no hay nada escrito. Aquí ocurren {count} pruebas.",
+  "PFAI.Influence.SceneArtHint": "Imagen de esta escena",
+  "PFAI.Info.SceneCard": "La escena en la que está la mesa: lo que ve el grupo al llegar, cómo dirigirla y una imagen. La descripción se comparte con ellos; las notas del DJ no.",
+  "PFAI.Errors.SceneNumbers": "La redacción siguió indicando números que pertenecen al DJ ({quoted}), dos veces seguidas, así que no se ha guardado. Inténtalo de nuevo o redacta la escena a mano."
 }

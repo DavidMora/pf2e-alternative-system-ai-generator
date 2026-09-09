@@ -275,6 +275,72 @@
   </section>
 {{/if}}
 
+{{#if activeSceneCard}}
+  <section class="pfai-panel pfai-scene-card">
+    <h3>{{activeSceneCard.name}}
+      <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.SceneCard'}}"></i>
+      {{#if ../isGM}}
+        <span class="pfai-panel-actions">
+          <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+                  data-subsystem="influence" data-event-id="{{id}}"
+                  data-field="scenes.{{activeSceneCard.key}}.description"
+                  data-label="PFAI.Influence.SceneDescription"
+                  data-tooltip="{{localize 'PFAI.Influence.EditSceneDescription'}}">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button type="button" class="pfai-generate-obstacles" data-action="generateScene"
+                  data-influence-id="{{id}}" data-scene-key="{{activeSceneCard.key}}"
+                  {{#if activeSceneCard.generating}}disabled{{/if}}
+                  data-tooltip="{{localize 'PFAI.Influence.GenerateSceneHint'}}">
+            {{#if activeSceneCard.generating}}
+              <i class="fa-solid fa-spinner fa-spin"></i> {{localize 'PFAI.Generate.Working'}}
+            {{else}}
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              {{#if activeSceneCard.described}}{{localize 'PFAI.Influence.RewriteScene'}}
+              {{else}}{{localize 'PFAI.Influence.WriteScene'}}{{/if}}
+            {{/if}}
+          </button>
+          {{#if activeSceneCard.img}}
+            <button type="button" class="pfai-icon pfai-row-control" data-action="clearImage"
+                    data-subsystem="influence" data-event-id="{{id}}" data-scene-key="{{activeSceneCard.key}}"
+                    data-tooltip="{{localize 'PFAI.Image.Remove'}}"><i class="fa-solid fa-trash"></i></button>
+          {{/if}}
+          <button type="button" class="pfai-icon pfai-row-control" data-action="generateImage"
+                  data-subsystem="influence" data-event-id="{{id}}" data-scene-key="{{activeSceneCard.key}}"
+                  data-tooltip="{{localize 'PFAI.Influence.SceneArtHint'}}">
+            <i class="fa-solid fa-image"></i>
+          </button>
+        </span>
+      {{/if}}
+    </h3>
+
+    {{#if activeSceneCard.img}}
+      <img class="pfai-scene-art" src="{{activeSceneCard.img}}" alt="{{activeSceneCard.name}}">
+    {{/if}}
+
+    {{#if activeSceneCard.enrichedDescription}}
+      <div class="pfai-prose">{{{activeSceneCard.enrichedDescription}}}</div>
+    {{else if ../isGM}}
+      <p class="pfai-panel-hint">{{localize 'PFAI.Influence.SceneUndescribed' count=activeSceneCard.checkCount}}</p>
+    {{/if}}
+
+    {{#if ../isGM}}
+      <div class="pfai-scene-gm pfai-gm">
+        <p class="pfai-goal"><span class="pfai-label">{{localize 'PFAI.Chase.GmNotes'}}
+          <button type="button" class="pfai-icon pfai-row-control" data-action="editText"
+                  data-subsystem="influence" data-event-id="{{id}}"
+                  data-field="scenes.{{activeSceneCard.key}}.gmNotes"
+                  data-label="PFAI.Chase.GmNotes"
+                  data-tooltip="{{localize 'PFAI.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+        </span></p>
+        {{#if activeSceneCard.enrichedGmNotes}}
+          <div class="pfai-prose">{{{activeSceneCard.enrichedGmNotes}}}</div>
+        {{/if}}
+      </div>
+    {{/if}}
+  </section>
+{{/if}}
+
 {{> pfaiInfluenceChecks entries=discoveries kind="discovery" collection="discoveries"
     title=(localize 'PFAI.Influence.Discoveries') hint=(localize 'PFAI.Influence.DiscoveriesHint')
     info=(localize 'PFAI.Info.Discovery')

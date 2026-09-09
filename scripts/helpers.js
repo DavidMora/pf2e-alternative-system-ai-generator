@@ -675,3 +675,27 @@ export function resolveSharedScene(chosen, known) {
   if (!chosen || chosen === UNTAGGED) return chosen || null;
   return known?.has(chosen) ? chosen : null;
 }
+
+/**
+ * What is known about one scene, given the event's scene records.
+ *
+ * A scene exists as soon as a check is tagged with it, which is well before
+ * anyone writes it up - so every field has to survive the record being absent
+ * or half-filled. The name falls back to the label the bar derived from the
+ * tag itself, so a scene is never nameless.
+ *
+ * @param {object} scenes The event's `scenes` record, or undefined.
+ * @param {string} key The scene's tag key.
+ * @param {string} label The bar's label for it, used when no name is stored.
+ */
+export function sceneNotes(scenes, key, label = '') {
+  const stored = scenes?.[key] ?? {};
+  return {
+    key,
+    name: stored.name?.trim() ? stored.name : label,
+    description: stored.description ?? '',
+    gmNotes: stored.gmNotes ?? '',
+    img: stored.img ?? '',
+    described: Boolean(stored.description?.trim() || stored.gmNotes?.trim()),
+  };
+}

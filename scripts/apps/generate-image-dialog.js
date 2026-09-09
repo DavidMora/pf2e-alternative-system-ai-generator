@@ -17,19 +17,23 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
    * @param {object} options
    * @param {string} options.chaseId
    * @param {string} [options.obstacleId] target the obstacle instead of the chase.
+   * @param {string} [options.sceneKey] target one influence scene instead of the event.
    * @param {() => void} [options.onGenerated]
    */
-  constructor({ subsystemKey = 'chase', eventId, obstacleId, onGenerated, ...options } = {}) {
+  constructor({ subsystemKey = 'chase', eventId, obstacleId, sceneKey, onGenerated, ...options } = {}) {
     super(options);
     this.#api = subsystem(subsystemKey);
     this.#eventId = eventId;
     this.#obstacleId = obstacleId ?? null;
+    this.#sceneKey = sceneKey ?? null;
     this.#onGenerated = onGenerated;
   }
 
   #api;
   #eventId;
   #obstacleId;
+
+  #sceneKey;
   #onGenerated;
   /** @type {{src: string, label: string}[]} */
   #references = [];
@@ -62,15 +66,59 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
     form: { template: `modules/${MODULE_ID}/templates/generate-image-dialog.hbs` },
   };
 
+  /*
+   * What is being illustrated: the event itself, one chase obstacle, or one
+   * influence scene. `set` is here so the three ways of writing the path back
+   * live beside the three ways of reading it - they were separate before, and
+   * a fourth target meant remembering to edit both the picker and the
+   * generator.
+   */
   get #target() {
     const event = this.#api.get(this.#eventId);
     if (!event) return null;
-    // Only chases have per-obstacle art; everything else is event-level.
-    if (!this.#obstacleId) return { kind: 'event', name: event.name, img: event.img, chase: event };
-    const obstacle = event.obstacles?.[this.#obstacleId];
-    return obstacle
-      ? { kind: 'obstacle', name: obstacle.name, img: obstacle.img, chase: event, obstacle }
-      : null;
+
+    if (this.#obstacleId) {
+      const obstacle = event.obstacles?.[this.#obstacleId];
+      if (!obstacle) return null;
+      return {
+        kind: 'obstacle',
+        name: obstacle.name,
+        img: obstacle.img,
+        chase: event,
+        obstacle,
+        set: (draft, path) => {
+          const target = draft.obstacles?.[this.#obstacleId];
+          if (target) target.img = path;
+        },
+      };
+    }
+
+    if (this.#sceneKey) {
+      const scene = event.scenes?.[this.#sceneKey];
+      return {
+        kind: 'scene',
+        key: this.#sceneKey,
+        name: scene?.name?.trim() || this.#sceneKey,
+        img: scene?.img ?? '',
+        chase: event,
+        // A scene may have no record yet: it exists because checks are tagged
+        // with it, and a picture can be the first thing anyone gives it.
+        set: (draft, path) => {
+          const record = (draft.scenes[this.#sceneKey] ??= {
+            name: '', description: '', gmNotes: '', img: '',
+          });
+          record.img = path;
+        },
+      };
+    }
+
+    return {
+      kind: 'event',
+      name: event.name,
+      img: event.img,
+      chase: event,
+      set: (draft, path) => { draft.img = path; },
+    };
   }
 
   async _prepareContext() {
@@ -201,14 +249,7 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
       type: 'image',
       current: target.img || undefined,
       callback: async (path) => {
-        await this.#api.update(this.#eventId, (event) => {
-          if (this.#obstacleId) {
-            const obstacle = event.obstacles?.[this.#obstacleId];
-            if (obstacle) obstacle.img = path;
-          } else {
-            event.img = path;
-          }
-        });
+        await this.#api.update(this.#eventId, (draft) => target.set(draft, path));
         ui.notifications.info(game.i18n.format('PFAI.Image.Attached', { path }));
         this.#onGenerated?.();
         this.close();
@@ -261,14 +302,7 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
 
       const path = await saveImage(b64, mimeType, `${target.chase.name}-${target.name}`);
 
-      await this.#api.update(this.#eventId, (event) => {
-        if (this.#obstacleId) {
-          const obstacle = event.obstacles?.[this.#obstacleId];
-          if (obstacle) obstacle.img = path;
-        } else {
-          event.img = path;
-        }
-      });
+      await this.#api.update(this.#eventId, (draft) => target.set(draft, path));
 
       ui.notifications.info(game.i18n.format('PFAI.Image.Success', { path }));
       this.#onGenerated?.();
@@ -313,6 +347,14 @@ export class GenerateImageDialog extends HandlebarsApplicationMixin(ApplicationV
       // prose rather than "@Check[type:athletics|dc:20]".
       const detail = htmlToPromptText(target.obstacle.overcome);
       if (detail) parts.push(`What happens at this obstacle:\n${detail}`);
+    }
+
+    if (target.kind === 'scene') {
+      // Its own write-up, if it has one - that is what the picture is of, and
+      // it is far more specific than the encounter's premise alone.
+      const detail = htmlToPromptText(target.chase.scenes?.[target.key]?.description);
+      if (detail) parts.push(`What this scene looks like:\n${detail}`);
+      parts.push('A place, not a portrait: no character in the foreground.');
     }
 
     if (context) parts.push(`Art direction: ${context}`);

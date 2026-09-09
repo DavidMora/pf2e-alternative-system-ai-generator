@@ -252,4 +252,52 @@ check('a response with no usage block is not counted as a request', spendToDate(
 check('and says nothing about cost', said.some((m) => m.includes('PFAI.Usage')), false);
 
 
+/* ------------------------------------- a scene write-up that states numbers */
+/*
+ * Driven through the real generator against a stubbed API, because the
+ * promise is behavioural: the module must not store prose that tells the GM
+ * the wrong numbers, however politely the prompt asked.
+ */
+const { generateScene } = await import(`file://${base}/ai/influence.js`);
+const sceneOptions = {
+  premise: 'A feast under the canopy.', npcName: 'Nketiah', npcDescription: 'A patient elder.',
+  goal: 'Their help against the Cinderclaws.', baseDC: 20, level: 6, partySize: 4,
+  sceneName: 'The feast', checks: [{ kind: 'influence', label: 'Diplomacy', description: 'Toast them.', reveals: '' }],
+};
+const replies = [];
+let asked = [];
+settings = { openaiApiKey: 'sk-test', openaiModel: 'gpt-5.6-terra' };
+globalThis.fetch = async (_url, init) => {
+  asked.push(JSON.parse(init.body).messages.at(-1).content);
+  return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(replies.shift()) } }] }) };
+};
+
+// Clean on the first try: one call, and the prose is stored as written.
+asked = [];
+replies.push({ description: 'Long tables under the canopy.', gmNotes: 'Nketiah listens more than she speaks.' });
+const clean = await generateScene(sceneOptions);
+check('a clean write-up costs one call', asked.length, 1);
+check('and is returned as HTML', clean.description, '<p>Long tables under the canopy.</p>');
+check('the model is told not to repeat the checks\' own numbers',
+  /never state a DC, an AC, a modifier/i.test(asked[0]), true);
+
+// Numbers on the first try: corrected, and the retry quotes what it wrote.
+asked = [];
+replies.push({ description: 'Long tables.', gmNotes: 'Award concessions at 3 Influence Points, then 7.' });
+replies.push({ description: 'Long tables.', gmNotes: 'Award each concession as the party earns it.' });
+const fixed = await generateScene(sceneOptions);
+check('a write-up that states numbers is sent back', asked.length, 2);
+check('and the correction quotes what it actually wrote',
+  asked[1].includes('"3 Influence Points"'), true);
+check('the corrected version is what gets stored',
+  fixed.gmNotes, '<p>Award each concession as the party earns it.</p>');
+
+// Twice over: refused, and the GM is told what it kept saying.
+asked = [];
+replies.push({ description: 'A hall.', gmNotes: 'Use a DC 22 Fortitude save.' });
+replies.push({ description: 'A hall.', gmNotes: 'Still a DC 22 Fortitude save.' });
+await reject('a second offence is refused rather than stored',
+  () => generateScene(sceneOptions), 'PFAI.Errors.SceneNumbers');
+check('and it never asks a third time', asked.length, 2);
+
 process.exit(failed);

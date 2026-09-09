@@ -121,6 +121,35 @@ const influenceCtx = (isGM) => ({
      * The chosen scene lives on the event, so both roles are shown mid-choice
      * here - the GM having picked "The Feast", the player being moved to it.
      */
+    /*
+     * Scene write-ups. "The Feast" is described, so the panel renders; the
+     * other scenes have no record at all, which is the normal state of a
+     * scene that exists only because checks are tagged with it.
+     */
+    scenes: {
+      'the-feast': {
+        name: 'The Feast',
+        description: '<p>Long tables under the canopy, and a place left for you.</p>',
+        gmNotes: '<p>INFLUENCE-SECRET: the steward is watching who drinks.</p>',
+        img: 'worlds/test/the-feast.webp',
+      },
+    },
+    activeSceneCard: {
+      key: 'the-feast',
+      name: 'The Feast',
+      img: 'worlds/test/the-feast.webp',
+      described: true,
+      checkCount: isGM ? 2 : 1,
+      generating: false,
+      enrichedDescription: '<p>Long tables under the canopy, and a place left for you.</p>',
+      /*
+       * Handed to both roles on purpose. The view builds this empty for a
+       * player, but that is the view's promise, not the template's - so the
+       * template is given the secret and has to withhold it itself, and the
+       * leak scan below fails if it ever stops.
+       */
+      enrichedGmNotes: '<p>INFLUENCE-SECRET: the steward is watching who drinks.</p>',
+    },
     tagFilter: {
       isGM,
       tags: isGM

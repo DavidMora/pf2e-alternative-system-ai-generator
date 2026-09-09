@@ -547,7 +547,7 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
  * scenes. Tags group them; the filter is what turns "which of these forty can
  * the party roll right now" into one glance.
  */
-const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, nextActiveScene, resolveSharedScene, UNTAGGED } = await import(`file://${base}/helpers.js`);
+const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, nextActiveScene, resolveSharedScene, sceneNotes, UNTAGGED } = await import(`file://${base}/helpers.js`);
 
 check('tags compare without case or spacing',
   [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
@@ -618,6 +618,67 @@ check('scenes are ordered by name, so the bar does not reshuffle on reveal',
 check('one scene spelled two ways is still one scene',
   buildTagSummary([{ tags: ['The Feast'] }, { tags: ['the feast'] }]).tags.map((t) => [t.label, t.total]),
   [['The Feast', 2]]);
+
+/*
+ * The numbers a scene write-up is not allowed to state.
+ *
+ * Every "caught" string below is real output from the first run of this
+ * feature against Befriending the Ekujae. The threshold line is the one that
+ * matters: the encounter's concessions are at 1, 5, 10, 15 and 25, and the
+ * write-up confidently instructed the GM to award them at 3, 7, 12, 18 and
+ * 25. The module held the right numbers throughout - only the prose lied,
+ * which is exactly how a GM ends up running the wrong encounter.
+ */
+const { mechanicalClaims } = await import(`file://${base}/ai/influence.js`);
+const caught = (text) => mechanicalClaims(text).map((c) => c.quote);
+// One quote is enough: a write-up is refused whole, not line by line, and the
+// retry is told to remove every number of that kind rather than just this one.
+check('an invented threshold ladder is caught',
+  caught('Award concessions at 3 Influence Points for safe escort, 7 for guest-status, and 25 for full favour.'),
+  ['3 Influence Points']);
+check('a DC quoted from the checks is caught',
+  caught('handling it before eating requires a DC 22 Fortitude save'), ['DC 22']);
+check('a restated difficulty adjustment is caught',
+  caught('apply a +0 adjustment to Daikada, a -2 adjustment to Play for the Dancers'),
+  ['+0 adjustment', '-2 adjustment']);
+check('a stat block read back is caught',
+  caught('unarmed Strikes at -4 against AC 18, attacks at +11 and Performance +13').length >= 3, true);
+check('and dice expressions are caught', caught('roll 2d6 fire damage'), ['2d6']);
+
+/*
+ * And what it must not catch, or the guard fails legitimate prose and the GM
+ * cannot get a write-up at all. Counts, durations and distances are fiction,
+ * not mechanics.
+ */
+check('fiction keeps its numbers', caught(
+  'Three sisters wait ten minutes at the foot of a hundred-pace stair, and two of the four hunters carry spears.',
+), []);
+check('an ordinary sentence is left alone',
+  caught('You enter a broad hunting platform woven through the treetops.'), []);
+
+/*
+ * A scene's write-up. Membership lives on the checks, so a scene is real long
+ * before anyone describes it - every field has to survive the record being
+ * missing, and the name falls back to the bar's own label so a scene in the
+ * panel heading is never nameless or, worse, shown as its slug.
+ */
+check('an undescribed scene still has a name to show',
+  sceneNotes(undefined, 'the-feast', 'The Feast'),
+  { key: 'the-feast', name: 'The Feast', description: '', gmNotes: '', img: '', described: false });
+check('a stored name wins over the label',
+  sceneNotes({ 'the-feast': { name: 'The Welcome Feast' } }, 'the-feast', 'The Feast').name,
+  'The Welcome Feast');
+check('a blank stored name does not blank the heading',
+  sceneNotes({ 'the-feast': { name: '   ' } }, 'the-feast', 'The Feast').name, 'The Feast');
+check('a scene counts as described from either half',
+  [
+    sceneNotes({ s: { description: '<p>x</p>' } }, 's').described,
+    sceneNotes({ s: { gmNotes: '<p>x</p>' } }, 's').described,
+    sceneNotes({ s: { description: '   ' } }, 's').described,
+    sceneNotes({ s: { img: 'a.webp' } }, 's').described,
+  ], [true, true, false, false]);
+check('a picture survives a record with nothing else in it',
+  sceneNotes({ s: { img: 'a.webp' } }, 's').img, 'a.webp');
 
 /*
  * The scene is shared: the GM picks it and every open window follows, because
@@ -715,6 +776,61 @@ for (const [subsystem, file] of Object.entries(MODELS)) {
   }
 }
 check('nothing the view writes is missing from its schema', undeclared, []);
+
+/*
+ * The same rule one level down, for the scene records.
+ *
+ * These are written through a nested object rather than as `draft.x`, so the
+ * scan above cannot see them - and the failure is the quiet kind: Foundry
+ * cleans the save through the schema, so an undeclared field means the GM
+ * presses "Write it up", sees the notes appear, and finds them gone on the
+ * next render with no error anywhere.
+ */
+const influenceSchema = readFileSync(path.join(base, 'data', 'influence.js'), 'utf8');
+const sceneBlock = influenceSchema.match(/scenes: new fields\.TypedObjectField\(([\s\S]*?)\n      \),/)?.[1] ?? '';
+const declared = [...sceneBlock.matchAll(/^\s{10}(\w+):/gm)].map((m) => m[1]);
+const detail = readFileSync(path.join(root, 'templates/partials/influence-detail.hbs'), 'utf8');
+const written = new Set([
+  // What the generic text editor is pointed at from the template.
+  ...[...detail.matchAll(/data-field="scenes\.\{\{[^}]+\}\}\.(\w+)"/g)].map((m) => m[1]),
+  // What the write-up handler and the image dialog assign on the record.
+  ...[...viewSource.matchAll(/\brecord\.(\w+) =/g)].map((m) => m[1]),
+  ...[...readFileSync(path.join(base, 'apps', 'generate-image-dialog.js'), 'utf8')
+    .matchAll(/\brecord\.(\w+) =/g)].map((m) => m[1]),
+]);
+check('a scene record declares every field anything writes to it',
+  [...written].filter((f) => !declared.includes(f)), []);
+// And the guard has to be looking at something, or it passes by finding nothing.
+check('and that guard actually found the scene schema and its writers',
+  declared.length >= 4 && written.size >= 3, true);
+
+/*
+ * Both halves of a write-up get stored. They are asked for together - the
+ * schema requires both, so both are paid for - and keeping only one would
+ * look like the model had ignored half the request rather than like a
+ * dropped assignment here.
+ */
+const writeUpHandler = viewSource.match(
+  /static async #onGenerateScene\([\s\S]*?\n  \}\n/,
+)?.[0] ?? '';
+check('a scene write-up stores what the party sees and how to run it',
+  /record\.description = scene\.description;/.test(writeUpHandler)
+  && /record\.gmNotes = scene\.gmNotes;/.test(writeUpHandler), true);
+// The checks tagged to the scene are the whole point: without them the model
+// is describing a generic tavern rather than this encounter's scene.
+check('and it is written from the checks tagged to that scene',
+  /checks: inScene\.map\(/.test(writeUpHandler), true);
+
+// The panel is built for the scene the table is on, and only then - the whole
+// feature is invisible if this stops being derived from the active scene.
+check('the scene panel is built for the selected scene',
+  /const activeSceneCard = activeTag && activeTag !== UNTAGGED/.test(viewSource)
+  && /sceneNotes\(event\.scenes, activeTag/.test(viewSource), true);
+// And its GM half is built empty for a player, so the template's isGM gate is
+// the second lock rather than the only one.
+check('a player is never handed the scene GM notes to begin with',
+  /enrichedGmNotes: isGM \? await enrich\(notes\.gmNotes, \{ secrets: true \}\) : '',/.test(viewSource),
+  true);
 
 /*
  * The release contract, checked here rather than discovered on a pushed tag.

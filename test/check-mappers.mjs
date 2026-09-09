@@ -85,7 +85,7 @@ const CASES = [
   {
     name: 'influence',
     toData: influence.toInfluenceData,
-    schemas: { INFLUENCE_SCHEMA: influence.INFLUENCE_SCHEMA, APPROACH_SCHEMA: influence.APPROACH_SCHEMA },
+    schemas: { INFLUENCE_SCHEMA: influence.INFLUENCE_SCHEMA, APPROACH_SCHEMA: influence.APPROACH_SCHEMA, SCENE_SCHEMA: influence.SCENE_SCHEMA },
     options: { premise: PREMISE, npcName: 'Consul Venn', npcDescription: 'A diplomat.', goal: GOAL, baseDC: BASE_DC, level: 5, partySize: 4, title: '', model: 'm' },
     payload: {
       title: 'A Conversation', npcWants: 'w', disposition: 'guarded', perception: 12, will: 14,

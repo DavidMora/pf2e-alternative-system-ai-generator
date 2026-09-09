@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Scenes can be described
+
+A scene was only a filter; now it is somewhere. Select one and it has a panel
+of its own: what the party sees on arriving, how to run it, and a picture.
+
+**Write it up** builds both halves from the checks already tagged to that
+scene, so the write-up is about that scene and its people rather than a
+generic room, and a rewrite is led by whatever the GM has already put in the
+scene's notes. Both halves are editable by hand, and a scene can be
+illustrated the way an encounter's key art already could.
+
+A write-up states no mechanics. The model is given the scene's checks but no
+way to quote a DC, a modifier or a point total back at you: prose that does
+is sent back once with its own words quoted, and refused outright the second
+time rather than stored. The numbers stay where the module computes them,
+beside the checks.
+
+The description is shared with the party when you move the table to that
+scene. The notes on how to run it are not — they sit behind the GM's view with
+the rest of the GM prose.
+
 ## 1.3.0
 
 Tested on Foundry 13.351 with pf2e 7.12.2 and on Foundry 14.367 with pf2e

@@ -1640,3 +1640,31 @@
 }
 
 .pfai-tag-inline:hover { opacity: 1; }
+
+/* The selected scene's write-up, between the scene bar and the checks. */
+.pfai .pfai-scene-card {
+  /* Same reason as .pfai-obstacle-art: a flex item in .pfai-root shrinks by
+     default, and this panel carries an image that would be clipped away on a
+     long event. */
+  flex-shrink: 0;
+}
+
+.pfai .pfai-scene-art {
+  width: 100%;
+  display: block;
+  border: none;
+  border-radius: 6px;
+  /* A banner over the scene, not a wall in front of it - the checks are what
+     the GM came for. Shorter than the encounter's own key art for that
+     reason. */
+  height: 11rem;
+  object-fit: cover;
+  margin: 0 0 0.6rem;
+}
+
+/* Separates how-to-run-it from what-the-party-sees, which sits above it. */
+.pfai .pfai-scene-gm {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pfai-border, rgba(255, 255, 255, 0.12));
+}

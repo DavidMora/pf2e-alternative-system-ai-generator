@@ -120,6 +120,28 @@ export class Influence extends foundry.abstract.DataModel {
        */
       activeScene: new fields.StringField({ required: true, initial: '' }),
 
+      /**
+       * Per-scene prose and art, keyed by the same tag key the bar filters by.
+       *
+       * Membership stays on the checks themselves - a scene exists because
+       * checks are tagged with it - so this holds only what a tag string
+       * cannot: what the place looks like, how to run it, and a picture. A
+       * record may be partial or absent; the bar's own label stands in for a
+       * missing name, which is what lets the generic text editor write
+       * `scenes.<key>.description` into a scene nobody has described yet.
+       */
+      scenes: new fields.TypedObjectField(
+        new fields.SchemaField({
+          name: new fields.StringField({ required: true, initial: '' }),
+          /** Read to the party when they arrive. Visible to them, like the premise. */
+          description: new fields.HTMLField({ required: true, initial: '' }),
+          /** How to run it, and what is really going on. GM only, like gmNotes. */
+          gmNotes: new fields.HTMLField({ required: true, initial: '' }),
+          img: new fields.StringField({ required: true, initial: '' }),
+        }),
+        { required: true, initial: () => ({}) },
+      ),
+
       /** Points accumulated so far. Unlike chases this is one running total. */
       influencePoints: new fields.NumberField({ required: true, integer: true, initial: 0 }),
 

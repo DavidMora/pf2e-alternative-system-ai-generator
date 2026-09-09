@@ -532,6 +532,20 @@ Rolls carry their scene too: the chat card reads *Befriending the Ekujae — The
 feast — Diplomacy*, and each roll gets a `tag:` roll option, so a macro or an
 effect can key off the scene.
 
+**Each scene can be written up.** Select one and it gets a panel of its own,
+above the checks: a description of what the party sees on arriving, notes on
+how to run it, and a picture. **Write it up** hands the scene's own checks to
+the model and gets back both halves — so what comes back describes *this*
+scene, with the people and the business the checks already name, rather than
+somewhere generic. Press it again to rewrite; anything you have put in the GM
+notes leads that rewrite rather than being discarded. The pencils edit either
+half by hand, and the image button illustrates the scene the same way the
+encounter's own key art works.
+
+The description is the party's — it appears in their window when you move the
+table to that scene, which is the point — while the notes on how to run it stay
+with the GM notes behind the GM's own view.
+
 ### Letting an encounter open up
 
 A conversation should not show all its cards at the start. Any approach can

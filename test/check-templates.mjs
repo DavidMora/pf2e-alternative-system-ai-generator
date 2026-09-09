@@ -350,6 +350,39 @@ for (const isGM of [true, false]) {
     console.error('  influence: still-hidden counts leaked to a player');
   }
 
+  /*
+   * The scene write-up panel.
+   *
+   * The description is the party's - it is what they see on arriving, so it
+   * renders for both roles - while the notes on how to run the scene sit
+   * behind isGM with the rest of the GM prose. Writing it up, illustrating it
+   * and editing it are the GM's alone.
+   */
+  const sceneCard = out.includes('pfai-scene-card');
+  if (!sceneCard) { failed = 1; console.error('  influence: the selected scene has no panel'); }
+  if (!out.includes('Long tables under the canopy')) {
+    failed = 1;
+    console.error(`  influence: the scene description is missing (isGM=${isGM})`);
+  }
+  if (out.includes('pfai-scene-art') !== true) {
+    failed = 1;
+    console.error('  influence: the scene picture is not rendered');
+  }
+  for (const [action, label] of [['generateScene', 'write-up'], ['generateImage', 'scene art']]) {
+    const shown = new RegExp(`data-action="${action}"[^>]*data-scene-key="the-feast"`).test(out)
+      || new RegExp(`data-scene-key="the-feast"[^>]*data-action="${action}"`).test(out);
+    if (isGM !== shown) {
+      failed = 1;
+      console.error(`  influence: ${label} button shown to the wrong role (isGM=${isGM})`);
+    }
+  }
+  // The editor writes straight into the scene record, so the path has to name it.
+  const editsScene = out.includes('data-field="scenes.the-feast.description"');
+  if (isGM !== editsScene) {
+    failed = 1;
+    console.error(`  influence: scene description editor shown to the wrong role (isGM=${isGM})`);
+  }
+
   console.log(`influence isGM=${isGM}: bytes=${out.length} reveal=${revealBtns} apply=${applyBtns} rolls=${rollBtns} gmProse=${leaks.length} tags=${tagChips}`);
 }
 

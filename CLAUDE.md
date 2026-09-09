@@ -63,6 +63,16 @@ These exist because getting them wrong produced real bugs:
   unreliable at recalling the level-based DC table. This holds for imported
   files too: the schema has no DC field, so `additionalProperties: false` turns
   an agent that tries into a named error rather than a silent one.
+- **A schema with no number field does not mean prose with no numbers.** The
+  scene write-up's schema is two strings, which stopped the model *returning*
+  a DC and did nothing to stop it *writing* one: the first run produced notes
+  telling the GM to award concessions at 3, 7, 12, 18 and 25 influence points
+  for an encounter whose thresholds are 1, 5, 10, 15 and 25. Nothing was
+  corrupted - the module still held the right numbers - but a GM running the
+  scene from its own notes would have got it wrong all evening. Generated
+  prose that sits beside mechanics is now checked against
+  `mechanicalClaims()`, corrected once with its own words quoted back, and
+  refused on a second offence. Prompting alone is not a guarantee; a list is.
 - **The module builds the inline-check syntax**, not the model. One bad token
   produces a dead link.
 - **GM prose is verbatim.** Premises, NPC descriptions and goals the GM writes

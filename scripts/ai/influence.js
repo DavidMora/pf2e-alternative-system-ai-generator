@@ -181,6 +181,155 @@ function promptLines(options) {
   return lines;
 }
 
+/**
+ * One scene's write-up.
+ *
+ * Prose only, and deliberately so: a scene is where a conversation happens,
+ * not a thing with statistics. There is no field here for a DC, a point
+ * total, a round count or a skill, so the model cannot quietly re-decide any
+ * of them while describing the room - the checks already tagged to the scene
+ * are the input, never the output.
+ */
+export const SCENE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['description', 'gmNotes'],
+  properties: {
+    description: {
+      type: 'string',
+      description:
+        'What the party sees, hears and smells on arriving, in two or three sentences a GM can read aloud. Present tense, second person plural. No mechanics, no skill names, no numbers.',
+    },
+    gmNotes: {
+      type: 'string',
+      description:
+        'How to run this scene: who is present and what they want, what the listed checks look like in play, and how the scene ends or leads on. Three to five sentences addressed to the GM. Never state a DC or any number.',
+    },
+  },
+};
+
+/*
+ * Mechanical claims a scene write-up is not allowed to make.
+ *
+ * The schema stops the model returning a *field* full of numbers, which is
+ * not the same as stopping it writing them: the first run of this feature
+ * produced notes that read "award concessions at 3, 7, 12, 18 and 25 Influence
+ * Points" for an encounter whose thresholds are 1, 5, 10, 15 and 25. Nothing
+ * was corrupted - the module still held the right numbers - but a GM running
+ * the scene from its notes would have awarded the wrong concessions all
+ * evening, which is the failure this module exists to prevent.
+ *
+ * So the prose is checked the way the imported files are: mechanically, and
+ * against a list. Fiction keeps its numbers - three sisters, ten minutes, a
+ * hundred paces - because none of these patterns match a bare count.
+ */
+const MECHANICAL_CLAIMS = [
+  [/\bDCs?\s*\d+/gi, 'a DC'],
+  [/\bACs?\s*\d+/gi, 'an AC'],
+  [/\d+\s*(?:influence\s+)?points?\b/gi, 'a point total'],
+  [/[+-]\s?\d+\s*(?:adjustment|bonus|penalty|circumstance|status|item)\b/gi, 'a modifier'],
+  [/(?:\bat|attacks?\s+at|modifier\s+of|Performance|Athletics|Acrobatics)\s[+-]\s?\d+/gi, 'a modifier'],
+  [/\b\d+d\d+\b/gi, 'a dice expression'],
+  [/\bDC\s*(?:is|of)\s*\d+/gi, 'a DC'],
+];
+
+/**
+ * Every mechanical claim in a piece of prose, as quotable fragments.
+ *
+ * Exported because it is the whole guarantee: a test can hold it to specific
+ * sentences rather than trusting a prompt to have been obeyed.
+ */
+export function mechanicalClaims(text) {
+  const found = [];
+  for (const [pattern, kind] of MECHANICAL_CLAIMS) {
+    for (const match of String(text ?? '').matchAll(pattern)) {
+      found.push({ kind, quote: match[0].trim() });
+    }
+  }
+  return found;
+}
+
+/**
+ * Write up one scene of an influence encounter.
+ *
+ * The checks already tagged to the scene are the material: this turns a list
+ * of skill approaches into somewhere the party can stand, so the GM is not
+ * reconstructing the place from its checks at the table.
+ */
+export async function generateScene(options, { signal } = {}) {
+  const lines = promptLines(options);
+  lines.push('');
+  lines.push(`Write up one scene of this encounter: "${options.sceneName}".`);
+
+  if (options.checks?.length) {
+    lines.push('');
+    lines.push('The checks that happen in this scene, which your write-up must fit:');
+    for (const check of options.checks) {
+      const kind = check.kind === 'discovery' ? 'discovery' : 'influence';
+      const reveals = check.reveals ? ` It reveals: ${check.reveals}` : '';
+      lines.push(`- [${kind}] ${check.label}: ${check.description}${reveals}`);
+    }
+  } else {
+    lines.push('No checks are tagged to it yet, so describe the place and the moment only.');
+  }
+
+  if (options.otherScenes?.length) {
+    lines.push('');
+    lines.push(
+      `The encounter's other scenes are: ${options.otherScenes.join('; ')}. Write only this one, and let it sit alongside them without repeating or summarising them.`,
+    );
+  }
+  if (options.sceneContext) {
+    lines.push('');
+    lines.push(`What the GM says about this scene (authoritative): ${options.sceneContext}`);
+  }
+
+  lines.push('');
+  lines.push(
+    'The checks listed above may themselves mention DCs, modifiers or point totals. Never repeat one, and never state a DC, an AC, a modifier, a dice expression, or how many influence points anything is worth. The module already shows the GM those numbers beside the checks; your write-up is the part it cannot compute. Describe what happens in words instead: say a check is easier for this person, not by how much.',
+  );
+
+  const ask = async (user) => {
+    const result = await requestStructured({
+      schemaName: 'pf2e_influence_scene',
+      schema: SCENE_SCHEMA,
+      system: SYSTEM_PROMPT,
+      user,
+      signal,
+    });
+    return {
+      description: String(result.description ?? ''),
+      gmNotes: String(result.gmNotes ?? ''),
+    };
+  };
+
+  let scene = await ask(lines.join('\n'));
+  let claims = mechanicalClaims(`${scene.description} ${scene.gmNotes}`);
+
+  /*
+   * One corrective retry, quoting what it actually wrote back at it. A second
+   * failure is refused rather than stored: notes that state the wrong numbers
+   * are worse than no notes, because they read like the module's own.
+   */
+  if (claims.length) {
+    const quoted = [...new Set(claims.map((c) => `"${c.quote}"`))].join(', ');
+    scene = await ask(
+      `${lines.join('\n')}\n\nYour previous attempt stated ${quoted}, which is not allowed. Write it again with every one of those removed, saying the same things in words.`,
+    );
+    claims = mechanicalClaims(`${scene.description} ${scene.gmNotes}`);
+  }
+
+  if (claims.length) {
+    const quoted = [...new Set(claims.map((c) => `"${c.quote}"`))].join(', ');
+    throw new Error(game.i18n.format('PFAI.Errors.SceneNumbers', { quoted }));
+  }
+
+  return {
+    description: premiseToHTML(scene.description),
+    gmNotes: premiseToHTML(scene.gmNotes),
+  };
+}
+
 /** One further approach for an encounter already in play. */
 export const APPROACH_SCHEMA = {
   type: 'object',

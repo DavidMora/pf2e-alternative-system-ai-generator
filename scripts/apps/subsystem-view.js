@@ -44,6 +44,7 @@ import {
   matchesCheckFilter,
   buildTagSummary,
   nextActiveScene,
+  sceneNotes,
   resolveSharedScene,
   getChases,
   branchesAt,
@@ -66,7 +67,7 @@ import { GenerateResearchDialog } from './generate-research-dialog.js';
 import { GenerateInfiltrationDialog } from './generate-infiltration-dialog.js';
 import { GenerateLeadershipDialog } from './generate-leadership-dialog.js';
 import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
-import { generateApproach, toApproachEntry } from '../ai/influence.js';
+import { generateApproach, generateScene, toApproachEntry } from '../ai/influence.js';
 import { generateSource, toCheckEntry, toSourceEntry } from '../ai/research.js';
 import { generateObstacle as generateInfiltrationObstacle, toObstacleEntry as toInfiltrationObstacle } from '../ai/infiltration.js';
 import { generateLeadershipEvent, toEventEntry as toLeadershipEvent } from '../ai/leadership.js';
@@ -132,6 +133,9 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Guards the on-demand generate button against double submits. */
   #generatingObstacle = false;
+
+  /** The scene key currently being written up, so only its button spins. */
+  #generatingScene = null;
 
   /*
    * The GM's own reveal-state filter: all, still hidden, or already revealed.
@@ -265,6 +269,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       setActiveObstacle: SubsystemView.#onSetActiveObstacle,
       togglePlayerPreview: SubsystemView.#onTogglePlayerPreview,
       showToPlayers: SubsystemView.#onShowToPlayers,
+      generateScene: SubsystemView.#onGenerateScene,
       generateImage: SubsystemView.#onGenerateImage,
       clearImage: SubsystemView.#onClearImage,
       editTitle: SubsystemView.#onEditTitle,
@@ -863,8 +868,30 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const filtered = (record) => visible(record).filter(matches);
 
+    /*
+     * The selected scene's write-up. Only when a scene is selected: a panel
+     * per scene would bury the checks, and the bar is one click away.
+     *
+     * The description follows the premise - the party may read it - while the
+     * GM notes follow gmNotes and stay behind isGM.
+     */
+    const activeSceneCard = activeTag && activeTag !== UNTAGGED
+      ? await (async () => {
+          const notes = sceneNotes(event.scenes, activeTag, summary.get(activeTag)?.label ?? '');
+          return {
+            ...notes,
+            enrichedDescription: await enrich(notes.description),
+            enrichedGmNotes: isGM ? await enrich(notes.gmNotes, { secrets: true }) : '',
+            generating: this.#generatingScene === activeTag,
+            // What the writer-up is working from, so the button can say so.
+            checkCount: tagged.filter((e) => matches(e)).length,
+          };
+        })()
+      : null;
+
     return {
       ...event,
+      activeSceneCard,
       dcModifier: modifier,
       // An untitled encounter falls back to the NPC's name, so don't print it twice.
       showNpcSubtitle: Boolean(event.npc?.name) && event.npc.name !== event.name,
@@ -1646,6 +1673,74 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications.error(error.message, { permanent: true });
     } finally {
       this.#generatingObstacle = false;
+      await this.render();
+    }
+  }
+
+  /**
+   * Write up the selected scene from the checks tagged to it.
+   *
+   * The checks are the input, so what comes back describes the scene the
+   * event actually contains rather than a scene in general - and the model
+   * gets no field for a DC or a point total, so it cannot restate one while
+   * describing the room.
+   */
+  static async #onGenerateScene(_event, target) {
+    if (this.#generatingScene) return;
+    const { influenceId, sceneKey } = target.dataset;
+    const event = getInfluence(influenceId);
+    if (!event || !sceneKey) return;
+
+    if (!hasApiKey()) {
+      ui.notifications.error(game.i18n.localize('PFAI.Errors.NoApiKey'));
+      return;
+    }
+
+    const rows = [
+      ...Object.values(event.discoveries ?? {}).map((e) => ({ ...e, kind: 'discovery' })),
+      ...Object.values(event.influenceSkills ?? {}).map((e) => ({ ...e, kind: 'influence' })),
+    ];
+    const inScene = rows.filter((e) => (e.tags ?? []).some((tag) => tagKey(tag) === sceneKey));
+    const label = inScene[0]?.tags?.find((tag) => tagKey(tag) === sceneKey) ?? sceneKey;
+    const stored = event.scenes?.[sceneKey];
+
+    this.#generatingScene = sceneKey;
+    await this.render();
+    try {
+      const scene = await generateScene({
+        premise: htmlToText(event.premise),
+        npcName: event.npc?.name ?? '',
+        npcDescription: htmlToText(event.npc?.description),
+        goal: htmlToText(event.goal),
+        baseDC: event.baseDC,
+        level: event.level,
+        partySize: event.partySize,
+        roundLimit: event.rounds?.max ?? 0,
+        language: game.settings.get(MODULE_ID, 'outputLanguage')?.trim() || game.i18n.lang,
+        sceneName: stored?.name?.trim() || label,
+        checks: inScene.map((e) => ({
+          kind: e.kind,
+          label: e.label,
+          description: htmlToText(e.description),
+          reveals: htmlToText(e.reveals ?? ''),
+        })),
+        otherScenes: [...new Set(rows.flatMap((e) => e.tags ?? []))].filter((tag) => tagKey(tag) !== sceneKey),
+        // Anything the GM already wrote here is theirs and leads the rewrite.
+        sceneContext: htmlToText(stored?.gmNotes ?? ''),
+      });
+
+      await updateInfluence(influenceId, (draft) => {
+        const record = (draft.scenes[sceneKey] ??= { name: '', description: '', gmNotes: '', img: '' });
+        if (!record.name?.trim()) record.name = label;
+        record.description = scene.description;
+        record.gmNotes = scene.gmNotes;
+      });
+      ui.notifications.info(game.i18n.format('PFAI.Influence.SceneWritten', { name: label }));
+    } catch (error) {
+      console.error(`${MODULE_ID} | scene write-up failed`, error);
+      ui.notifications.error(error.message, { permanent: true });
+    } finally {
+      this.#generatingScene = null;
       await this.render();
     }
   }
@@ -3070,23 +3165,27 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static #onGenerateImage(_event, target) {
-    const { obstacleId } = target.dataset;
+    const { obstacleId, sceneKey } = target.dataset;
     const { key, id } = eventTarget(target.dataset);
     new GenerateImageDialog({
       subsystemKey: key,
       eventId: id,
       obstacleId: obstacleId || undefined,
+      sceneKey: sceneKey || undefined,
       onGenerated: () => this.render(),
     }).render({ force: true });
   }
 
   static async #onClearImage(_event, target) {
-    const { obstacleId } = target.dataset;
+    const { obstacleId, sceneKey } = target.dataset;
     const { id, api } = eventTarget(target.dataset);
     await api.update(id, (event) => {
       if (obstacleId) {
         const obstacle = event.obstacles?.[obstacleId];
         if (obstacle) obstacle.img = '';
+      } else if (sceneKey) {
+        const scene = event.scenes?.[sceneKey];
+        if (scene) scene.img = '';
       } else {
         event.img = '';
       }
