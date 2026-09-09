@@ -141,6 +141,7 @@ const influenceCtx = (isGM) => ({
       described: true,
       checkCount: isGM ? 2 : 1,
       generating: false,
+      isShared: true,
       enrichedDescription: '<p>Long tables under the canopy, and a place left for you.</p>',
       /*
        * Handed to both roles on purpose. The view builds this empty for a
@@ -154,11 +155,11 @@ const influenceCtx = (isGM) => ({
       isGM,
       tags: isGM
         ? [
-            { key: 'the-feast', label: 'The Feast', total: 2, hidden: 0, active: true },
+            { key: 'the-feast', label: 'The Feast', total: 2, hidden: 0, active: true, shared: true },
             // Entirely hidden: the GM sees it, the player must not.
             { key: 'the-hunt', label: 'The Hunt', total: 1, hidden: 1, active: false },
           ]
-        : [{ key: 'the-feast', label: 'The Feast', total: 1, hidden: 0, active: true }],
+        : [{ key: 'the-feast', label: 'The Feast', total: 1, hidden: 0, active: true, shared: true }],
       // A player's bar is built from rows they can see, so a scene whose
       // checks are all hidden must not appear in it at all.
       untaggedCount: isGM ? 1 : 0,
@@ -166,6 +167,9 @@ const influenceCtx = (isGM) => ({
       activeTag: 'the-feast',
       activeLabel: 'The Feast',
       sharedWithPlayers: true,
+      sharedLabel: 'The Feast',
+      // The GM is reading the scene the table is already on: the ordinary case.
+      previewingElsewhere: false,
       reveal: 'all',
       revealHidden: false,
       revealShown: false,

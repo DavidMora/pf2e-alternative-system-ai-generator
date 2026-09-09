@@ -155,6 +155,17 @@ export class Influence extends foundry.abstract.DataModel {
       discoveries: skillEntryField({
         // What a success actually tells the party.
         reveals: new foundry.data.fields.HTMLField({ required: true, initial: '' }),
+        /**
+         * Whether the party has actually earned this answer yet.
+         *
+         * Revealing a discovery check shows the party the *question* - that
+         * this is something they could look into. The answer is what the roll
+         * buys, so it stays with the GM until somebody succeeds, and is then
+         * posted to chat and left readable here. Without this the list handed
+         * players every answer the moment its check became visible, which
+         * makes rolling the check pointless.
+         */
+        revealsShown: new foundry.data.fields.BooleanField({ required: true, initial: false }),
       }),
 
       /** Checks that earn influence points. */

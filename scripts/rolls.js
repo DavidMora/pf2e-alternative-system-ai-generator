@@ -415,6 +415,7 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
   const points = isDiscovery ? 0 : chasePointsForDegree(degree);
 
   let summary = null;
+  let answer = null;
   await updateInfluence(influenceId, (event) => {
     const participant = event.participants[participantId];
     if (!participant) return;
@@ -431,6 +432,16 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
         // A success uncovers the cheapest thing still hidden; a critical
         // success uncovers two, as published.
         revealed = revealHidden(event, degree === 3 ? 2 : 1);
+        /*
+         * And it earns this check's own answer, which the party has not been
+         * shown until now. Recorded on the entry so it stays readable in the
+         * panel afterwards rather than only scrolling past in chat.
+         */
+        const entry = event.discoveries?.[entryId];
+        if (entry?.reveals && !entry.revealsShown) {
+          entry.revealsShown = true;
+          answer = { label: entry.label, reveals: entry.reveals };
+        }
       }
     } else {
       const before = event.influencePoints;
@@ -455,6 +466,20 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
 
   const degreeKey = ['CriticalFailure', 'Failure', 'Success', 'CriticalSuccess'][degree];
   const degreeLabel = game.i18n.localize(`PFAI.Degree.${degreeKey}`);
+
+  /*
+   * Post what they learned where everyone can read it. A notification is the
+   * GM's own toast and reaches nobody else, so without this the player who
+   * made the roll would be told the answer by the GM reading it aloud - or
+   * not at all.
+   */
+  if (answer) {
+    await ChatMessage.create({
+      speaker: { alias: game.i18n.localize('PFAI.Influence.DiscoveryAlias') },
+      flavor: `${game.i18n.localize('PFAI.Influence.Reveals')} — ${answer.label}`,
+      content: answer.reveals,
+    });
+  }
 
   if (isDiscovery) {
     ui.notifications.info(

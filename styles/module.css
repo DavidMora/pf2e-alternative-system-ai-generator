@@ -1668,3 +1668,19 @@
   padding-top: 0.5rem;
   border-top: 1px solid var(--pfai-border, rgba(255, 255, 255, 0.12));
 }
+
+/* A discovery's answer the party has not rolled for yet: GM-only, and marked
+   so it is never mistaken for something they have already been told. */
+.pfai .pfai-check-reveals.is-unearned {
+  opacity: 0.85;
+  border-left: 2px solid var(--pfai-gm, #b07d3a);
+  padding-left: 0.5rem;
+}
+
+.pfai .pfai-unearned-badge {
+  font-size: 0.75em;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.8;
+  margin-left: 0.35rem;
+}

@@ -699,3 +699,25 @@ export function sceneNotes(scenes, key, label = '') {
     described: Boolean(stored.description?.trim() || stored.gmNotes?.trim()),
   };
 }
+
+/**
+ * Who may read a discovery check's answer, and whether it has been earned.
+ *
+ * Revealing a discovery check shows the party a question worth asking. The
+ * answer is what the roll buys, so it is withheld until somebody succeeds -
+ * this shipped the other way round, printing every answer in the list as soon
+ * as its check became visible, which made rolling the check pointless.
+ *
+ * The GM always sees it, and is told whether the party has it yet.
+ *
+ * @param {object} entry The discovery entry.
+ * @param {boolean} isGM Whether the viewer is the GM.
+ */
+export function earnedAnswer(entry, isGM) {
+  const answer = entry?.reveals ?? '';
+  const earned = Boolean(entry?.revealsShown);
+  return {
+    text: isGM || earned ? answer : '',
+    pending: Boolean(isGM && answer && !earned),
+  };
+}

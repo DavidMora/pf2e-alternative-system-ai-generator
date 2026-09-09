@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### A discovery check's answer is earned, not published
+
+Revealing a discovery check used to print what a success would tell the party
+right there in their list, so anyone could read the answer without rolling and
+the check bought nothing. Revealing it now shows the party the question only.
+The answer stays with the GM — marked so you can see what they have not got
+yet — until someone succeeds at the check, at which point it is posted to chat
+and stays readable in the panel afterwards.
+
+### Reading a scene no longer moves the table
+
+Selecting a scene narrowed every player's window at once, so a GM could not
+look ahead at the next scene's notes without dragging the party into it.
+Clicking a scene is now local to your own window; **Show to players** on the
+scene panel is the only thing that moves theirs, and the scene they are on is
+marked in the bar while you read another.
+
 ## 1.4.0
 
 Tested on Foundry 13.351 with pf2e 7.12.2 and on Foundry 14.367 with pf2e

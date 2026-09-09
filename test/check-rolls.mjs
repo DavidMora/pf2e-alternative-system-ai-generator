@@ -19,7 +19,7 @@
  * because nothing exercised the maths. It is exercised now.
  */
 import {
-  asPlayer, installGlobals, load, makeActor, makeCheck, notes, reset, store,
+  asPlayer, chat, installGlobals, load, makeActor, makeCheck, notes, reset, store,
 } from './harness.mjs';
 
 installGlobals();
@@ -344,7 +344,14 @@ function seedInfluence() {
           s2: { id: 's2', skill: 'deception', label: 'Deception', dc: 15, hidden: true },
           s3: { id: 's3', skill: 'intimidation', label: 'Intimidation', dc: 25, hidden: true },
         },
-        discoveries: { d1: { id: 'd1', skill: 'society', label: 'Society', dc: 15, hidden: false } },
+        discoveries: {
+          d1: {
+            id: 'd1', skill: 'society', label: 'Society', dc: 15, hidden: false,
+            // The answer the roll is for. Starts unearned, as a real one does.
+            reveals: '<p>DISCOVERY-ANSWER: the steward waters the wine.</p>',
+            revealsShown: false,
+          },
+        },
         thresholds: {
           t1: { id: 't1', points: 2, name: 'First', hidden: true },
           t2: { id: 't2', points: 9, name: 'Later', hidden: true },
@@ -399,6 +406,31 @@ check('influence: it uncovers the cheapest approach', influence().influenceSkill
 check('influence: and only that one', influence().influenceSkills.s3.hidden, true);
 check('influence: the discovery is credited to its roller',
   influence().participants.p1.contribution.discoveries, 1);
+
+/*
+ * What the check is actually for.
+ *
+ * The answer used to be printed in the panel for everyone as soon as the
+ * check itself was visible, so a player could read it without rolling and the
+ * roll bought nothing. It is now earned: the success posts it to chat, where
+ * the party can read it, and marks it so the panel keeps showing it.
+ */
+check('influence: a successful discovery posts its answer to chat',
+  chat.map((m) => m.content), ['<p>DISCOVERY-ANSWER: the steward waters the wine.</p>']);
+check('influence: the chat card names the check it came from',
+  chat[0].flavor.includes('Society'), true);
+check('influence: and the answer is marked earned, so the panel keeps it',
+  influence().discoveries.d1.revealsShown, true);
+
+// Rolling it again must not post the same answer twice.
+await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 'd1', kind: 'discovery', degree: 2 });
+check('influence: an answer already earned is not posted again', chat.length, 1);
+
+seedInfluence();
+chat.length = 0; // seedInfluence resets the store, not what was already said.
+await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 'd1', kind: 'discovery', degree: 1 });
+check('influence: a failed discovery earns no answer',
+  [influence().discoveries.d1.revealsShown, chat.length], [false, 0]);
 
 seedInfluence();
 await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 'd1', kind: 'discovery', degree: 3 });

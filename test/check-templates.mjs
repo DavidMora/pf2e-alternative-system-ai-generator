@@ -312,9 +312,19 @@ for (const isGM of [true, false]) {
     failed = 1;
     console.error('  influence: the reveal cycle reads as filtering when only a scene is chosen');
   }
-  if (isGM && !out.includes('data-action="filterCheckTag" data-influence-id="i1"')) {
+  /*
+   * Exactly one control moves the players' windows, and it is not the chips -
+   * clicking a scene is how a GM reads it. Losing that distinction is how a
+   * GM ends up unable to look ahead without dragging the party along.
+   */
+  const shareBtn = /data-action="shareScene"[^>]*data-scene-key="the-feast"/.test(out);
+  if (isGM !== shareBtn) {
     failed = 1;
-    console.error('  influence: scene chip carries no event id for its handler');
+    console.error(`  influence: the show-to-players control is shown to the wrong role (isGM=${isGM})`);
+  }
+  if (!isGM && /data-action="shareScene"/.test(out)) {
+    failed = 1;
+    console.error('  influence: a player can put a scene on everyone\'s screens');
   }
   /*
    * And when a scene is chosen, both sides are told the view is shared - the

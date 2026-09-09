@@ -547,7 +547,7 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
  * scenes. Tags group them; the filter is what turns "which of these forty can
  * the party roll right now" into one glance.
  */
-const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, nextActiveScene, resolveSharedScene, sceneNotes, UNTAGGED } = await import(`file://${base}/helpers.js`);
+const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, earnedAnswer, nextActiveScene, resolveSharedScene, sceneNotes, UNTAGGED } = await import(`file://${base}/helpers.js`);
 
 check('tags compare without case or spacing',
   [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
@@ -618,6 +618,30 @@ check('scenes are ordered by name, so the bar does not reshuffle on reveal',
 check('one scene spelled two ways is still one scene',
   buildTagSummary([{ tags: ['The Feast'] }, { tags: ['the feast'] }]).tags.map((t) => [t.label, t.total]),
   [['The Feast', 2]]);
+
+/*
+ * What a discovery check is actually for.
+ *
+ * This shipped backwards: the answer was printed in the list for everyone the
+ * moment its check became visible, so a player could read what a success
+ * would tell them without rolling, and the roll bought nothing. The answer is
+ * now earned - and because that rule lived in a context builder where no test
+ * could see it, it lives here instead.
+ */
+const secretAnswer = { reveals: '<p>The steward waters the wine.</p>', revealsShown: false };
+const earnedOne = { ...secretAnswer, revealsShown: true };
+check('a player is not told the answer before anyone rolls for it',
+  earnedAnswer(secretAnswer, false), { text: '', pending: false });
+check('and is told it once it has been earned',
+  earnedAnswer(earnedOne, false), { text: '<p>The steward waters the wine.</p>', pending: false });
+check('the GM always sees it, and is told the party has not got it yet',
+  earnedAnswer(secretAnswer, true), { text: '<p>The steward waters the wine.</p>', pending: true });
+check('and is not nagged about one the party already has',
+  earnedAnswer(earnedOne, true).pending, false);
+check('a check with no answer marks nothing pending',
+  earnedAnswer({ reveals: '', revealsShown: false }, true), { text: '', pending: false });
+check('an entry from before the field existed is treated as unearned',
+  earnedAnswer({ reveals: '<p>x</p>' }, false).text, '');
 
 /*
  * The numbers a scene write-up is not allowed to state.
@@ -718,21 +742,37 @@ const viewSource = readFileSync(path.join(base, 'apps', 'subsystem-view.js'), 'u
  * and choosing a scene must write to the event - a local field would leave
  * every other window where it was.
  */
+/*
+ * Reading a scene and showing it to the table are two different acts.
+ *
+ * They were one to begin with: selecting a scene moved every player's window,
+ * so a GM could not read ahead without dragging the party with them. Clicking
+ * a scene is now local to the window that clicked it, and exactly one control
+ * writes to the event.
+ */
 const sceneHandler = viewSource.match(
   /static async #onFilterCheckTag\([^)]*\) \{([\s\S]*?)\n  \}/,
 )?.[1] ?? '';
-check('only a GM may choose the scene the table sees',
-  /if \(!game\.user\.isGM\) return;/.test(sceneHandler), true);
-check('and the choice is written to the event, which is what syncs it',
-  /updateInfluence\(/.test(sceneHandler)
-  && /draft\.activeScene = nextActiveScene\(draft\.activeScene, tag\)/.test(sceneHandler), true);
+check('reading a scene stays in the window that is reading it',
+  /this\.#previewScene = /.test(sceneHandler) && !/updateInfluence\(/.test(sceneHandler), true);
+const shareHandler = viewSource.match(
+  /static async #onShareScene\([^)]*\) \{([\s\S]*?)\n  \}/,
+)?.[1] ?? '';
+check('only a GM may put a scene on the table\'s screens',
+  /if \(!game\.user\.isGM\) return;/.test(shareHandler), true);
+check('and showing it is what writes to the event, which is what syncs it',
+  /updateInfluence\(/.test(shareHandler)
+  && /draft\.activeScene = nextActiveScene\(draft\.activeScene, sceneKey\)/.test(shareHandler), true);
+check('a player has no preview of their own to diverge with',
+  /const tag = game\.user\.isGM \? \(this\.#previewScene \?\? shared\) : shared;/.test(viewSource), true);
 /*
  * The hint that says the table is following. Cosmetic, but it is the only
  * thing telling a GM that picking a scene moved everyone, so it is pinned to
  * the chosen scene rather than to anything a caller passes in.
  */
-check('and both sides are told the view is shared, from the chosen scene',
-  /sharedWithPlayers: Boolean\(activeTag\) && activeTag !== UNTAGGED,/.test(viewSource), true);
+check('what the table is told it is seeing comes from the event, not from what the GM is reading',
+  /sharedWithPlayers: Boolean\(sharedScene\) && sharedScene !== UNTAGGED,/.test(viewSource)
+  && /const sharedScene = event\.activeScene \|\| null;/.test(viewSource), true);
 check('the reveal-state filter stays local to the window that set it',
   /this\.#revealFilter = order\[/.test(viewSource)
   && !/draft\.\w*[Rr]evealFilter/.test(viewSource), true);
@@ -828,6 +868,10 @@ check('the scene panel is built for the selected scene',
   && /sceneNotes\(event\.scenes, activeTag/.test(viewSource), true);
 // And its GM half is built empty for a player, so the template's isGM gate is
 // the second lock rather than the only one.
+// And the view has to actually use that rule rather than reaching past it.
+check('the check list gets its answers through the earned-answer rule',
+  /const answer = earnedAnswer\(entry, isGM\);/.test(viewSource)
+  && !/enrich\(entry\.reveals\)/.test(viewSource), true);
 check('a player is never handed the scene GM notes to begin with',
   /enrichedGmNotes: isGM \? await enrich\(notes\.gmNotes, \{ secrets: true \}\) : '',/.test(viewSource),
   true);

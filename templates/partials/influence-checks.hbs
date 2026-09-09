@@ -53,8 +53,15 @@
             </span>
           {{/if}}
           {{#if entry.enrichedReveals}}
-            <div class="pfai-check-reveals">
-              <span class="pfai-label">{{localize 'PFAI.Influence.Reveals'}}</span>
+            <div class="pfai-check-reveals {{#if entry.revealsPending}}is-unearned{{/if}}">
+              <span class="pfai-label">{{localize 'PFAI.Influence.Reveals'}}
+                {{#if entry.revealsPending}}
+                  <span class="pfai-unearned-badge"
+                        data-tooltip="{{localize 'PFAI.Influence.RevealsPendingHint'}}">
+                    <i class="fa-solid fa-eye-slash"></i> {{localize 'PFAI.Influence.RevealsPending'}}
+                  </span>
+                {{/if}}
+              </span>
               <div class="pfai-prose">{{{entry.enrichedReveals}}}</div>
             </div>
           {{/if}}

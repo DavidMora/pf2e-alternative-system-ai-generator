@@ -210,6 +210,8 @@
                 {{#if ../tagFilter.isGM}}data-action="filterCheckTag" data-influence-id="{{../id}}" data-tag="{{key}}"
                 data-tooltip="{{localize 'PFAI.Influence.FilterTagHint'}}"
                 {{else}}disabled data-tooltip="{{localize 'PFAI.Influence.SceneReadOnly'}}"{{/if}}>
+          {{#if shared}}<i class="fa-solid fa-users pfai-tag-shared"
+                           data-tooltip="{{localize 'PFAI.Influence.SceneOnScreens'}}"></i>{{/if}}
           {{label}}
           {{#if ../tagFilter.isGM}}
             {{#if hidden}}
@@ -247,12 +249,19 @@
       <p class="pfai-panel-hint pfai-scene-shared">
         <i class="fa-solid fa-users"></i>
         {{#if tagFilter.isGM}}
-          {{localize 'PFAI.Influence.SceneSharedGM' scene=tagFilter.activeLabel}}
+          {{localize 'PFAI.Influence.SceneSharedGM' scene=tagFilter.sharedLabel}}
+          {{#if tagFilter.previewingElsewhere}}
+            <em>{{localize 'PFAI.Influence.ScenePreviewNote'}}</em>
+          {{/if}}
         {{else}}
-          {{localize 'PFAI.Influence.SceneSharedPlayer' scene=tagFilter.activeLabel}}
+          {{localize 'PFAI.Influence.SceneSharedPlayer' scene=tagFilter.sharedLabel}}
         {{/if}}
       </p>
-    {{/if}}
+    {{else}}{{#if tagFilter.isGM}}{{#if tagFilter.activeTag}}
+      <p class="pfai-panel-hint pfai-scene-private">
+        <i class="fa-solid fa-eye"></i> {{localize 'PFAI.Influence.ScenePrivate'}}
+      </p>
+    {{/if}}{{/if}}{{/if}}
 
     {{#if tagFilter.isGM}}
       <div class="pfai-tag-bulk">
@@ -287,6 +296,14 @@
                   data-label="PFAI.Influence.SceneDescription"
                   data-tooltip="{{localize 'PFAI.Influence.EditSceneDescription'}}">
             <i class="fa-solid fa-pen"></i>
+          </button>
+          <button type="button" class="pfai-generate-obstacles {{#if activeSceneCard.isShared}}is-active{{/if}}"
+                  data-action="shareScene" data-influence-id="{{id}}"
+                  data-scene-key="{{activeSceneCard.key}}"
+                  data-tooltip="{{localize 'PFAI.Influence.ShareSceneHint'}}">
+            <i class="fa-solid fa-users"></i>
+            {{#if activeSceneCard.isShared}}{{localize 'PFAI.Influence.StopSharingScene'}}
+            {{else}}{{localize 'PFAI.Influence.ShareScene'}}{{/if}}
           </button>
           <button type="button" class="pfai-generate-obstacles" data-action="generateScene"
                   data-influence-id="{{id}}" data-scene-key="{{activeSceneCard.key}}"

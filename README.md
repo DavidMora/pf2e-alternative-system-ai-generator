@@ -499,8 +499,14 @@ soft spots, resistances and blunders.
   influence points on a participant's behalf with the `−` / `+` beside their
   tally — the spell-and-hero-point case, credited but not counted as a roll.
 
-Players see only what has been discovered. The GM sees everything, marked, with
-a count of what is still hidden. In the GM's roll picker an approach the party
+Players see only what has been discovered — and a discovery check's **answer**
+is not part of that. Revealing the check shows the party a question worth
+asking; what a success actually tells them stays with the GM (marked *not yet
+earned*) until somebody rolls it, at which point it is posted to chat for
+everyone and stays readable in the list. Otherwise the answer sits in the
+panel for anyone to read and the roll buys nothing.
+
+The GM sees everything, marked, with a count of what is still hidden. In the GM's roll picker an approach the party
 has not unlocked is prefixed with a padlock, so rolling one is never an accident.
 
 ### Scenes, for an event that runs across a whole evening
@@ -519,9 +525,11 @@ Already revealed** and, once you are looking at one scene, **Reveal these** and
 than twelve. Each scene shows how many of its checks are still hidden, so the
 bar answers "what do I still need to enable here" at a glance.
 
-**The chosen scene is the table's, not your window's.** Pick one and every open
-player window narrows to it too, so nobody is scrolling a list of forty looking
-for the check you just called for. Players get the bar as labels — choosing is
+**Reading a scene is private; showing it is deliberate.** Clicking a scene
+narrows your own window only, so you can read ahead mid-session without
+dragging the party with you. **Show to players** on the scene's panel is the
+one control that moves their windows, and the chip they are on is marked, so
+you can always see where the table is while you read somewhere else. Players get the bar as labels — choosing is
 yours — and only for scenes something has been revealed in: a scene they have
 nothing in stays off their bar entirely, name and counts included, because a bar
 reading `Pepper contest 10/10` is a spoiler. If you move to a scene the party

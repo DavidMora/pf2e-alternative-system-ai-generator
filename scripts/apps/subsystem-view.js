@@ -43,6 +43,7 @@ import {
   parseTags,
   matchesCheckFilter,
   buildTagSummary,
+  earnedAnswer,
   nextActiveScene,
   sceneNotes,
   resolveSharedScene,
@@ -136,6 +137,17 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** The scene key currently being written up, so only its button spins. */
   #generatingScene = null;
+
+  /**
+   * The scene this GM is reading, which is not necessarily the one the table
+   * is on.
+   *
+   * Selecting a scene used to move every player's window at once, so a GM
+   * could not look ahead at the next scene's notes without dragging the party
+   * there. Looking is private; sharing is a separate, deliberate act - see
+   * `activeScene` on the event.
+   */
+  #previewScene = null;
 
   /*
    * The GM's own reveal-state filter: all, still hidden, or already revealed.
@@ -253,6 +265,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       rollInfluence: SubsystemView.#onRollInfluence,
       awardInfluence: SubsystemView.#onAwardInfluence,
       filterCheckTag: SubsystemView.#onFilterCheckTag,
+      shareScene: SubsystemView.#onShareScene,
       cycleRevealFilter: SubsystemView.#onCycleRevealFilter,
       clearCheckFilter: SubsystemView.#onClearCheckFilter,
       revealFiltered: SubsystemView.#onRevealFiltered,
@@ -360,11 +373,18 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   /** A working view belongs to the event it was set on, not to the window. */
   #clearCheckFilter() {
     this.#revealFilter = 'all';
+    this.#previewScene = null;
   }
 
   /** Scene from the event (shared), reveal state from this window (local). */
+  /*
+   * A GM sees what they are previewing, falling back to the table's scene; a
+   * player only ever sees the table's.
+   */
   #effectiveFilter(event) {
-    return { tag: event?.activeScene || null, reveal: this.#revealFilter };
+    const shared = event?.activeScene || null;
+    const tag = game.user.isGM ? (this.#previewScene ?? shared) : shared;
+    return { tag, reveal: this.#revealFilter };
   }
 
   #select(subsystemKey, eventId) {
@@ -752,7 +772,20 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
               ? entry.revealAt
               : null,
           enrichedDescription: await enrich(entry.description),
-          ...(extraKey ? { [`enriched${extraKey}`]: await enrich(entry[extraKey.toLowerCase()]) } : {}),
+          /*
+           * The answer to a discovery check is what the roll buys. A player
+           * gets it only once somebody has earned it; the GM always sees it,
+           * and is told whether the party has it yet.
+           */
+          ...(extraKey
+            ? await (async () => {
+                const answer = earnedAnswer(entry, isGM);
+                return {
+                  [`enriched${extraKey}`]: await enrich(answer.text),
+                  revealsPending: answer.pending,
+                };
+              })()
+            : {}),
         })),
       );
 
@@ -840,9 +873,16 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const activeReveal = filter.reveal;
     const matches = (entry) => matchesCheckFilter(entry, filter);
 
+    const sharedScene = event.activeScene || null;
     const tagFilter = {
       // Sorted by name so the bar does not reshuffle as rows are revealed.
-      tags: summaryRows.map((row) => ({ ...row, active: activeTag === row.key })),
+      // `shared` marks the one the table is on, which for a GM previewing
+      // another scene is not the one they are reading.
+      tags: summaryRows.map((row) => ({
+        ...row,
+        active: activeTag === row.key,
+        shared: sharedScene === row.key,
+      })),
       untaggedCount,
       untaggedActive: activeTag === UNTAGGED,
       activeTag,
@@ -863,7 +903,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       matchedShown: tagged.filter((e) => matches(e) && !e.hidden).length,
       isGM,
       // The scene is shared, so the GM should be told rather than surprised.
-      sharedWithPlayers: Boolean(activeTag) && activeTag !== UNTAGGED,
+      sharedWithPlayers: Boolean(sharedScene) && sharedScene !== UNTAGGED,
+      sharedLabel: summary.get(sharedScene)?.label ?? '',
+      // True when the GM is reading one scene while the table is on another.
+      previewingElsewhere: isGM && Boolean(activeTag) && activeTag !== sharedScene,
     };
 
     const filtered = (record) => visible(record).filter(matches);
@@ -883,6 +926,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
             enrichedDescription: await enrich(notes.description),
             enrichedGmNotes: isGM ? await enrich(notes.gmNotes, { secrets: true }) : '',
             generating: this.#generatingScene === activeTag,
+            isShared: sharedScene === activeTag,
             // What the writer-up is working from, so the button can say so.
             checkCount: tagged.filter((e) => matches(e)).length,
           };
@@ -1755,10 +1799,23 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   static async #onFilterCheckTag(_event, target) {
     if (!game.user.isGM) return;
-    const { influenceId } = target.dataset;
     const tag = target.dataset.tag ?? '';
+    // Local: reading a scene must not drag the party into it.
+    this.#previewScene = nextActiveScene(this.#previewScene ?? '', tag) || null;
+    await this.render();
+  }
+
+  /**
+   * Put the scene the GM is reading on the table's screens, or take it back.
+   *
+   * The only thing in the feature that moves a player's window, and it says
+   * so on the button.
+   */
+  static async #onShareScene(_event, target) {
+    if (!game.user.isGM) return;
+    const { influenceId, sceneKey } = target.dataset;
     await updateInfluence(influenceId, (draft) => {
-      draft.activeScene = nextActiveScene(draft.activeScene, tag);
+      draft.activeScene = nextActiveScene(draft.activeScene, sceneKey);
     });
   }
 

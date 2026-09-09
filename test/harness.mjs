@@ -79,12 +79,25 @@ export function installGlobals({ isGM = true } = {}) {
   globalThis.ui = {
     notifications: { info: record('info'), warn: record('warn'), error: record('error') },
   };
+
+  /*
+   * Chat is not a notification. A notification is the GM's own toast and
+   * reaches nobody else, so anything the party is meant to read has to go
+   * here - which makes what lands in this array worth asserting.
+   */
+  globalThis.ChatMessage = {
+    create: async (data) => { chat.push(data); return data; },
+  };
 }
+
+/** Chat messages the module posted, oldest first. */
+export const chat = [];
 
 /** Reset between cases so one test's leftovers cannot prop up the next. */
 export function reset() {
   for (const key of Object.keys(store)) delete store[key];
   notes.length = 0;
+  chat.length = 0;
   actors.clear();
   if (globalThis.game) globalThis.game.user = { id: 'gm1', isGM: true };
 }

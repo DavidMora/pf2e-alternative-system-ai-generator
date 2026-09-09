@@ -97,6 +97,19 @@ These exist because getting them wrong produced real bugs:
   schema and drops what it does not know: an undeclared field writes without
   error, reads back undefined, and syncs to nobody. `check-logic` asserts every
   `draft.x` the view assigns is declared.
+- **A revealed check is a question, not its answer.** Revealing a discovery
+  check tells the party there is something here worth asking about; what a
+  success tells them is what the roll buys, and is withheld until someone
+  succeeds (`earnedAnswer`), then posted to chat and kept in the panel. This
+  shipped the other way round for months - every answer printed in the list as
+  soon as its check became visible - and no test caught it, because the rule
+  lived in a context builder that only the template suite could see and that
+  suite is fed its values by a fixture. Rules about who may see what belong in
+  `helpers.js` where a test can hold them directly.
+- **A notification is not chat.** `ui.notifications` is the GM's own toast and
+  reaches nobody else. Anything the party is meant to read goes through
+  `ChatMessage.create`; the harness records those in `chat` so what the table
+  is told is assertable.
 - **What a player is shown is built from what a player may see.** The scene bar
   is derived from visible rows only - a scene with nothing revealed is not
   named to them and its counts are not shown, because `Pepper contest 10/10`

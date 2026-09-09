@@ -773,7 +773,7 @@
   "PFAI.Influence.TagsHint": "Comma-separated. Groups this check with the rest of its scene so you can filter and reveal them together.",
   "PFAI.Info.Scenes": "An adventure often runs one influence total across many scenes. Tag each check with the scene it belongs to, then filter to that scene when the party reaches it and reveal its checks together. The number on each tag is how many of its checks are still hidden from the players.",
   "PFAI.Influence.SceneReadOnly": "The GM chooses which scene the table is looking at.",
-  "PFAI.Influence.SceneSharedGM": "Everyone at the table is seeing {scene}. Pick another scene, or Show all, to move them.",
+  "PFAI.Influence.SceneSharedGM": "The table is seeing {scene}.",
   "PFAI.Influence.SceneSharedPlayer": "Showing {scene}.",
   "PFAI.Influence.SceneDescription": "Scene description",
   "PFAI.Influence.EditSceneDescription": "Edit what the party sees here",
@@ -784,5 +784,14 @@
   "PFAI.Influence.SceneUndescribed": "Nothing written down yet. {count} checks happen here.",
   "PFAI.Influence.SceneArtHint": "Picture of this scene",
   "PFAI.Info.SceneCard": "The scene the table is on: what the party sees when they arrive, how to run it, and a picture. The description is shared with them; the GM notes are not.",
-  "PFAI.Errors.SceneNumbers": "The write-up kept stating numbers the GM owns ({quoted}), twice over, so it was not saved. Try again, or write the scene by hand."
+  "PFAI.Errors.SceneNumbers": "The write-up kept stating numbers the GM owns ({quoted}), twice over, so it was not saved. Try again, or write the scene by hand.",
+  "PFAI.Influence.DiscoveryAlias": "Discovery",
+  "PFAI.Influence.RevealsPending": "not yet earned",
+  "PFAI.Influence.RevealsPendingHint": "Only you can see this. It is posted to chat when someone succeeds at this check.",
+  "PFAI.Influence.ShareScene": "Show to players",
+  "PFAI.Influence.StopSharingScene": "Stop showing",
+  "PFAI.Influence.ShareSceneHint": "Narrow every player's window to this scene. Nothing else here changes what they see.",
+  "PFAI.Influence.SceneOnScreens": "This is the scene on the players' screens",
+  "PFAI.Influence.ScenePrivate": "Only you are looking at this scene. Use Show to players to bring the table to it.",
+  "PFAI.Influence.ScenePreviewNote": "You are reading a different scene; they stay where they are until you show them another."
 }
