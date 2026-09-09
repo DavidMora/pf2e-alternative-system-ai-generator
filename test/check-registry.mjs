@@ -65,7 +65,19 @@ check('an empty dataset yields no id, so handlers can bail',
 
 for (const key of KEYS) {
   reset();
-  const event = { id: 'original', name: `A ${key}`, position: 3, hidden: true };
+  /*
+   * Deliberately more than a name. An export is the whole event object, so a
+   * field added later rides along for free - but only if nothing between here
+   * and the store rebuilds the event field by field. The scene write-ups are
+   * the newest such field and the easiest to lose silently: a GM would hand
+   * the file to another GM and the encounter would arrive with every scene
+   * blank.
+   */
+  const event = {
+    id: 'original', name: `A ${key}`, position: 3, hidden: true,
+    scenes: { 'the-feast': { name: 'The Feast', description: '<p>Long tables.</p>', gmNotes: '<p>Watch the steward.</p>', img: 'a.webp' } },
+    activeScene: 'the-feast',
+  };
   await SUBSYSTEMS[key].save({ events: { original: event } });
 
   const payload = exportPayload(key, SUBSYSTEMS[key].get('original'));
@@ -79,6 +91,10 @@ for (const key of KEYS) {
     imported.id !== 'original', true);
   const copy = SUBSYSTEMS[key].get(imported.id);
   check(`${key}: with the content intact`, copy.name, `A ${key}`);
+  check(`${key}: including a scene's write-up, art and notes`,
+    copy.scenes?.['the-feast'],
+    { name: 'The Feast', description: '<p>Long tables.</p>', gmNotes: '<p>Watch the steward.</p>', img: 'a.webp' });
+  check(`${key}: and the scene the table was left on`, copy.activeScene, 'the-feast');
   check(`${key}: and both now exist`, Object.keys(SUBSYSTEMS[key].getAll().events).length, 2);
 }
 

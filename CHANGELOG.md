@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.4.0
+
+Tested on Foundry 13.351 with pf2e 7.12.2 and on Foundry 14.367 with pf2e
+8.4.1.
 
 ### Scenes can be described
 
@@ -22,6 +25,10 @@ beside the checks.
 The description is shared with the party when you move the table to that
 scene. The notes on how to run it are not — they sit behind the GM's view with
 the rest of the GM prose.
+
+Exported encounters carry their scenes: the write-ups, the notes and the art
+travel with the file, so an encounter handed to another GM arrives described
+rather than blank.
 
 ## 1.3.0
 
