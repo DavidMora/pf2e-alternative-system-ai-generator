@@ -547,7 +547,7 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
  * scenes. Tags group them; the filter is what turns "which of these forty can
  * the party roll right now" into one glance.
  */
-const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, earnedAnswer, nextActiveScene, resolveSharedScene, sceneNotes, UNTAGGED } = await import(`file://${base}/helpers.js`);
+const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, earnedAnswer, nextActiveScene, playerSceneGate, resolveSharedScene, sceneNotes, UNTAGGED } = await import(`file://${base}/helpers.js`);
 
 check('tags compare without case or spacing',
   [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
@@ -703,6 +703,29 @@ check('a scene counts as described from either half',
   ], [true, true, false, false]);
 check('a picture survives a record with nothing else in it',
   sceneNotes({ s: { img: 'a.webp' } }, 's').img, 'a.webp');
+
+/*
+ * Where the party starts: nowhere.
+ *
+ * Once an encounter has scenes, the GM says which one the party is in and
+ * when. Until they do, the party's list is empty - which is what lets a GM
+ * reveal checks during prep, with nobody online, without the party walking
+ * into the whole evening at once.
+ */
+check('a scened encounter shows a player nothing until the GM opens one',
+  playerSceneGate(true, ''), { tag: null, gated: true });
+check('and shows only the scene the GM opened',
+  playerSceneGate(true, 'the-feast'), { tag: 'the-feast', gated: false });
+check('a scene set to nothing puts them back to waiting',
+  playerSceneGate(true, null), { tag: null, gated: true });
+/*
+ * An encounter with no scenes has no way to say "later", so gating it would
+ * simply break it - every check would vanish with no way to bring one back.
+ */
+check('an encounter without scenes is never gated',
+  playerSceneGate(false, ''), { tag: null, gated: false });
+check('and is not gated by a stale scene either',
+  playerSceneGate(false, 'the-feast'), { tag: null, gated: false });
 
 /*
  * The scene is shared: the GM picks it and every open window follows, because
@@ -869,6 +892,38 @@ check('the scene panel is built for the selected scene',
 // And its GM half is built empty for a player, so the template's isGM gate is
 // the second lock rather than the only one.
 // And the view has to actually use that rule rather than reaching past it.
+// And the view has to gate the list, not merely compute the gate.
+check('a gated player is shown nothing rather than everything',
+  /const filtered = \(record\) => \(sceneGated \? \[\] : visible\(record\)\.filter\(matches\)\);/.test(viewSource)
+  && /const sceneGated = !isGM && gate\.gated;/.test(viewSource), true);
+/*
+ * And whether the encounter has scenes is read off the event, not off the
+ * rows this viewer can see - a player with nothing revealed yet is exactly
+ * who the gate is for, and deriving it from their own rows left them ungated.
+ */
+check('an encounter counts as scened from its own checks, not the viewer\'s',
+  /const hasScenes = \[\s*\n\s*\.\.\.Object\.values\(event\.discoveries \?\? \{\}\),\s*\n\s*\.\.\.Object\.values\(event\.influenceSkills \?\? \{\}\),\s*\n\s*\]\.some\(\(entry\) => \(entry\.tags \?\? \[\]\)\.length > 0\);/.test(viewSource),
+  true);
+// A GM is never gated: they are the one deciding.
+check('the gate is only ever applied to players',
+  /const filter = isGM\s*\n\s*\? \{ \.\.\.shared, tag: resolveSharedScene\(shared\.tag, summary\) \}\s*\n\s*: \{ \.\.\.shared, tag: gate\.tag \};/.test(viewSource),
+  true);
+
+/*
+ * Preparing an encounter before anyone arrives.
+ *
+ * "Show to players" refused outright when nobody was online, which made it
+ * look broken during exactly the work it is most useful for. It now does the
+ * half that is possible - opening the encounter up - and says which half.
+ */
+const showHandler = viewSource.match(
+  /static async #onShowToPlayers\([\s\S]*?\n  \}\n/,
+)?.[0] ?? '';
+check('an empty table no longer aborts before revealing the encounter',
+  showHandler.indexOf('draft.hidden = false;') < showHandler.indexOf('if (!players.length)'), true);
+check('and the GM is told it is ready rather than warned it failed',
+  /PFAI\.View\.ReadyForPlayers/.test(showHandler) && !/PFAI\.View\.NoPlayersOnline/.test(showHandler), true);
+
 check('the check list gets its answers through the earned-answer rule',
   /const answer = earnedAnswer\(entry, isGM\);/.test(viewSource)
   && !/enrich\(entry\.reveals\)/.test(viewSource), true);

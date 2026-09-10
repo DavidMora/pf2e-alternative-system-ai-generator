@@ -658,6 +658,28 @@ export function nextActiveScene(current, clicked) {
 }
 
 /**
+ * What a player may see, given the scene the GM has put on the table.
+ *
+ * Once an encounter is divided into scenes, the GM decides which one the
+ * party is in and when - so until they show one, the party is shown nothing.
+ * An empty list is the correct state at the start of the evening, not a
+ * failure: it is what lets a GM reveal checks during prep, with nobody
+ * online, without the party walking in to a wall of everything at once.
+ *
+ * An encounter with no scenes at all is not gated. It has no way to say
+ * "later", so withholding its checks would just break it.
+ *
+ * @param {boolean} hasScenes Whether any check carries a scene tag.
+ * @param {string|null} sharedScene The event's activeScene.
+ */
+export function playerSceneGate(hasScenes, sharedScene) {
+  const scene = sharedScene || null;
+  if (!hasScenes) return { tag: null, gated: false };
+  if (!scene) return { tag: null, gated: true };
+  return { tag: scene, gated: false };
+}
+
+/**
  * The scene a viewer is actually put on, given the one the GM chose.
  *
  * Normally that is the GM's scene: choosing one moves the table. But a player

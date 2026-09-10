@@ -257,11 +257,13 @@
           {{localize 'PFAI.Influence.SceneSharedPlayer' scene=tagFilter.sharedLabel}}
         {{/if}}
       </p>
-    {{else}}{{#if tagFilter.isGM}}{{#if tagFilter.activeTag}}
+    {{else}}{{#if tagFilter.isGM}}
       <p class="pfai-panel-hint pfai-scene-private">
-        <i class="fa-solid fa-eye"></i> {{localize 'PFAI.Influence.ScenePrivate'}}
+        <i class="fa-solid fa-eye"></i>
+        {{#if tagFilter.activeTag}}{{localize 'PFAI.Influence.ScenePrivate'}}
+        {{else}}{{localize 'PFAI.Influence.NoSceneShared'}}{{/if}}
       </p>
-    {{/if}}{{/if}}{{/if}}
+    {{/if}}{{/if}}
 
     {{#if tagFilter.isGM}}
       <div class="pfai-tag-bulk">
@@ -355,6 +357,15 @@
         {{/if}}
       </div>
     {{/if}}
+  </section>
+{{/if}}
+
+{{#if sceneGated}}
+  <section class="pfai-panel pfai-scene-waiting">
+    <p class="pfai-panel-hint">
+      <i class="fa-solid fa-hourglass-half"></i>
+      {{localize 'PFAI.Influence.WaitingForScene'}}
+    </p>
   </section>
 {{/if}}
 

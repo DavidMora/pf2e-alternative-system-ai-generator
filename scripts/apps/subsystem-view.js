@@ -44,6 +44,7 @@ import {
   matchesCheckFilter,
   buildTagSummary,
   earnedAnswer,
+  playerSceneGate,
   nextActiveScene,
   sceneNotes,
   resolveSharedScene,
@@ -867,8 +868,29 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     const tagged = [...visible(event.discoveries), ...visible(event.influenceSkills)];
     const { tags: summaryRows, untaggedCount } = buildTagSummary(tagged);
     const summary = new Map(summaryRows.map((row) => [row.key, row]));
+    /*
+     * A GM reads whatever they have selected. A player is shown the scene the
+     * GM has put on the table, and nothing at all until they do - the GM
+     * decides what the party sees and when, which is the whole point of
+     * dividing an encounter into scenes.
+     */
+    /*
+     * Whether this encounter is divided into scenes is a fact about the
+     * event, not about what the viewer happens to have been shown. Deriving
+     * it from the viewer's own rows left a player with nothing revealed - or
+     * with only untagged rows revealed - ungated, which is precisely the
+     * moment the gate exists for.
+     */
+    const hasScenes = [
+      ...Object.values(event.discoveries ?? {}),
+      ...Object.values(event.influenceSkills ?? {}),
+    ].some((entry) => (entry.tags ?? []).length > 0);
+    const gate = playerSceneGate(hasScenes, event.activeScene);
     const shared = this.#effectiveFilter(event);
-    const filter = { ...shared, tag: resolveSharedScene(shared.tag, summary) };
+    const filter = isGM
+      ? { ...shared, tag: resolveSharedScene(shared.tag, summary) }
+      : { ...shared, tag: gate.tag };
+    const sceneGated = !isGM && gate.gated;
     const activeTag = filter.tag;
     const activeReveal = filter.reveal;
     const matches = (entry) => matchesCheckFilter(entry, filter);
@@ -909,7 +931,8 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       previewingElsewhere: isGM && Boolean(activeTag) && activeTag !== sharedScene,
     };
 
-    const filtered = (record) => visible(record).filter(matches);
+    // Gated means gated: nothing, rather than everything.
+    const filtered = (record) => (sceneGated ? [] : visible(record).filter(matches));
 
     /*
      * The selected scene's write-up. Only when a scene is selected: a panel
@@ -936,6 +959,8 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     return {
       ...event,
       activeSceneCard,
+      // The party is waiting for the GM to bring them into a scene.
+      sceneGated,
       dcModifier: modifier,
       // An untitled encounter falls back to the NPC's name, so don't print it twice.
       showNpcSubtitle: Boolean(event.npc?.name) && event.npc.name !== event.name,
@@ -3195,10 +3220,6 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!event) return;
 
     const players = game.users.filter((user) => user.active && !user.isGM);
-    if (!players.length) {
-      ui.notifications.warn(game.i18n.localize('PFAI.View.NoPlayersOnline'));
-      return;
-    }
 
     // Pushing something hidden would open an empty window on their screens.
     if (event.hidden) {
@@ -3210,6 +3231,18 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       await api.update(id, (draft) => {
         draft.hidden = false;
       });
+    }
+
+    /*
+     * Nobody online is a normal state, not an error: a GM preparing before
+     * the session still wants the encounter opened up, ready for whoever
+     * walks in. Refusing outright made the button look broken during exactly
+     * the work it is most useful for - so do the half that is possible, and
+     * say plainly which half that was.
+     */
+    if (!players.length) {
+      ui.notifications.info(game.i18n.format('PFAI.View.ReadyForPlayers', { name: event.name }));
+      return;
     }
 
     emitShowEvent({ subsystem: key, eventId: id, userIds: players.map((u) => u.id) });

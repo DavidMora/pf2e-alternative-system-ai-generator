@@ -793,5 +793,8 @@
   "PFAI.Influence.ShareSceneHint": "Limita la ventana de cada jugador a esta escena. Nada más de aquí cambia lo que ven.",
   "PFAI.Influence.SceneOnScreens": "Esta es la escena en las pantallas del grupo",
   "PFAI.Influence.ScenePrivate": "Solo tú estás viendo esta escena. Usa Mostrar al grupo para llevar la mesa hasta ella.",
-  "PFAI.Influence.ScenePreviewNote": "Estás leyendo otra escena; ellos se quedan donde están hasta que les muestres otra."
+  "PFAI.Influence.ScenePreviewNote": "Estás leyendo otra escena; ellos se quedan donde están hasta que les muestres otra.",
+  "PFAI.Influence.WaitingForScene": "El DJ aún no os ha llevado a ninguna escena.",
+  "PFAI.Influence.NoSceneShared": "El grupo aún no ve nada. Elige una escena y pulsa Mostrar al grupo cuando quieras llevarlos a ella.",
+  "PFAI.View.ReadyForPlayers": "«{name}» está abierta al grupo. Aún no hay nadie conectado, así que no se ha abierto ninguna ventana: estará ahí cuando entren."
 }

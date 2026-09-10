@@ -793,5 +793,8 @@
   "PFAI.Influence.ShareSceneHint": "Narrow every player's window to this scene. Nothing else here changes what they see.",
   "PFAI.Influence.SceneOnScreens": "This is the scene on the players' screens",
   "PFAI.Influence.ScenePrivate": "Only you are looking at this scene. Use Show to players to bring the table to it.",
-  "PFAI.Influence.ScenePreviewNote": "You are reading a different scene; they stay where they are until you show them another."
+  "PFAI.Influence.ScenePreviewNote": "You are reading a different scene; they stay where they are until you show them another.",
+  "PFAI.Influence.WaitingForScene": "The GM has not brought you into a scene yet.",
+  "PFAI.Influence.NoSceneShared": "The party is seeing nothing yet. Pick a scene and press Show to players when you want them in it.",
+  "PFAI.View.ReadyForPlayers": "“{name}” is open to players. Nobody is online yet, so no window was opened — it will be there when they join."
 }

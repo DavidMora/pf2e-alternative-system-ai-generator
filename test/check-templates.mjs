@@ -242,6 +242,38 @@ const INFLUENCE_ROLL_OPTIONS = [
  */
 const influenceCtx = CONTEXTS.influence;
 
+/*
+ * Where a player starts: waiting.
+ *
+ * With scenes in play the GM says which one the party is in and when, so
+ * until they open one the party's list is empty - and an empty list with no
+ * word of explanation reads as a broken window, not as a scene that has not
+ * started. The message is the feature.
+ */
+{
+  const gated = influenceCtx(false);
+  const ctx = {
+    ...gated,
+    selectedInfluence: {
+      ...gated.selectedInfluence,
+      sceneGated: true,
+      discoveries: [],
+      influenceSkills: [],
+      activeSceneCard: null,
+    },
+  };
+  const out = view(ctx);
+  if (!out.includes('pfai-scene-waiting')) {
+    failed = 1;
+    console.error('  influence: a gated player is given no reason their list is empty');
+  }
+  if (out.includes('pfai-check ')) {
+    failed = 1;
+    console.error('  influence: a gated player was rendered checks anyway');
+  }
+  console.log(`gated player: waiting=${out.includes('pfai-scene-waiting')} checks=${(out.match(/pfai-check /g) ?? []).length}`);
+}
+
 for (const isGM of [true, false]) {
   const out = view(influenceCtx(isGM));
   // The markers the shared fixture actually plants: the local copy this

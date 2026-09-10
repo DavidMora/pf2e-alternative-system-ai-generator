@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### The party starts in no scene at all
+
+Once an encounter is divided into scenes, the GM decides which scene the party
+is in and when. Until you show them one their list is empty, with a line
+saying so rather than a blank panel — so you can reveal checks during prep,
+with nobody online, without the party walking into the whole evening at once.
+An encounter with no scenes is untouched: it has no way to say "later", so
+gating it would simply break it.
+
+**Show to players** on the event header no longer refuses when nobody is
+online. It opens the encounter up and tells you no window was pushed because
+nobody is connected, which is exactly the state you prepare in.
+
 ### A discovery check's answer is earned, not published
 
 Revealing a discovery check used to print what a success would tell the party

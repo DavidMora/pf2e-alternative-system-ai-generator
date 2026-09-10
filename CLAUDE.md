@@ -97,6 +97,16 @@ These exist because getting them wrong produced real bugs:
   schema and drops what it does not know: an undeclared field writes without
   error, reads back undefined, and syncs to nobody. `check-logic` asserts every
   `draft.x` the view assigns is declared.
+- **With scenes in play, a player sees nothing until the GM opens one.**
+  `playerSceneGate` - and whether an encounter *has* scenes is read from the
+  event's own checks, never from the rows the viewer happens to see, or a
+  player with nothing revealed yet is left ungated at exactly the moment the
+  gate exists for. An encounter with no scene tags is never gated: it has no
+  way to say "later", so withholding its checks would just break it.
+- **Nobody online is a normal state, not an error.** A GM prepares before the
+  session; a control that refuses outright when the table is empty looks
+  broken during the work it is most useful for. Do the half that is possible
+  and say which half.
 - **A revealed check is a question, not its answer.** Revealing a discovery
   check tells the party there is something here worth asking about; what a
   success tells them is what the roll buys, and is withheld until someone
