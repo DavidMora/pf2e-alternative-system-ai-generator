@@ -658,6 +658,28 @@ export function nextActiveScene(current, clicked) {
 }
 
 /**
+ * The scene bar, with the scene the table is on guaranteed to be in it.
+ *
+ * A player's bar is built from scenes they have a revealed check in, so a
+ * GM who shows them a scene where nothing is revealed yet left the bar and
+ * the scene heading disagreeing about where the table was. The name is not a
+ * spoiler here: the GM chose to put that scene on their screens, and its
+ * heading and read-aloud text are already in front of them.
+ *
+ * It carries no counts, because there is nothing of theirs in it to count.
+ *
+ * @param {Array<object>} rows Scene rows built from what the viewer may see.
+ * @param {string|null} sharedKey The scene the table is on.
+ * @param {string} label That scene's name, for when it has to be added.
+ */
+export function withSharedScene(rows, sharedKey, label) {
+  if (!sharedKey || sharedKey === UNTAGGED) return rows;
+  if (rows.some((row) => row.key === sharedKey)) return rows;
+  return [...rows, { key: sharedKey, label: label || sharedKey, total: 0, hidden: 0 }]
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
  * What a player may see, given the scene the GM has put on the table.
  *
  * Once an encounter is divided into scenes, the GM decides which one the

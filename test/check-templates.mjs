@@ -243,6 +243,45 @@ const INFLUENCE_ROLL_OPTIONS = [
 const influenceCtx = CONTEXTS.influence;
 
 /*
+ * The scene the table has been brought to always appears in a player's bar,
+ * even when nothing in it is revealed to them yet - otherwise the bar and the
+ * scene heading in front of them disagree about where the table is. It is not
+ * a spoiler: the GM chose to put them there and its read-aloud text is
+ * already on screen. It carries no count, because a bare "0" beside a scene
+ * name reads as a fault rather than as an empty scene.
+ */
+{
+  const base = influenceCtx(false);
+  const ctx = {
+    ...base,
+    selectedInfluence: {
+      ...base.selectedInfluence,
+      tagFilter: {
+        ...base.selectedInfluence.tagFilter,
+        tags: [
+          { key: 'the-feast', label: 'The Feast', total: 1, hidden: 0, active: false, shared: false },
+          { key: 'twin-rulers', label: 'Twin Rulers', total: 0, hidden: 0, active: true, shared: true },
+        ],
+      },
+    },
+  };
+  const out = view(ctx);
+  if (!out.includes('Twin Rulers')) {
+    failed = 1;
+    console.error('  influence: the scene the table is on is missing from the player bar');
+  }
+  if (/Twin Rulers[\s\S]{0,80}?pfai-tag-count">0</.test(out)) {
+    failed = 1;
+    console.error('  influence: an empty scene chip shows a bare 0 to a player');
+  }
+  if (!/The Feast[\s\S]{0,80}?pfai-tag-count">1</.test(out)) {
+    failed = 1;
+    console.error('  influence: a scene the player does have checks in lost its count');
+  }
+  console.log(`shared-empty chip: named=${out.includes('Twin Rulers')} zeroShown=${/Twin Rulers[\s\S]{0,80}?pfai-tag-count">0</.test(out)}`);
+}
+
+/*
  * Where a player starts: waiting.
  *
  * With scenes in play the GM says which one the party is in and when, so

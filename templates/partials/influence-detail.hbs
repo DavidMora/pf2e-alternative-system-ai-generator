@@ -221,7 +221,10 @@
               <span class="pfai-tag-count">{{total}}</span>
             {{/if}}
           {{else}}
-            <span class="pfai-tag-count">{{total}}</span>
+            {{! A scene the table has been brought to but that holds nothing
+                for this viewer yet carries no count: a bare "0" beside its
+                name reads as a fault rather than as an empty scene. }}
+            {{#if total}}<span class="pfai-tag-count">{{total}}</span>{{/if}}
           {{/if}}
         </button>
       {{/each}}

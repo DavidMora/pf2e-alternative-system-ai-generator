@@ -45,6 +45,7 @@ import {
   buildTagSummary,
   earnedAnswer,
   playerSceneGate,
+  withSharedScene,
   nextActiveScene,
   sceneNotes,
   resolveSharedScene,
@@ -866,7 +867,23 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
      * a player sees only scenes with a check already revealed to them.
      */
     const tagged = [...visible(event.discoveries), ...visible(event.influenceSkills)];
-    const { tags: summaryRows, untaggedCount } = buildTagSummary(tagged);
+    const built = buildTagSummary(tagged);
+    const untaggedCount = built.untaggedCount;
+    const allEntries = [
+      ...Object.values(event.discoveries ?? {}),
+      ...Object.values(event.influenceSkills ?? {}),
+    ];
+    /*
+     * The scene the table is on always appears in the bar, even for a viewer
+     * who has nothing revealed in it - otherwise their bar and the scene
+     * heading in front of them disagree about where the table is.
+     */
+    const sharedKey = event.activeScene || null;
+    const sharedName = sharedKey
+      ? sceneNotes(event.scenes, sharedKey, '').name
+        || (allEntries.flatMap((e) => e.tags ?? []).find((tag) => tagKey(tag) === sharedKey) ?? '')
+      : '';
+    const summaryRows = withSharedScene(built.tags, sharedKey, sharedName);
     const summary = new Map(summaryRows.map((row) => [row.key, row]));
     /*
      * A GM reads whatever they have selected. A player is shown the scene the

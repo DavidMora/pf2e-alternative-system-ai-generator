@@ -547,7 +547,7 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
  * scenes. Tags group them; the filter is what turns "which of these forty can
  * the party roll right now" into one glance.
  */
-const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, earnedAnswer, nextActiveScene, playerSceneGate, resolveSharedScene, sceneNotes, UNTAGGED } = await import(`file://${base}/helpers.js`);
+const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, earnedAnswer, nextActiveScene, playerSceneGate, resolveSharedScene, sceneNotes, withSharedScene, UNTAGGED } = await import(`file://${base}/helpers.js`);
 
 check('tags compare without case or spacing',
   [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
@@ -703,6 +703,33 @@ check('a scene counts as described from either half',
   ], [true, true, false, false]);
 check('a picture survives a record with nothing else in it',
   sceneNotes({ s: { img: 'a.webp' } }, 's').img, 'a.webp');
+
+/*
+ * The bar always contains the scene the table is on.
+ *
+ * A player's bar is built from scenes they have a revealed check in, so a GM
+ * showing them a scene with nothing revealed in it yet left the bar and the
+ * scene heading in front of them disagreeing about where the table was. The
+ * name is not a spoiler at that point - the GM chose to put that scene on
+ * their screens, and its read-aloud text is already on them.
+ */
+const barRows = [
+  { key: 'harriet', label: 'Harriet', total: 2, hidden: 0 },
+  { key: 'the-feast', label: 'The feast', total: 1, hidden: 0 },
+];
+check('a scene the viewer has nothing in is added when the table is on it',
+  withSharedScene(barRows, 'pepper-contest', 'Pepper contest').map((r) => [r.label, r.total]),
+  [['Harriet', 2], ['Pepper contest', 0], ['The feast', 1]]);
+check('and it sorts into place rather than being tacked on the end',
+  withSharedScene(barRows, 'arrival', 'Arrival')[0].label, 'Arrival');
+check('a scene already in the bar is not duplicated',
+  withSharedScene(barRows, 'harriet', 'Harriet').length, 2);
+check('no shared scene leaves the bar exactly as it was',
+  withSharedScene(barRows, null, ''), barRows);
+check('the untagged bucket is not a scene and is never added',
+  withSharedScene(barRows, UNTAGGED, 'Untagged').length, 2);
+check('a scene with no name falls back to its key rather than a blank chip',
+  withSharedScene(barRows, 'twin-rulers', '').map((r) => r.label).includes('twin-rulers'), true);
 
 /*
  * Where the party starts: nowhere.
@@ -904,6 +931,9 @@ check('a gated player is shown nothing rather than everything',
 check('an encounter counts as scened from its own checks, not the viewer\'s',
   /const hasScenes = \[\s*\n\s*\.\.\.Object\.values\(event\.discoveries \?\? \{\}\),\s*\n\s*\.\.\.Object\.values\(event\.influenceSkills \?\? \{\}\),\s*\n\s*\]\.some\(\(entry\) => \(entry\.tags \?\? \[\]\)\.length > 0\);/.test(viewSource),
   true);
+// And the view has to build its bar through that, or the fix is inert.
+check('the scene bar is built with the shared scene folded in',
+  /const summaryRows = withSharedScene\(built\.tags, sharedKey, sharedName\);/.test(viewSource), true);
 // A GM is never gated: they are the one deciding.
 check('the gate is only ever applied to players',
   /const filter = isGM\s*\n\s*\? \{ \.\.\.shared, tag: resolveSharedScene\(shared\.tag, summary\) \}\s*\n\s*: \{ \.\.\.shared, tag: gate\.tag \};/.test(viewSource),

@@ -4,6 +4,11 @@
 
 ### The party starts in no scene at all
 
+The scene bar a player sees now always contains the scene the table is on,
+even when nothing in it has been revealed to them yet — their bar and the
+scene heading in front of them used to disagree about where they were. It
+carries no count, since there is nothing of theirs in it to count.
+
 Once an encounter is divided into scenes, the GM decides which scene the party
 is in and when. Until you show them one their list is empty, with a line
 saying so rather than a blank panel — so you can reveal checks during prep,
