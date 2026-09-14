@@ -122,6 +122,15 @@ export class Chase extends foundry.abstract.DataModel {
           player: new fields.BooleanField({ required: true, initial: false }),
           hidden: new fields.BooleanField({ required: true, initial: false }),
           hasActed: new fields.BooleanField({ required: true, initial: false }),
+          /**
+           * What this participant's last roll did, so a GM can take it back.
+           *
+           * Holds the inverse of the change the roll made - see `inverseDiff`
+           * - which is what makes a hero point reroll possible: clear the
+           * result, and the player rolls again themselves rather than the GM
+           * rolling a replacement over the top of the first.
+           */
+          lastRoll: new foundry.data.fields.ObjectField({ required: true, initial: () => ({}) }),
           /** 1-based index of the obstacle this participant is currently facing. */
           obstacle: new fields.NumberField({ required: true, integer: true, initial: 1 }),
 

@@ -1,5 +1,7 @@
 import { MODULE_ID } from './constants.js';
 import {
+  applySnapshot,
+  inverseDiff,
   awarenessForDegree,
   chasePointsForDegree,
   victoryPointsForDegree,
@@ -27,6 +29,7 @@ import {
   emitApplyResearch,
   emitApplyRoll,
 } from './socket.js';
+import { SUBSYSTEMS } from './subsystems.js';
 
 /**
  * Roll a chase skill check and record the outcome.
@@ -149,6 +152,7 @@ export async function applyPassResult({ chaseId, obstacleId, participantId }) {
     const obstacle = chase.obstacles[obstacleId];
     const participant = chase.participants[participantId];
     if (!obstacle || !participant) return;
+    const priorState = snapshotBefore(chase);
 
     const before = obstacle.chasePoints.current;
     obstacle.chasePoints.current = Math.max(0, before - 1);
@@ -161,6 +165,7 @@ export async function applyPassResult({ chaseId, obstacleId, participantId }) {
     participant.contribution.byObstacle[obstacleId] =
       (participant.contribution.byObstacle[obstacleId] ?? 0) + applied;
     // A pass is a turn spent, not a roll made, so the hit rate is untouched.
+    rememberRoll(chase, participant, priorState, { label: game.i18n.localize('PFAI.Roll.Pass'), degree: null });
 
     summary = {
       participant: participant.name,
@@ -256,6 +261,7 @@ export async function applyRollResult({ chaseId, obstacleId, participantId, degr
     const obstacle = chase.obstacles[obstacleId];
     const participant = chase.participants[participantId];
     if (!obstacle || !participant) return;
+    const priorState = snapshotBefore(chase);
 
     // Chase points never go below zero, so a critical failure at 0 costs
     // nothing, and never above the goal, so a success on an obstacle the party
@@ -282,6 +288,8 @@ export async function applyRollResult({ chaseId, obstacleId, participantId, degr
       participant.branch = leadsTo;
       routed = leadsTo;
     }
+
+    rememberRoll(chase, participant, priorState, { label: skillLabel ?? '', degree });
 
     summary = {
       participant: participant.name,
@@ -408,6 +416,63 @@ export async function rollInfluenceCheck({ influenceId, participantId, entryId, 
   return { degree };
 }
 
+/**
+ * Remember what a roll did, so a GM can take it back.
+ *
+ * A hero point means the first roll never happened: the points it awarded,
+ * the counters it moved and anything it uncovered all have to go. Rather than
+ * six subsystems each growing their own reversal code, the event is copied
+ * before the roll and diffed against the result - see `inverseDiff`.
+ *
+ * Call `snapshotBefore` at the top of an update callback and `rememberRoll`
+ * at the bottom, once the participant is known.
+ */
+export function snapshotBefore(event) {
+  return JSON.parse(JSON.stringify(event ?? {}));
+}
+
+export function rememberRoll(event, participant, before, { label = '', degree = null } = {}) {
+  if (!participant) return;
+  // Taken before the record itself is written, so undoing never restores an
+  // older record over the one being made.
+  participant.lastRoll = { label, degree, at: Date.now(), undo: inverseDiff(before, event) };
+}
+
+/**
+ * Take back a participant's last roll and let them go again.
+ *
+ * The GM's half of a hero point: the result is removed and the participant is
+ * free to roll, which is what lets the *player* spend the point and make the
+ * roll themselves rather than the GM rolling a replacement over the top.
+ */
+export async function clearLastRoll({ subsystem, eventId, participantId }) {
+  if (!game.user.isGM) return null;
+  const api = SUBSYSTEMS[subsystem];
+  if (!api) return null;
+
+  let undone = null;
+  await api.update(eventId, (event) => {
+    const participant = event.participants?.[participantId];
+    const record = participant?.lastRoll;
+    if (!record?.undo || !Object.keys(record.undo).length) return;
+    applySnapshot(event, record.undo);
+    // The restore puts back whatever record stood before this roll; this one
+    // is spent either way.
+    const restored = event.participants?.[participantId];
+    if (restored) {
+      restored.lastRoll = {};
+      restored.hasActed = false;
+    }
+    undone = { name: participant.name, label: record.label };
+  });
+
+  if (!undone) return null;
+  ui.notifications.info(
+    game.i18n.format('PFAI.Roll.RerollCleared', { name: undone.name, what: undone.label || '' }),
+  );
+  return undone;
+}
+
 /** GM-side application of an influence or discovery result. */
 export async function applyInfluenceResult({ influenceId, participantId, entryId, kind, degree }) {
   if (!game.user.isGM) return;
@@ -419,6 +484,7 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
   await updateInfluence(influenceId, (event) => {
     const participant = event.participants[participantId];
     if (!participant) return;
+    const priorState = snapshotBefore(event);
 
     participant.contribution ??= { total: 0, successes: 0, rolls: 0, discoveries: 0 };
     participant.contribution.rolls += 1;
@@ -449,6 +515,11 @@ export async function applyInfluenceResult({ influenceId, participantId, entryId
       const applied = event.influencePoints - before;
       participant.contribution.total += applied;
     }
+
+    rememberRoll(event, participant, priorState, {
+      label: (isDiscovery ? event.discoveries : event.influenceSkills)?.[entryId]?.label ?? '',
+      degree,
+    });
 
     summary = {
       participant: participant.name,
@@ -724,6 +795,7 @@ export async function applyResearchResult({ researchId, participantId, sourceId,
     const participant = event.participants[participantId];
     const source = event.sources[sourceId];
     if (!participant || !source) return;
+    const priorState = snapshotBefore(event);
 
     const before = event.researchPoints;
     // A source only ever yields up to its cap, so clamp the gain there first.
@@ -739,6 +811,8 @@ export async function applyResearchResult({ researchId, participantId, sourceId,
     if (degree >= 2) participant.contribution.successes += 1;
     participant.contribution.total += applied;
     participant.hasActed = true;
+
+    rememberRoll(event, participant, priorState, { label: source.name ?? '', degree });
 
     summary = {
       participant: participant.name,
@@ -993,6 +1067,7 @@ export async function applyInfiltrationResult({
     const participant = event.participants[participantId];
     const found = findInfiltrationCheck(event, { kind, ownerId, objectiveId, checkId });
     if (!participant || !found?.owner) return;
+    const priorState = snapshotBefore(event);
 
     const points = infiltrationPointsForDegree(degree);
     const awareness = awarenessForDegree(degree);
@@ -1043,6 +1118,8 @@ export async function applyInfiltrationResult({
     } else if (kind === 'opportunity') {
       if (degree >= 2) found.owner.used = true;
     }
+
+    rememberRoll(event, participant, priorState, { label: found.check?.label ?? found.owner?.name ?? '', degree });
 
     summary = {
       participant: participant.name,
@@ -1287,6 +1364,7 @@ export async function applyLeadershipResult({ leadershipId, participantId, event
     const participant = org.participants[participantId];
     const event = org.events[eventId];
     if (!participant || !event) return;
+    const priorState = snapshotBefore(org);
 
     participant.contribution ??= { total: 0, successes: 0, rolls: 0 };
     participant.contribution.rolls += 1;
@@ -1296,6 +1374,8 @@ export async function applyLeadershipResult({ leadershipId, participantId, event
       participant.contribution.total += 1;
       event.resolved = true;
     }
+
+    rememberRoll(org, participant, priorState, { label: event.name ?? '', degree });
 
     summary = { participant: participant.name, event: event.name, resolved: event.resolved };
   });
@@ -1419,6 +1499,7 @@ export async function applyVictoryResult({ victoryId, participantId, checkId, de
     const participant = event.participants[participantId];
     const check = event.checks[checkId];
     if (!participant || !check) return;
+    const priorState = snapshotBefore(event);
 
     const diminishing = event.structure === 'diminishing';
     const base = victoryPointsForDegree(degree, event.structure, event.recoveryPossible !== false);
@@ -1451,6 +1532,8 @@ export async function applyVictoryResult({ victoryId, participantId, checkId, de
     // Credit what actually moved, so a point absorbed by either end costs nobody.
     participant.contribution.total += applied;
     participant.hasActed = true;
+
+    rememberRoll(event, participant, priorState, { label: check.label ?? '', degree });
 
     summary = {
       participant: participant.name,

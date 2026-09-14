@@ -1150,4 +1150,77 @@ check('edge: on an individual obstacle it counts that character through',
   h.getInfiltration('i1').objectives.j1.obstacles.o1.infiltrationPoints.current, 1);
 
 
+/* --------------------------------------------- taking a roll back for a reroll */
+/*
+ * A hero point means the first roll never happened. Rolling again over the
+ * top would count both: the points from each, and a tally saying two rolls.
+ * So the GM takes the first one back and the player rolls it themselves.
+ */
+seedInfluence();
+await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 's1', kind: 'influence', degree: 2 });
+check('a roll lands as usual',
+  [influence().influencePoints, influence().participants.p1.contribution.rolls,
+   influence().participants.p1.hasActed], [1, 1, true]);
+check('and is recorded as something that could be taken back',
+  h.hasUndoableRoll(influence().participants.p1), true);
+
+await rolls.clearLastRoll({ subsystem: 'influence', eventId: 'inf', participantId: 'p1' });
+check('taking it back removes the points it earned', influence().influencePoints, 0);
+check('and the tally it moved',
+  [influence().participants.p1.contribution.rolls, influence().participants.p1.contribution.total,
+   influence().participants.p1.contribution.successes], [0, 0, 0]);
+check('and frees them to roll again', influence().participants.p1.hasActed, false);
+check('and there is nothing left to take back twice',
+  h.hasUndoableRoll(influence().participants.p1), false);
+check('taking back a roll nobody made does nothing',
+  await rolls.clearLastRoll({ subsystem: 'influence', eventId: 'inf', participantId: 'p1' }), null);
+
+// The reroll itself then lands exactly once.
+await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 's1', kind: 'influence', degree: 3 });
+check('the reroll counts once, not twice',
+  [influence().influencePoints, influence().participants.p1.contribution.rolls], [2, 1]);
+
+/*
+ * A discovery is the harder case: it uncovers things, and undoing has to put
+ * them back out of sight or the party keeps what the roll bought.
+ */
+seedInfluence();
+await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 'd1', kind: 'discovery', degree: 2 });
+check('a discovery uncovers an approach', influence().influenceSkills.s2.hidden, false);
+await rolls.clearLastRoll({ subsystem: 'influence', eventId: 'inf', participantId: 'p1' });
+check('taking it back hides what it uncovered', influence().influenceSkills.s2.hidden, true);
+
+// A chase pass is a spent turn, and is taken back the same way.
+seedChase();
+await rolls.applyPassResult({ chaseId: 'run', obstacleId: 'ob1', participantId: 'p1' });
+check('a pass marks them as having acted', chase().participants.p1.hasActed, true);
+await rolls.clearLastRoll({ subsystem: 'chase', eventId: 'run', participantId: 'p1' });
+check('and can be taken back too', chase().participants.p1.hasActed, false);
+
+/*
+ * The case the restore alone does not cover.
+ *
+ * Undoing puts the participant back exactly as they stood - and if they had
+ * already acted before that roll, that means still marked as having acted,
+ * which leaves them unable to roll. Taking a roll back is a GM saying "go
+ * again", so it frees them regardless of what came before it.
+ */
+seedInfluence();
+await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 's1', kind: 'influence', degree: 2 });
+await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 's1', kind: 'influence', degree: 2 });
+check('two rolls have landed', influence().influencePoints, 2);
+await rolls.clearLastRoll({ subsystem: 'influence', eventId: 'inf', participantId: 'p1' });
+check('taking back the second leaves the first standing', influence().influencePoints, 1);
+check('and frees them to roll even though they had already acted',
+  influence().participants.p1.hasActed, false);
+
+// Only a GM may do it.
+seedInfluence();
+await rolls.applyInfluenceResult({ influenceId: 'inf', participantId: 'p1', entryId: 's1', kind: 'influence', degree: 2 });
+await asPlayer(async () => {
+  check('a player cannot take back their own roll',
+    await rolls.clearLastRoll({ subsystem: 'influence', eventId: 'inf', participantId: 'p1' }), null);
+});
+check('and the roll still stands', influence().influencePoints, 1);
+
 done('rolling, applying, the maths, GM adjustment, what progress reveals, and every relay');

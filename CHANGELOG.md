@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### A GM can take a roll back
+
+Every subsystem now records what a roll did, and a GM can undo it from the
+participant's row. The points it earned, the tally it moved and anything it
+uncovered all go back, and the participant is freed to roll again — which is
+what a hero point reroll needs, since the *player* has to make that roll
+rather than the GM rolling a replacement over the top of the first. A pass is
+taken back the same way.
+
+### Players can see the obstacle they are in
+
+A chase hides obstacles until the GM unlocks them, which is right for the ones
+ahead and wrong for the one the party is standing in: a player asked to roll
+against an obstacle they cannot read was stuck until the GM remembered to
+unlock it. A player now always sees the obstacle their own characters are
+facing, and on a fork is shown that one rather than the one the rest of the
+party took.
+
 ## 1.5.0
 
 Tested on Foundry 13.351 with pf2e 7.12.2 and on Foundry 14.367 with pf2e

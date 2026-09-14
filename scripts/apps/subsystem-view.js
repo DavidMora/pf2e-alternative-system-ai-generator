@@ -43,6 +43,8 @@ import {
   parseTags,
   matchesCheckFilter,
   buildTagSummary,
+  chaseObstaclesFor,
+  hasUndoableRoll,
   earnedAnswer,
   playerSceneGate,
   withSharedScene,
@@ -84,6 +86,7 @@ import {
   rollVictoryCheck,
   advanceVictory,
   announceVictoryProgress,
+  clearLastRoll,
 } from '../rolls.js';
 import {
   adjustContribution,
@@ -333,6 +336,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       removeParticipant: SubsystemView.#onRemoveParticipant,
       participantDelta: SubsystemView.#onParticipantDelta,
       toggleActed: SubsystemView.#onToggleActed,
+      clearReroll: SubsystemView.#onClearReroll,
       rollCheck: SubsystemView.#onRollCheck,
       awardContribution: SubsystemView.#onAwardContribution,
       passTurn: SubsystemView.#onPassTurn,
@@ -573,9 +577,44 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async #prepareChase(chase, isGM) {
     const labels = obstacleLabels(chase.obstacles);
-    const obstacles = sortObstacles(chase.obstacles)
-      // Players never see obstacles the GM has not unlocked.
-      .filter((obstacle) => isGM || !obstacle.locked);
+    const allSorted = sortObstacles(chase.obstacles);
+
+    /*
+     * Which obstacle the chase is actually on, worked out before anything is
+     * filtered - it is a fact about the chase, not about who is looking.
+     */
+    const isCleared = (o) => o.chasePoints.current >= o.chasePoints.goal;
+    const pinnedAll = chase.activeObstacle
+      ? allSorted.findIndex((o) => o.id === chase.activeObstacle)
+      : -1;
+    const firstUnclearedAll = allSorted.findIndex((o) => !isCleared(o));
+    const liveAll = allSorted[
+      Math.max(0, pinnedAll !== -1
+        ? pinnedAll
+        : firstUnclearedAll === -1 ? allSorted.length - 1 : firstUnclearedAll)
+    ] ?? null;
+
+    /*
+     * The obstacle each of this viewer's own participants is standing in
+     * front of. A player is shown that obstacle whether or not the GM has
+     * unlocked it: they are in it, being asked to roll against it, so hiding
+     * it until the GM remembers to unlock leaves them looking at somebody
+     * else's obstacle - or at nothing at all - while it is their turn.
+     */
+    const ownObstacleIds = new Set();
+    if (!isGM && liveAll) {
+      for (const participant of Object.values(chase.participants ?? {})) {
+        if (participant.hidden) continue;
+        const actor = participant.uuid ? fromUuidSync(participant.uuid) : null;
+        if (!actor?.isOwner) continue;
+        const target = obstacleForParticipant(chase.obstacles, liveAll.position, participant.branch);
+        if (target) ownObstacleIds.add(target.id);
+      }
+    }
+
+    // Players never see obstacles the GM has not unlocked - except the one
+    // they are in.
+    const { visible: obstacles } = chaseObstaclesFor(allSorted, { isGM, ownIds: ownObstacleIds });
 
     const preparedObstacles = await Promise.all(
       obstacles.map(async (obstacle, index) => ({
@@ -615,10 +654,16 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           : firstUncleared,
     );
 
-    // Players are pinned to the live obstacle; only a GM may browse the rest.
+    /*
+     * Players are pinned to their own obstacle, falling back to the chase's
+     * live one; only a GM may browse the rest. On a fork this is the
+     * difference between reading the obstacle you are in and reading the one
+     * the rest of the party took.
+     */
+    const { ownIndex } = chaseObstaclesFor(preparedObstacles, { isGM, ownIds: ownObstacleIds });
     const index = isGM
       ? Math.clamp(this.#obstacleIndex ?? liveIndex, 0, Math.max(0, preparedObstacles.length - 1))
-      : liveIndex;
+      : ownIndex !== -1 ? ownIndex : liveIndex;
 
     const current = preparedObstacles[index] ?? null;
 
@@ -682,6 +727,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           canPass: isGM ? Boolean(targetId) : owned && !participant.hasActed && Boolean(targetId),
           // Distinguishes a GM re-roll from a player's first roll in the UI.
           isReroll: isGM && participant.hasActed,
+          // A GM can take back a recorded result; a hero point reroll then
+          // belongs to the player, who rolls it themselves.
+          canClearReroll: isGM && hasUndoableRoll(participant),
+          lastRollLabel: participant.lastRoll?.label ?? '',
           // Points can be awarded even to a participant with no linked actor.
           canAward: isGM && Boolean(targetId),
           contributedHere: here,
@@ -840,6 +889,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           missingActor: Boolean(participant.uuid) && !actor,
           canRoll: rollOptions.length > 0 && (isGM ? Boolean(actor) : owned && !participant.hasActed),
           isReroll: isGM && participant.hasActed,
+          // A GM can take back a recorded result; a hero point reroll then
+          // belongs to the player, who rolls it themselves.
+          canClearReroll: isGM && hasUndoableRoll(participant),
+          lastRollLabel: participant.lastRoll?.label ?? '',
           canAward: isGM,
           rollOptions,
           contributedTotal: contribution.total ?? 0,
@@ -1097,6 +1150,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           missingActor: Boolean(participant.uuid) && !actor,
           canRoll: rollOptions.length > 0 && (isGM ? Boolean(actor) : owned && !participant.hasActed),
           isReroll: isGM && participant.hasActed,
+          // A GM can take back a recorded result; a hero point reroll then
+          // belongs to the player, who rolls it themselves.
+          canClearReroll: isGM && hasUndoableRoll(participant),
+          lastRollLabel: participant.lastRoll?.label ?? '',
           canAward: isGM,
           rollOptions,
           contributedTotal: contribution.total ?? 0,
@@ -1279,6 +1336,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           missingActor: Boolean(participant.uuid) && !actor,
           canRoll: rollOptions.length > 0 && (isGM ? Boolean(actor) : owned && !participant.hasActed),
           isReroll: isGM && participant.hasActed,
+          // A GM can take back a recorded result; a hero point reroll then
+          // belongs to the player, who rolls it themselves.
+          canClearReroll: isGM && hasUndoableRoll(participant),
+          lastRollLabel: participant.lastRoll?.label ?? '',
           canAward: isGM,
           canSpendEdge: isGM && event.edgePoints > 0 && rollOptions.length > 0,
           rollOptions,
@@ -1380,6 +1441,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           // The GM may roll for anyone, including someone who has already gone.
           canRoll: owned && event.started && (isGM || !participant.hasActed) && rollOptions.length > 0,
           isReroll: isGM && participant.hasActed,
+          // A GM can take back a recorded result; a hero point reroll then
+          // belongs to the player, who rolls it themselves.
+          canClearReroll: isGM && hasUndoableRoll(participant),
+          lastRollLabel: participant.lastRoll?.label ?? '',
           canAward: isGM,
           rollOptions,
           contributedTotal: contribution.total ?? 0,
@@ -1487,6 +1552,10 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
           missingActor: Boolean(participant.uuid) && !actor,
           canRoll: rollOptions.length > 0 && (isGM ? Boolean(actor) : owned && !participant.hasActed),
           isReroll: isGM && participant.hasActed,
+          // A GM can take back a recorded result; a hero point reroll then
+          // belongs to the player, who rolls it themselves.
+          canClearReroll: isGM && hasUndoableRoll(participant),
+          lastRollLabel: participant.lastRoll?.label ?? '',
           canAward: isGM,
           rollOptions,
           contributedTotal: contribution.total ?? 0,
@@ -4218,6 +4287,21 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       if (!obstacle) return;
       obstacle.rounds.current = Math.max(0, (obstacle.rounds.current ?? 0) + delta);
     });
+  }
+
+  /**
+   * Take back a participant's last roll so they can go again.
+   *
+   * The GM's half of a hero point. Rolling for them again would stack a
+   * second result on the first - the points from both, the tally counting
+   * two rolls - so the first is undone rather than overwritten, and the
+   * participant is freed to roll it themselves.
+   */
+  static async #onClearReroll(_event, target) {
+    const { key, id } = eventTarget(target.dataset);
+    const { participantId } = target.dataset;
+    if (!participantId) return;
+    await clearLastRoll({ subsystem: key, eventId: id, participantId });
   }
 
   static async #onToggleActed(_event, target) {

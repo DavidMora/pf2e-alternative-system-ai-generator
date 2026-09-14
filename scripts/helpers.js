@@ -658,6 +658,83 @@ export function nextActiveScene(current, clicked) {
 }
 
 /**
+ * Whether a participant has a roll a GM could take back.
+ *
+ * Only a recorded roll can be undone: a participant who has not rolled, or
+ * whose result predates this being recorded, has nothing to restore and must
+ * not be offered a button that would do nothing.
+ */
+export function hasUndoableRoll(participant) {
+  return Object.keys(participant?.lastRoll?.undo ?? {}).length > 0;
+}
+
+/**
+ * Everything in `before` that `after` changed, as dotted paths to old values.
+ *
+ * This is how a roll is made undoable without every subsystem growing its own
+ * reversal code: take a copy of the event before the roll is applied, diff it
+ * against the result, and keep only what moved. Re-applying that puts the
+ * event back exactly as it stood.
+ *
+ * Arrays are compared whole - nothing here edits one element of a list - and
+ * a key the roll created is recorded as null so undoing empties it rather
+ * than leaving a value nobody put there.
+ */
+export function inverseDiff(before, after, prefix = '') {
+  const out = {};
+  const plain = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  for (const key of keys) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const was = before?.[key];
+    const now = after?.[key];
+    if (plain(was) && plain(now)) {
+      Object.assign(out, inverseDiff(was, now, path));
+    } else if (JSON.stringify(was ?? null) !== JSON.stringify(now ?? null)) {
+      out[path] = was ?? null;
+    }
+  }
+  return out;
+}
+
+/** Put back what `inverseDiff` recorded. */
+export function applySnapshot(target, snapshot) {
+  for (const [path, value] of Object.entries(snapshot ?? {})) {
+    const parts = path.split('.');
+    let node = target;
+    for (const part of parts.slice(0, -1)) {
+      if (!node || typeof node !== 'object') return;
+      node[part] ??= {};
+      node = node[part];
+    }
+    if (node && typeof node === 'object') node[parts.at(-1)] = value;
+  }
+  return target;
+}
+
+/**
+ * Which obstacles a viewer sees in a chase, and which one they are pinned to.
+ *
+ * A GM sees every obstacle and browses freely. A player sees the ones the GM
+ * has unlocked - plus, always, the obstacle they are standing in front of.
+ * Being asked to roll against an obstacle you cannot read, because the GM has
+ * not got round to unlocking it, is the state this exists to prevent; on a
+ * fork it is also the difference between reading your own obstacle and
+ * reading the one the rest of the party took.
+ *
+ * @param {Array<object>} sorted Obstacles in running order.
+ * @param {object} options
+ * @param {boolean} options.isGM
+ * @param {Set<string>} options.ownIds Obstacles this viewer's participants face.
+ */
+export function chaseObstaclesFor(sorted, { isGM, ownIds = new Set() } = {}) {
+  const visible = (sorted ?? []).filter(
+    (obstacle) => isGM || !obstacle.locked || ownIds.has(obstacle.id),
+  );
+  return { visible, ownIndex: isGM ? -1 : visible.findIndex((o) => ownIds.has(o.id)) };
+}
+
+/**
  * The scene bar, with the scene the table is on guaranteed to be in it.
  *
  * A player's bar is built from scenes they have a revealed check in, so a

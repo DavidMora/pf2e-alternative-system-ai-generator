@@ -547,7 +547,7 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
  * scenes. Tags group them; the filter is what turns "which of these forty can
  * the party roll right now" into one glance.
  */
-const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, earnedAnswer, nextActiveScene, playerSceneGate, resolveSharedScene, sceneNotes, withSharedScene, UNTAGGED } = await import(`file://${base}/helpers.js`);
+const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, chaseObstaclesFor, earnedAnswer, inverseDiff, applySnapshot, nextActiveScene, playerSceneGate, resolveSharedScene, sceneNotes, withSharedScene, UNTAGGED } = await import(`file://${base}/helpers.js`);
 
 check('tags compare without case or spacing',
   [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
@@ -703,6 +703,86 @@ check('a scene counts as described from either half',
   ], [true, true, false, false]);
 check('a picture survives a record with nothing else in it',
   sceneNotes({ s: { img: 'a.webp' } }, 's').img, 'a.webp');
+
+/*
+ * Undoing a roll.
+ *
+ * A hero point means the first roll never happened, so the points it awarded,
+ * the counters it moved and anything it revealed all have to go back. Rather
+ * than six subsystems each growing their own reversal code, a copy of the
+ * event is taken before the roll and diffed against the result: what moved is
+ * what gets put back.
+ */
+const beforeRoll = {
+  obstacles: { o1: { chasePoints: { current: 2, goal: 5 }, name: 'The Gap', locked: true } },
+  participants: { p1: { hasActed: false, branch: '', contribution: { total: 0, rolls: 0, successes: 0, byObstacle: {} } } },
+};
+const afterRoll = {
+  obstacles: { o1: { chasePoints: { current: 3, goal: 5 }, name: 'The Gap', locked: false } },
+  participants: { p1: { hasActed: true, branch: 'B', contribution: { total: 1, rolls: 1, successes: 1, byObstacle: { o1: 1 } } } },
+};
+const undo = inverseDiff(beforeRoll, afterRoll);
+check('a roll\'s every change is recorded, and nothing that did not move',
+  Object.keys(undo).sort(),
+  ['obstacles.o1.chasePoints.current', 'obstacles.o1.locked', 'participants.p1.branch',
+   'participants.p1.contribution.byObstacle.o1', 'participants.p1.contribution.rolls',
+   'participants.p1.contribution.successes', 'participants.p1.contribution.total',
+   'participants.p1.hasActed']);
+const restored = applySnapshot(structuredClone(afterRoll), undo);
+check('and applying it puts the points and the counters back',
+  [restored.obstacles.o1.chasePoints.current, restored.participants.p1.hasActed,
+   restored.participants.p1.branch, restored.participants.p1.contribution.total,
+   restored.participants.p1.contribution.rolls, restored.participants.p1.contribution.successes],
+  [2, false, '', 0, 0, 0]);
+/*
+ * A tally the roll opened comes back as null rather than disappearing: null
+ * is a legitimate stored value elsewhere - a chase with no round limit keeps
+ * `rounds.max` null - so "put this back to null" and "delete this" cannot
+ * safely be the same instruction. Every reader of these tallies coalesces,
+ * so a null reads as nothing contributed, which is the truth.
+ */
+check('a tally the roll opened is emptied rather than left standing',
+  restored.participants.p1.contribution.byObstacle.o1, null);
+check('an unchanged event records nothing to undo', inverseDiff(beforeRoll, beforeRoll), {});
+// A reveal is a change like any other, so it reverses with the rest.
+check('something the roll unhid goes back to hidden', undo['obstacles.o1.locked'], true);
+check('applying an empty snapshot changes nothing',
+  applySnapshot({ a: 1 }, {}), { a: 1 });
+
+/*
+ * The obstacle a player is standing in front of is always readable by them.
+ *
+ * A chase hides obstacles until the GM unlocks them, which is right for the
+ * ones ahead and wrong for the one the party is in: a player asked to roll
+ * against an obstacle they cannot read, because the GM has not got round to
+ * unlocking it, is stuck. On a fork it is also the difference between reading
+ * your own obstacle and reading the one the others took.
+ */
+const chaseSteps = [
+  { id: 'o1', locked: false, name: 'The Gap' },
+  { id: 'o2a', locked: true, name: 'Rooftops' },
+  { id: 'o2b', locked: true, name: 'The Sewers' },
+  { id: 'o3', locked: true, name: 'The Bridge' },
+];
+check('a GM sees every obstacle, locked or not',
+  chaseObstaclesFor(chaseSteps, { isGM: true }).visible.map((o) => o.id),
+  ['o1', 'o2a', 'o2b', 'o3']);
+check('a player sees only what has been unlocked',
+  chaseObstaclesFor(chaseSteps, { isGM: false }).visible.map((o) => o.id), ['o1']);
+check('but always the locked obstacle they are standing in',
+  chaseObstaclesFor(chaseSteps, { isGM: false, ownIds: new Set(['o2b']) }).visible.map((o) => o.id),
+  ['o1', 'o2b']);
+check('and it does not drag its fork sibling into view with it',
+  chaseObstaclesFor(chaseSteps, { isGM: false, ownIds: new Set(['o2b']) })
+    .visible.some((o) => o.id === 'o2a'), false);
+check('the player is pinned to their own obstacle, not the party\'s',
+  chaseObstaclesFor(chaseSteps, { isGM: false, ownIds: new Set(['o2b']) }).ownIndex, 1);
+check('a player facing nothing in particular is pinned to nothing in particular',
+  chaseObstaclesFor(chaseSteps, { isGM: false }).ownIndex, -1);
+check('a GM is never pinned - they browse',
+  chaseObstaclesFor(chaseSteps, { isGM: true, ownIds: new Set(['o2b']) }).ownIndex, -1);
+check('an empty chase is not an error', chaseObstaclesFor(undefined, { isGM: false }),
+  { visible: [], ownIndex: -1 });
 
 /*
  * The bar always contains the scene the table is on.
@@ -931,6 +1011,15 @@ check('a gated player is shown nothing rather than everything',
 check('an encounter counts as scened from its own checks, not the viewer\'s',
   /const hasScenes = \[\s*\n\s*\.\.\.Object\.values\(event\.discoveries \?\? \{\}\),\s*\n\s*\.\.\.Object\.values\(event\.influenceSkills \?\? \{\}\),\s*\n\s*\]\.some\(\(entry\) => \(entry\.tags \?\? \[\]\)\.length > 0\);/.test(viewSource),
   true);
+// And the chase view has to route both decisions through that rule.
+check('the chase view filters and pins through the shared obstacle rule',
+  /const \{ visible: obstacles \} = chaseObstaclesFor\(allSorted, \{ isGM, ownIds: ownObstacleIds \}\);/.test(viewSource)
+  && /const \{ ownIndex \} = chaseObstaclesFor\(preparedObstacles, \{ isGM, ownIds: ownObstacleIds \}\);/.test(viewSource),
+  true);
+// Ownership decides whose obstacle it is, so it must be read from the actor.
+check('and it works out whose obstacle it is from actor ownership',
+  /if \(!actor\?\.isOwner\) continue;/.test(viewSource), true);
+
 // And the view has to build its bar through that, or the fix is inert.
 check('the scene bar is built with the shared scene folded in',
   /const summaryRows = withSharedScene\(built\.tags, sharedKey, sharedName\);/.test(viewSource), true);

@@ -796,5 +796,8 @@
   "PFAI.Influence.ScenePreviewNote": "Estás leyendo otra escena; ellos se quedan donde están hasta que les muestres otra.",
   "PFAI.Influence.WaitingForScene": "El DJ aún no os ha llevado a ninguna escena.",
   "PFAI.Influence.NoSceneShared": "El grupo aún no ve nada. Elige una escena y pulsa Mostrar al grupo cuando quieras llevarlos a ella.",
-  "PFAI.View.ReadyForPlayers": "«{name}» está abierta al grupo. Aún no hay nadie conectado, así que no se ha abierto ninguna ventana: estará ahí cuando entren."
+  "PFAI.View.ReadyForPlayers": "«{name}» está abierta al grupo. Aún no hay nadie conectado, así que no se ha abierto ninguna ventana: estará ahí cuando entren.",
+  "PFAI.Roll.RerollCleared": "Se ha deshecho la última tirada de {name}. Puede volver a tirar.",
+  "PFAI.Roll.ClearReroll": "Deshacer la última tirada",
+  "PFAI.Roll.ClearRerollHint": "Deshace este resultado —los puntos, el recuento y lo que destapara— y le permite volver a tirar. Para una repetición con punto de héroe, para que tire el propio jugador."
 }

@@ -136,6 +136,15 @@ export class Research extends foundry.abstract.DataModel {
           uuid: new fields.StringField({ required: true, initial: '' }),
           hidden: new fields.BooleanField({ required: true, initial: false }),
           hasActed: new fields.BooleanField({ required: true, initial: false }),
+          /**
+           * What this participant's last roll did, so a GM can take it back.
+           *
+           * Holds the inverse of the change the roll made - see `inverseDiff`
+           * - which is what makes a hero point reroll possible: clear the
+           * result, and the player rolls again themselves rather than the GM
+           * rolling a replacement over the top of the first.
+           */
+          lastRoll: new foundry.data.fields.ObjectField({ required: true, initial: () => ({}) }),
           contribution: new fields.SchemaField({
             total: new fields.NumberField({ required: true, integer: true, initial: 0 }),
             successes: new fields.NumberField({ required: true, integer: true, initial: 0 }),

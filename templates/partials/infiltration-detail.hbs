@@ -495,6 +495,13 @@
         </span>
         <span class="pfai-p-end">
           {{#if ../../isGM}}
+            {{#if participant.canClearReroll}}
+              <button type="button" class="pfai-icon pfai-row-control pfai-clear-reroll" data-action="clearReroll"
+                      data-subsystem="infiltration" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
+                      data-tooltip="{{localize 'PFAI.Roll.ClearRerollHint'}}">
+                <i class="fa-solid fa-rotate-left"></i>
+              </button>
+            {{/if}}
             <button type="button" class="pfai-icon pfai-row-control" data-action="toggleActed"
                     data-subsystem="infiltration" data-event-id="{{../id}}" data-participant-id="{{participant.id}}"
                     data-tooltip="{{localize 'PFAI.Chase.ToggleActed'}}">

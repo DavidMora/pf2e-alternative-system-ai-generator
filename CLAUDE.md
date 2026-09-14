@@ -80,6 +80,15 @@ These exist because getting them wrong produced real bugs:
   prompt tells the model they are authoritative.
 - **Mechanical values that scale with the party come from the published formula**,
   not the model. See `chasePointGoal`.
+- **A roll has to be undoable, and generically.** A hero point means the first
+  roll never happened, so its points, its counters and whatever it uncovered
+  all go back. Rather than six subsystems each growing reversal code, every
+  `apply*` takes `snapshotBefore(event)` at the top and `rememberRoll(...)` at
+  the bottom; `inverseDiff` keeps only what moved and `clearLastRoll` puts it
+  back. Add a new scoring path and it inherits this by doing the same two
+  lines - and note that restoring alone is not enough, because a participant
+  who had already acted would be restored to "has acted" and still unable to
+  roll.
 - **Credit what actually changed**, not the nominal value. A critical failure
   absorbed by the zero floor costs nobody a point.
 - **World settings are GM-writable only.** Anything a player does that changes
