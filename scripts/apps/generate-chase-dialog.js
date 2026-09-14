@@ -5,7 +5,9 @@ import {
   SETTINGS,
 } from '../constants.js';
 import {
+  applyFork,
   generateChase,
+  generateFork,
   generateObstacles,
   premiseToHTML,
   withListPosition,
@@ -13,10 +15,13 @@ import {
 import { activeModel, hasApiKey } from '../ai/openai.js';
 import { makeSaveBrief } from '../exchange.js';
 import {
+  branchesAt,
+  forkTargets,
   getChase,
   getChases,
   guessPartyLevel,
   setChases,
+  stepsOf,
   suggestedBaseDC,
   updateChase,
 } from '../helpers.js';
@@ -136,6 +141,9 @@ export class GenerateChaseDialog extends HandlebarsApplicationMixin(ApplicationV
       baseDC: Math.clamp(Number(data.baseDC) || DEFAULT_BASE_DC, 1, 60),
       // Blank or 0 means "let the model decide".
       obstacleCount: Math.clamp(Number(data.obstacleCount) || 0, 0, 10),
+      // The GM decides how many times the route splits; the model only
+      // invents what is down each side.
+      forkCount: Math.clamp(Number(data.forkCount) || 0, 0, 4),
       difficulty: data.difficulty ?? 'auto',
       roundLimit: Math.max(0, Number(data.roundLimit) || 0),
       level: guessPartyLevel(),
@@ -181,6 +189,8 @@ export class GenerateChaseDialog extends HandlebarsApplicationMixin(ApplicationV
         ui.notifications.info(game.i18n.format('PFAI.Generate.Success', { name: stored.name }));
       }
 
+      if (options.forkCount > 0) await this.#addForks(chaseId, options);
+
       this.#onGenerated?.(chaseId);
       await this.close();
     } catch (error) {
@@ -194,6 +204,76 @@ export class GenerateChaseDialog extends HandlebarsApplicationMixin(ApplicationV
       this.#abortController = null;
       await this.render();
     }
+  }
+
+  /**
+   * Split the route where the GM asked for splits.
+   *
+   * Run after the obstacles exist, because a fork is defined against one: it
+   * needs the obstacle it forks from and the approaches at the step before,
+   * so that succeeding at one of them commits a character to a side. Each
+   * fork is one further request, which is why the field says so.
+   *
+   * Falls short quietly rather than failing the whole generation: a chase
+   * with three obstacles and two forks asked for is still a usable chase.
+   */
+  async #addForks(chaseId, options) {
+    const chase = getChase(chaseId);
+    if (!chase) return;
+
+    const targets = forkTargets(stepsOf(chase.obstacles), options.forkCount);
+    if (!targets.length) {
+      ui.notifications.warn(game.i18n.format('PFAI.Generate.NoRoomToFork', { name: chase.name }));
+      return;
+    }
+
+    let done = 0;
+    for (const position of targets) {
+      if (this.#abortController?.signal.aborted) break;
+      const current = getChase(chaseId);
+      const source = branchesAt(current.obstacles, position)[0];
+      if (!source) continue;
+
+      const steps = stepsOf(current.obstacles);
+      const previous = branchesAt(current.obstacles, steps[steps.indexOf(position) - 1]);
+      const optionLabels = [
+        ...new Set(
+          previous.flatMap((o) => Object.values(o.skillOptions ?? {}).map((opt) => opt.label)),
+        ),
+      ];
+
+      try {
+        const result = await generateFork(
+          {
+            premise: GenerateChaseDialog.#htmlToText(current.premise),
+            baseDC: current.baseDC,
+            level: options.level,
+            partySize: current.partySize,
+            difficulty: options.difficulty,
+            language: options.language,
+            forkFrom: {
+              name: source.name,
+              description: GenerateChaseDialog.#htmlToText(source.overcome).split('\n')[0],
+              previousName: previous[0]?.name ?? '',
+              optionLabels,
+            },
+          },
+          { signal: this.#abortController?.signal },
+        );
+        await updateChase(chaseId, (draft) => { applyFork(draft, source.id, result); });
+        done += 1;
+      } catch (error) {
+        if (error.name === 'AbortError') break;
+        console.error(`${MODULE_ID} | fork generation failed`, error);
+      }
+    }
+
+    const name = getChase(chaseId)?.name ?? '';
+    ui.notifications.info(
+      done === targets.length
+        ? game.i18n.format('PFAI.Generate.ForksAdded', { count: done, name })
+        : game.i18n.format('PFAI.Generate.ForksPartial', { done, asked: targets.length, name }),
+    );
   }
 
   static #onCancel() {

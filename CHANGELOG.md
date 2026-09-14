@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Generated chases can fork
+
+The generator only ever produced a straight line of obstacles, even though
+chases have supported forks — two routes at the same step, with the approaches
+before them deciding which way you go — since the fork button existed. The
+generate dialog now has a **Forks** field: say how many times the route should
+split and it splits that many times, spread across the chase rather than
+bunched, never on the opening obstacle. The count is yours; the model only
+invents what is down each side. Each fork is one further request, so the field
+says so.
+
 ### A GM can take a roll back
 
 Every subsystem now records what a roll did, and a GM can undo it from the

@@ -46,6 +46,12 @@
     </label>
 
     <label class="pfai-field">
+      <span>{{localize 'PFAI.Generate.ForkCount'}}</span>
+      <input type="number" name="forkCount" min="0" max="4" step="1" value="0" {{#if busy}}disabled{{/if}}>
+      <small>{{localize 'PFAI.Generate.ForkHint'}}</small>
+    </label>
+
+    <label class="pfai-field">
       <span>{{localize 'PFAI.Generate.Difficulty'}}</span>
       <select name="difficulty" {{#if busy}}disabled{{/if}}>
         {{#each difficulties as |difficulty|}}

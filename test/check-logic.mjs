@@ -21,7 +21,7 @@ globalThis.game = {
 };
 
 const { dcFromBase, levelDC, buildOvercomeHTML, buildSkillOptions, escapeHTML, slugify, htmlToPromptText, chasePointGoal, chasePointsForDegree } = await import(`file://${base}/helpers.js`);
-const { CHASE_SCHEMA, OBSTACLES_SCHEMA, FORK_SCHEMA, toChaseData, toObstacleRecord, premiseToHTML } = await import(`file://${base}/ai/chase.js`);
+const { CHASE_SCHEMA, OBSTACLES_SCHEMA, FORK_SCHEMA, applyFork, toChaseData, toObstacleRecord, premiseToHTML } = await import(`file://${base}/ai/chase.js`);
 
 let failed = 0;
 const check = (label, actual, expected) => {
@@ -547,7 +547,7 @@ console.log('ok  both schemas satisfy strict-mode rules, and neither generates a
  * scenes. Tags group them; the filter is what turns "which of these forty can
  * the party roll right now" into one glance.
  */
-const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, chaseObstaclesFor, earnedAnswer, inverseDiff, applySnapshot, nextActiveScene, playerSceneGate, resolveSharedScene, sceneNotes, withSharedScene, UNTAGGED } = await import(`file://${base}/helpers.js`);
+const { tagKey, parseTags, matchesCheckFilter, buildTagSummary, chaseObstaclesFor, earnedAnswer, forkTargets, inverseDiff, applySnapshot, nextActiveScene, playerSceneGate, resolveSharedScene, sceneNotes, withSharedScene, UNTAGGED } = await import(`file://${base}/helpers.js`);
 
 check('tags compare without case or spacing',
   [tagKey('The Feast'), tagKey('the  feast'), tagKey(' THE FEAST ')].every((k) => k === 'the-feast'), true);
@@ -703,6 +703,86 @@ check('a scene counts as described from either half',
   ], [true, true, false, false]);
 check('a picture survives a record with nothing else in it',
   sceneNotes({ s: { img: 'a.webp' } }, 's').img, 'a.webp');
+
+/*
+ * Turning an obstacle into a fork.
+ *
+ * A fork is not just a second obstacle at the same step: it is also every
+ * approach at the step before deciding which way it sends you. Both the fork
+ * button and generation go through this, so it is worth holding to that.
+ */
+{
+  const chase = {
+    baseDC: 20,
+    partySize: 4,
+    obstacles: {
+      first: {
+        id: 'first', position: 0, name: 'The Gap', branch: '', locked: false,
+        overcome: '<ul><li>{Leap} across.</li><li>{Climb} down.</li></ul>',
+        skillOptions: {
+          a: { id: 'a', position: 0, label: 'Leap', dc: 20, leadsTo: '' },
+          b: { id: 'b', position: 1, label: 'Climb', dc: 20, leadsTo: '' },
+        },
+        chasePoints: { current: 0, goal: 3 },
+      },
+      second: {
+        id: 'second', position: 1, name: 'The Rooftops', branch: '', locked: true,
+        overcome: '<ul><li>{Balance} along.</li></ul>',
+        skillOptions: { c: { id: 'c', position: 0, label: 'Balance', dc: 20, leadsTo: '' } },
+        chasePoints: { current: 0, goal: 3 },
+      },
+    },
+  };
+  const result = {
+    alternative: {
+      name: 'The Sewers', description: 'Wet, dark and quick.',
+      // A generated alternative may come back with its approaches already
+      // routed somewhere. Left alone they would point the party at the fork's
+      // own sibling, which is a loop rather than a route.
+      skillOptions: [
+        { skill: 'athletics', dcAdjustment: 'standard', description: 'Push through.', leadsTo: 'A' },
+      ],
+    },
+    routing: [{ optionLabel: 'Leap', leadsTo: 'A' }, { optionLabel: 'Climb', leadsTo: 'B' }],
+  };
+  const added = applyFork(chase, 'second', result);
+  check('forking adds a second obstacle at the same step',
+    [added.position, Object.keys(chase.obstacles).length], [1, 3]);
+  check('and both sides of the fork are labelled',
+    [chase.obstacles.second.branch, added.branch].sort(), ['A', 'B']);
+  check('the approaches at the step before are routed onto the two sides',
+    [chase.obstacles.first.skillOptions.a.leadsTo, chase.obstacles.first.skillOptions.b.leadsTo],
+    [chase.obstacles.second.branch, added.branch]);
+  check('and the read-aloud prose says where each one leads',
+    /Leap[^<]*<em>/.test(chase.obstacles.first.overcome), true);
+  check('a fork\'s own approaches route onward, not into its sibling',
+    Object.values(added.skillOptions).every((o) => o.leadsTo === ''), true);
+  check('forking an obstacle that is not there is refused, not guessed',
+    applyFork(chase, 'nope', result), null);
+}
+
+/*
+ * Where a chase forks, when the GM asks for forks.
+ *
+ * The count is the GM's - the model invents what is down each route, not how
+ * many routes there are. The first step is never a fork: a fork is also the
+ * decision made at the step before it, and nothing comes before the first.
+ */
+check('no forks asked for, none placed', forkTargets([0, 1, 2, 3], 0), []);
+check('one fork lands away from the start, not on the opening obstacle',
+  forkTargets([0, 1, 2, 3, 4], 1), [3]);
+check('two forks are spread out rather than bunched',
+  forkTargets([0, 1, 2, 3, 4, 5], 2), [2, 4]);
+check('the first step is never a fork, whatever is asked for',
+  forkTargets([0, 1, 2], 5).includes(0), false);
+check('asking for more forks than there are steps gives one each',
+  forkTargets([0, 1, 2], 5), [1, 2]);
+check('a chase of one obstacle cannot fork at all', forkTargets([0], 2), []);
+check('and no steps at all is not an error', forkTargets(undefined, 2), []);
+check('a step is never picked twice',
+  new Set(forkTargets([0, 1, 2, 3, 4, 5, 6], 4)).size, forkTargets([0, 1, 2, 3, 4, 5, 6], 4).length);
+check('the positions come back in running order',
+  forkTargets([0, 1, 2, 3, 4, 5, 6], 3), [...forkTargets([0, 1, 2, 3, 4, 5, 6], 3)].sort((a, b) => a - b));
 
 /*
  * Undoing a roll.

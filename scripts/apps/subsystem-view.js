@@ -45,6 +45,7 @@ import {
   buildTagSummary,
   chaseObstaclesFor,
   hasUndoableRoll,
+  rebuildOvercomeRoutes,
   earnedAnswer,
   playerSceneGate,
   withSharedScene,
@@ -71,7 +72,7 @@ import { GenerateInfluenceDialog } from './generate-influence-dialog.js';
 import { GenerateResearchDialog } from './generate-research-dialog.js';
 import { GenerateInfiltrationDialog } from './generate-infiltration-dialog.js';
 import { GenerateLeadershipDialog } from './generate-leadership-dialog.js';
-import { generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
+import { applyFork, generateFork, generateOneObstacle, toObstacleEntry } from '../ai/chase.js';
 import { generateApproach, generateScene, toApproachEntry } from '../ai/influence.js';
 import { generateSource, toCheckEntry, toSourceEntry } from '../ai/research.js';
 import { generateObstacle as generateInfiltrationObstacle, toObstacleEntry as toInfiltrationObstacle } from '../ai/infiltration.js';
@@ -4221,30 +4222,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
       });
 
       await updateChase(chaseId, (draft) => {
-        const original = draft.obstacles[obstacleId];
-        if (!original) return;
-
-        if (!original.branch) original.branch = nextBranchLabel(draft.obstacles, original.position);
-        const entry = toObstacleEntry(result.alternative, draft.baseDC, {
-          position: original.position,
-          locked: true,
-          partySize: draft.partySize,
-        });
-        entry.branch = nextBranchLabel(draft.obstacles, original.position);
-        // A fork's own approaches route onward, not into its sibling.
-        for (const option of Object.values(entry.skillOptions)) option.leadsTo = '';
-        draft.obstacles[entry.id] = entry;
-
-        const byLabel = new Map(
-          (result.routing ?? []).map((r) => [String(r.optionLabel).toLowerCase(), r.leadsTo]),
-        );
-        for (const step of branchesAt(draft.obstacles, previousPosition)) {
-          for (const option of Object.values(step.skillOptions ?? {})) {
-            const side = byLabel.get(option.label.toLowerCase());
-            if (side) option.leadsTo = side === 'B' ? entry.branch : original.branch;
-          }
-          step.overcome = rebuildOvercomeRoutes(step);
-        }
+        applyFork(draft, obstacleId, result);
       });
 
       ui.notifications.info(
@@ -4812,34 +4790,7 @@ export class SubsystemView extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 }
 
-/**
- * Re-annotate an obstacle's stored HTML with the routes its approaches lead to.
- *
- * Idempotent: existing annotations are stripped first, so re-routing an
- * approach corrects the read-aloud prose instead of leaving a stale note or
- * stacking a second one beside it.
- */
-function rebuildOvercomeRoutes(obstacle) {
-  // Strip any previous route note, whatever branch it named.
-  const noteFor = (branch) => game.i18n.format('PFAI.Chase.LeadsToRoute', { branch });
-  const anyNote = new RegExp(
-    `\\s*<em>${escapeRegExp(noteFor('\u0000')).replace('\u0000', '[^<]*')}</em>`,
-    'g',
-  );
-  let html = (obstacle.overcome ?? '').replace(anyNote, '');
 
-  for (const option of Object.values(obstacle.skillOptions ?? {})) {
-    if (!option.leadsTo) continue;
-    const note = ` <em>${noteFor(option.leadsTo)}</em>`;
-    const pattern = new RegExp(`(\\{${escapeRegExp(option.label)}\\}[^<]*)(</li>)`);
-    if (pattern.test(html)) html = html.replace(pattern, `$1${note}$2`);
-  }
-  return html;
-}
-
-function escapeRegExp(value) {
-  return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 /** Flatten stored HTML back to plain text for use as a prompt. */
 function htmlToText(html) {

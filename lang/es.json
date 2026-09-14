@@ -799,5 +799,10 @@
   "PFAI.View.ReadyForPlayers": "«{name}» está abierta al grupo. Aún no hay nadie conectado, así que no se ha abierto ninguna ventana: estará ahí cuando entren.",
   "PFAI.Roll.RerollCleared": "Se ha deshecho la última tirada de {name}. Puede volver a tirar.",
   "PFAI.Roll.ClearReroll": "Deshacer la última tirada",
-  "PFAI.Roll.ClearRerollHint": "Deshace este resultado —los puntos, el recuento y lo que destapara— y le permite volver a tirar. Para una repetición con punto de héroe, para que tire el propio jugador."
+  "PFAI.Roll.ClearRerollHint": "Deshace este resultado —los puntos, el recuento y lo que destapara— y le permite volver a tirar. Para una repetición con punto de héroe, para que tire el propio jugador.",
+  "PFAI.Generate.ForkCount": "Bifurcaciones",
+  "PFAI.Generate.ForkHint": "Puntos donde la ruta se divide en dos. Cada una cuesta una petición más.",
+  "PFAI.Generate.ForksAdded": "Se han añadido {count} bifurcación(es) a «{name}».",
+  "PFAI.Generate.ForksPartial": "Se han añadido {done} de {asked} bifurcaciones a «{name}»; el resto no se han podido generar.",
+  "PFAI.Generate.NoRoomToFork": "«{name}» tiene muy pocos obstáculos para bifurcarse. Una bifurcación necesita un paso del que salir."
 }

@@ -658,6 +658,43 @@ export function nextActiveScene(current, clicked) {
 }
 
 /**
+ * Which obstacles to turn into forks, given how many the GM asked for.
+ *
+ * The first step is never one: a fork is also a decision made at the step
+ * before it, and there is nothing before the first. Beyond that they are
+ * spread across what remains rather than bunched together, because two forks
+ * in a row reads as noise. A late step can still be picked - when the GM asks
+ * for as many forks as there are steps to put them on, every one of them
+ * forks.
+ *
+ * Fewer candidates than the GM asked for means fewer forks, not a repeat: a
+ * step cannot fork twice here.
+ *
+ * @param {Array<number>} steps Step positions in running order.
+ * @param {number} wanted How many forks the GM asked for.
+ */
+export function forkTargets(steps, wanted) {
+  const forkable = (steps ?? []).slice(1);
+  const count = Math.min(Math.max(0, Math.trunc(wanted) || 0), forkable.length);
+  if (!count) return [];
+  if (count === forkable.length) return [...forkable];
+  /*
+   * Divide the forkable steps into count+1 stretches and fork at each
+   * boundary, so two forks across five steps land a couple of obstacles apart
+   * rather than side by side.
+   */
+  const picked = [];
+  for (let i = 1; i <= count; i += 1) {
+    let index = Math.floor((i * forkable.length) / (count + 1));
+    index = Math.min(Math.max(index, 0), forkable.length - 1);
+    while (picked.includes(forkable[index]) && index < forkable.length - 1) index += 1;
+    while (picked.includes(forkable[index]) && index > 0) index -= 1;
+    if (!picked.includes(forkable[index])) picked.push(forkable[index]);
+  }
+  return picked.sort((a, b) => a - b);
+}
+
+/**
  * Whether a participant has a roll a GM could take back.
  *
  * Only a recorded roll can be undone: a participant who has not rolled, or
@@ -842,3 +879,33 @@ export function earnedAnswer(entry, isGM) {
     pending: Boolean(isGM && answer && !earned),
   };
 }
+
+/**
+ * Re-annotate an obstacle's stored HTML with the routes its approaches lead to.
+ *
+ * Idempotent: existing annotations are stripped first, so re-routing an
+ * approach corrects the read-aloud prose instead of leaving a stale note or
+ * stacking a second one beside it.
+ */
+export function rebuildOvercomeRoutes(obstacle) {
+  // Strip any previous route note, whatever branch it named.
+  const noteFor = (branch) => game.i18n.format('PFAI.Chase.LeadsToRoute', { branch });
+  const anyNote = new RegExp(
+    `\\s*<em>${escapeRegExp(noteFor('\u0000')).replace('\u0000', '[^<]*')}</em>`,
+    'g',
+  );
+  let html = (obstacle.overcome ?? '').replace(anyNote, '');
+
+  for (const option of Object.values(obstacle.skillOptions ?? {})) {
+    if (!option.leadsTo) continue;
+    const note = ` <em>${noteFor(option.leadsTo)}</em>`;
+    const pattern = new RegExp(`(\\{${escapeRegExp(option.label)}\\}[^<]*)(</li>)`);
+    if (pattern.test(html)) html = html.replace(pattern, `$1${note}$2`);
+  }
+  return html;
+}
+
+function escapeRegExp(value) {
+  return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+

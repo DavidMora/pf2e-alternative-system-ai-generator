@@ -799,5 +799,10 @@
   "PFAI.View.ReadyForPlayers": "“{name}” is open to players. Nobody is online yet, so no window was opened — it will be there when they join.",
   "PFAI.Roll.RerollCleared": "{name}'s last roll has been taken back. They can roll again.",
   "PFAI.Roll.ClearReroll": "Take back last roll",
-  "PFAI.Roll.ClearRerollHint": "Undo this result — the points, the tally and anything it uncovered — and let them roll again. For a hero point reroll, so the player makes the roll themselves."
+  "PFAI.Roll.ClearRerollHint": "Undo this result — the points, the tally and anything it uncovered — and let them roll again. For a hero point reroll, so the player makes the roll themselves.",
+  "PFAI.Generate.ForkCount": "Forks",
+  "PFAI.Generate.ForkHint": "Points where the route splits in two. Each costs an extra request.",
+  "PFAI.Generate.ForksAdded": "Added {count} fork(s) to “{name}”.",
+  "PFAI.Generate.ForksPartial": "Added {done} of {asked} forks to “{name}”; the rest could not be generated.",
+  "PFAI.Generate.NoRoomToFork": "“{name}” has too few obstacles to fork. A fork needs a step to branch from."
 }

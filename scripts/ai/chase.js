@@ -2,10 +2,14 @@ import { DC_ADJUSTMENTS, PF2E_SKILLS } from '../constants.js';
 import {
   buildOvercomeHTML,
   premiseToHTML,
+  branchesAt,
   buildSkillOptions,
   chasePointGoal,
   guessPartySize,
+  nextBranchLabel,
   nextPosition,
+  rebuildOvercomeRoutes,
+  stepsOf,
 } from '../helpers.js';
 import { requestStructured } from './openai.js';
 
@@ -351,6 +355,54 @@ export function toObstacleEntry(obstacle, baseDC, { position = 0, locked = true,
 }
 
 /** Map generated obstacles onto the stored id-keyed shape. */
+/**
+ * Turn one obstacle into a fork, routing the step before it onto both sides.
+ *
+ * Shared by the fork button and by generation, which needs to do this several
+ * times over: a fork is not just a second obstacle at the same step, it is
+ * also every approach at the preceding step deciding which way it sends you,
+ * and the read-aloud prose being rewritten to say so.
+ *
+ * @param {object} draft The chase being edited.
+ * @param {string} sourceId The obstacle becoming one side of the fork.
+ * @param {object} result A generated `FORK_SCHEMA` answer.
+ * @returns {object|null} The obstacle added, or null if the source is gone.
+ */
+export function applyFork(draft, sourceId, result) {
+  const original = draft.obstacles?.[sourceId];
+  if (!original) return null;
+
+  const steps = stepsOf(draft.obstacles);
+  const previousPosition = steps[steps.indexOf(original.position) - 1];
+
+  if (!original.branch) original.branch = nextBranchLabel(draft.obstacles, original.position);
+  const entry = toObstacleEntry(result.alternative, draft.baseDC, {
+    position: original.position,
+    locked: original.locked,
+    partySize: draft.partySize,
+  });
+  entry.branch = nextBranchLabel(draft.obstacles, original.position);
+  // A fork's own approaches route onward, not into its sibling.
+  for (const option of Object.values(entry.skillOptions)) option.leadsTo = '';
+  draft.obstacles[entry.id] = entry;
+
+  // The first step has nothing before it to route, so a fork there would be
+  // one nobody could be sent down.
+  if (previousPosition === undefined) return entry;
+
+  const byLabel = new Map(
+    (result.routing ?? []).map((r) => [String(r.optionLabel).toLowerCase(), r.leadsTo]),
+  );
+  for (const step of branchesAt(draft.obstacles, previousPosition)) {
+    for (const option of Object.values(step.skillOptions ?? {})) {
+      const side = byLabel.get(option.label.toLowerCase());
+      if (side) option.leadsTo = side === 'B' ? entry.branch : original.branch;
+    }
+    step.overcome = rebuildOvercomeRoutes(step);
+  }
+  return entry;
+}
+
 export function toObstacleRecord(obstacles, baseDC, partySize) {
   const record = {};
   obstacles.forEach((obstacle, index) => {
