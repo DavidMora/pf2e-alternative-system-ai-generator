@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.6.0
+
+Tested on Foundry 13.351 with pf2e 7.12.2 and on Foundry 14.367 with pf2e
+8.4.1, with a GM and a player connected at once, including generating a
+forked chase against the live API.
 
 ### Generated chases can fork
 
