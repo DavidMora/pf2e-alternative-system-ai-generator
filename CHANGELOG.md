@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+**Adding players by selected token failed on influence encounters**, reporting
+that the actors were "already in this chase" — on an encounter that was not a
+chase. Its button was the only one in the module that named the chase rather
+than its own subsystem, so the add was applied to the chase store under an
+influence id, found nothing, and said so. Dragging from the actors sidebar
+worked, which is why it looked arbitrary. Every shared button is now checked
+for this: `eventTarget` silently falls back to the chase when a button omits
+its subsystem, so the test names any button that would.
+
+The "already taking part" notice no longer calls every subsystem a chase.
+
 ## 1.6.0
 
 Tested on Foundry 13.351 with pf2e 7.12.2 and on Foundry 14.367 with pf2e

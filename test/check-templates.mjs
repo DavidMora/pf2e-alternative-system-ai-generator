@@ -240,6 +240,55 @@ const INFLUENCE_ROLL_OPTIONS = [
  * assertions about the new filter bar failed against a fixture that simply
  * predated it. One copy, as CLAUDE.md says.
  */
+/*
+ * A shared button must say which subsystem it belongs to.
+ *
+ * `eventTarget` falls back to the chase when `data-subsystem` is absent, so a
+ * button that forgets it does not fail loudly - it quietly operates on the
+ * chase store with another subsystem's id, finds nothing there, and reports
+ * that nothing happened. That is exactly how "add selected tokens" on an
+ * influence encounter came to say the actors were "already in this chase".
+ */
+{
+  const viewJs = readFileSync(path.join(dir, '..', 'scripts', 'apps', 'subsystem-view.js'), 'utf8');
+  // Actions whose handler resolves its target through eventTarget.
+  const handlerOf = new Map(
+    [...viewJs.matchAll(/^\s{6}(\w+): SubsystemView\.(#\w+),$/gm)].map((m) => [m[1], m[2]]),
+  );
+  const usesEventTarget = new Set();
+  for (const [action, handler] of handlerOf) {
+    const body = viewJs.match(
+      new RegExp(`static (?:async )?${handler}\\([^)]*\\) \\{([\\s\\S]*?)\\n  \\}`),
+    )?.[1];
+    if (body && /eventTarget\(/.test(body)) usesEventTarget.add(action);
+  }
+
+  const partials = {
+    influence: 'influence-detail.hbs',
+    research: 'research-detail.hbs',
+    infiltration: 'infiltration-detail.hbs',
+    leadership: 'leadership-detail.hbs',
+    victory: 'victory-detail.hbs',
+  };
+  const offenders = [];
+  for (const [key, file] of Object.entries(partials)) {
+    const src = readFileSync(path.join(dir, 'partials', file), 'utf8');
+    // Each <button ...> up to its closing angle bracket.
+    for (const [tag] of src.matchAll(/<button\b[\s\S]*?>/g)) {
+      const action = tag.match(/data-action="(\w+)"/)?.[1];
+      if (!action || !usesEventTarget.has(action)) continue;
+      if (!new RegExp(`data-subsystem="${key}"`).test(tag)) {
+        offenders.push(`${file}: ${action}`);
+      }
+    }
+  }
+  if (offenders.length) {
+    failed = 1;
+    console.error(`  shared buttons that would fall back to the chase: ${offenders.join(', ')}`);
+  }
+  console.log(`shared-button routing: ${usesEventTarget.size} shared actions, ${offenders.length} misrouted`);
+}
+
 const influenceCtx = CONTEXTS.influence;
 
 /*

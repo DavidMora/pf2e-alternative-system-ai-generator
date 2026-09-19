@@ -279,7 +279,7 @@
   "PFAI.Chase.DropHint": "Arrastra actores aquí desde la barra lateral, o usa el botón de arriba para añadir las fichas seleccionadas.",
   "PFAI.Chase.DropNotAnActor": "Aquí solo se pueden soltar actores y carpetas de actores.",
   "PFAI.Chase.ParticipantsAdded": "Se han añadido {count} participante(s).",
-  "PFAI.Chase.ParticipantsAlreadyPresent": "Esos actores ya están en esta persecución.",
+  "PFAI.Chase.ParticipantsAlreadyPresent": "Esos actores ya están participando.",
   "PFAI.Influence.GenerateTitle": "Generar un encuentro de influencia",
   "PFAI.Influence.GenerateNote": "Dile quiénes son estas personas. El modelo deduce cómo llegar a ellas, pero no puede inventarse a alguien a quien merezca la pena persuadir.",
   "PFAI.Influence.Situation": "La situación",

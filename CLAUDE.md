@@ -37,6 +37,15 @@ subsystem to `check-parity.mjs` — that is the one that covers everything.
 Shared buttons must carry `data-subsystem` and `data-event-id`. Subsystem-specific
 ones may use their own attributes.
 
+**This one bites silently.** `eventTarget` falls back to `chase` when
+`data-subsystem` is absent, so a button that forgets it does not throw - it
+operates on the chase store under another subsystem's id, finds nothing, and
+reports that nothing happened. Influence's "add selected tokens" shipped that
+way and told GMs their actors were "already in this chase" on an encounter
+that was not a chase. `check-templates` now derives which actions resolve
+through `eventTarget` and fails any button in a detail partial that does not
+name its own subsystem.
+
 Every section explains itself. Each panel heading carries an **ⓘ** with a
 tooltip saying what that section is and how it scores — a GM meeting "soft
 spot", "chase point" or "source cap" for the first time should not have to go

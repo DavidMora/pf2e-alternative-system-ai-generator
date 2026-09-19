@@ -279,7 +279,7 @@
   "PFAI.Chase.DropHint": "Drag actors here from the sidebar, or use the button above to add selected tokens.",
   "PFAI.Chase.DropNotAnActor": "Only actors and actor folders can be dropped here.",
   "PFAI.Chase.ParticipantsAdded": "Added {count} participant(s).",
-  "PFAI.Chase.ParticipantsAlreadyPresent": "Those actors are already in this chase.",
+  "PFAI.Chase.ParticipantsAlreadyPresent": "Those actors are already taking part.",
   "PFAI.Influence.GenerateTitle": "Generate an Influence Encounter",
   "PFAI.Influence.GenerateNote": "Tell it who these people are. The model works out how to reach them — it cannot invent someone worth persuading.",
   "PFAI.Influence.Situation": "The situation",

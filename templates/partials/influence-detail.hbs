@@ -444,7 +444,8 @@
     {{localize 'PFAI.Chase.Participants'}}
     <i class="fa-solid fa-circle-info pfai-info" data-tooltip="{{localize 'PFAI.Info.Participants'}}"></i>
     {{#if ../isGM}}
-      <button type="button" class="pfai-icon" data-action="addParticipants" data-chase-id="{{id}}"
+      <button type="button" class="pfai-icon" data-action="addParticipants"
+              data-subsystem="influence" data-event-id="{{id}}"
               data-tooltip="{{localize 'PFAI.Chase.AddParticipantsHint'}}"><i class="fa-solid fa-user-plus"></i></button>
     {{/if}}
   </h3>
