@@ -702,49 +702,70 @@ export function forkTargets(steps, wanted) {
  * not be offered a button that would do nothing.
  */
 export function hasUndoableRoll(participant) {
-  return Object.keys(participant?.lastRoll?.undo ?? {}).length > 0;
+  const undo = participant?.lastRoll?.undo;
+  return Array.isArray(undo) && undo.length > 0;
 }
 
 /**
- * Everything in `before` that `after` changed, as dotted paths to old values.
+ * Everything in `before` that `after` changed, as a list of `{path, value}`
+ * entries: the path as an array of keys, the value as it stood before.
  *
  * This is how a roll is made undoable without every subsystem growing its own
  * reversal code: take a copy of the event before the roll is applied, diff it
  * against the result, and keep only what moved. Re-applying that puts the
  * event back exactly as it stood.
  *
+ * The path is an array, never a dotted string, and the record is a list, not
+ * an object keyed by path. It used to be `{'obstacles.o1.chasePoints.current':
+ * 2}`, and Foundry v14 expands dotted keys inside an ObjectField when it
+ * cleans a setting - v13 does not - so the stored record came back as
+ * `{obstacles: {o1: {chasePoints: {current: 2}}}}`. Undoing then put back the
+ * whole `obstacles` map as that one stub, deleting every other obstacle and
+ * blanking the one that was rolled against, mid-session.
+ *
  * Arrays are compared whole - nothing here edits one element of a list - and
  * a key the roll created is recorded as null so undoing empties it rather
  * than leaving a value nobody put there.
  */
-export function inverseDiff(before, after, prefix = '') {
-  const out = {};
+export function inverseDiff(before, after, prefix = []) {
+  const out = [];
   const plain = (v) => v && typeof v === 'object' && !Array.isArray(v);
   const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
   for (const key of keys) {
-    const path = prefix ? `${prefix}.${key}` : key;
+    const path = [...prefix, key];
     const was = before?.[key];
     const now = after?.[key];
     if (plain(was) && plain(now)) {
-      Object.assign(out, inverseDiff(was, now, path));
+      out.push(...inverseDiff(was, now, path));
     } else if (JSON.stringify(was ?? null) !== JSON.stringify(now ?? null)) {
-      out[path] = was ?? null;
+      out.push({ path, value: was ?? null });
     }
   }
   return out;
 }
 
-/** Put back what `inverseDiff` recorded. */
+/**
+ * Put back what `inverseDiff` recorded.
+ *
+ * Only a list is accepted. A record in the old keyed shape may already have
+ * been reshaped by Foundry, and applying one of those replaces whole maps, so
+ * it is refused rather than guessed at.
+ *
+ * Each entry writes into a container that already exists. `inverseDiff` only
+ * descends through objects present on both sides, so a missing parent means
+ * the thing was removed after the roll - an obstacle deleted, a participant
+ * dropped - and creating it again would leave a nameless stub in the event.
+ */
 export function applySnapshot(target, snapshot) {
-  for (const [path, value] of Object.entries(snapshot ?? {})) {
-    const parts = path.split('.');
+  if (!Array.isArray(snapshot)) return target;
+  for (const entry of snapshot) {
+    const path = entry?.path;
+    if (!Array.isArray(path) || !path.length) continue;
     let node = target;
-    for (const part of parts.slice(0, -1)) {
-      if (!node || typeof node !== 'object') return;
-      node[part] ??= {};
-      node = node[part];
+    for (const part of path.slice(0, -1)) {
+      node = node && typeof node === 'object' ? node[part] : undefined;
     }
-    if (node && typeof node === 'object') node[parts.at(-1)] = value;
+    if (node && typeof node === 'object' && !Array.isArray(node)) node[path.at(-1)] = entry.value ?? null;
   }
   return target;
 }

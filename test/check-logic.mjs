@@ -803,7 +803,7 @@ const afterRoll = {
 };
 const undo = inverseDiff(beforeRoll, afterRoll);
 check('a roll\'s every change is recorded, and nothing that did not move',
-  Object.keys(undo).sort(),
+  undo.map((e) => e.path.join('.')).sort(),
   ['obstacles.o1.chasePoints.current', 'obstacles.o1.locked', 'participants.p1.branch',
    'participants.p1.contribution.byObstacle.o1', 'participants.p1.contribution.rolls',
    'participants.p1.contribution.successes', 'participants.p1.contribution.total',
@@ -823,11 +823,38 @@ check('and applying it puts the points and the counters back',
  */
 check('a tally the roll opened is emptied rather than left standing',
   restored.participants.p1.contribution.byObstacle.o1, null);
-check('an unchanged event records nothing to undo', inverseDiff(beforeRoll, beforeRoll), {});
+check('an unchanged event records nothing to undo', inverseDiff(beforeRoll, beforeRoll), []);
 // A reveal is a change like any other, so it reverses with the rest.
-check('something the roll unhid goes back to hidden', undo['obstacles.o1.locked'], true);
+check('something the roll unhid goes back to hidden',
+  undo.find((e) => e.path.join('.') === 'obstacles.o1.locked')?.value, true);
 check('applying an empty snapshot changes nothing',
-  applySnapshot({ a: 1 }, {}), { a: 1 });
+  applySnapshot({ a: 1 }, []), { a: 1 });
+
+/*
+ * The record has to survive being stored.
+ *
+ * It used to be an object keyed by dotted path. Foundry v14 expands dotted
+ * keys inside an ObjectField when it cleans a setting, so what came back was
+ * `{obstacles: {o1: {chasePoints: {current: 2}}}}` - and undoing that put the
+ * whole obstacles map back as one stub. At the table every other obstacle in
+ * the chase vanished. The record now carries no dotted key anywhere.
+ */
+const dotted = (value) => value && typeof value === 'object' &&
+  (Object.keys(value).some((k) => k.includes('.')) || Object.values(value).some(dotted));
+check('the undo record has no dotted key for Foundry to expand', dotted(undo), false);
+check('and is a list, whose shape key-expansion cannot change', Array.isArray(undo), true);
+const wide = {
+  obstacles: { o1: { chasePoints: { current: 3 }, name: 'The Gap' }, o2: { chasePoints: { current: 0 }, name: 'The Roof' } },
+};
+const reshaped = { obstacles: { o1: { chasePoints: { current: 2 } } } };
+check('a record already reshaped by Foundry is refused, not applied over the event',
+  applySnapshot(structuredClone(wide), reshaped), wide);
+check('as is a record in the old keyed shape',
+  applySnapshot(structuredClone(wide), { 'obstacles.o1.chasePoints.current': 2 }), wide);
+// An obstacle deleted after the roll is not brought back as a nameless stub.
+check('undoing onto something removed since leaves it removed',
+  Object.keys(applySnapshot({ obstacles: {} }, [{ path: ['obstacles', 'o1', 'chasePoints', 'current'], value: 2 }]).obstacles),
+  []);
 
 /*
  * The obstacle a player is standing in front of is always readable by them.

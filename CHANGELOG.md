@@ -4,6 +4,19 @@
 
 ### Fixed
 
+**Taking a roll back on Foundry 14 could wipe the encounter.** Reverting a
+roll in a chase deleted every obstacle but the one rolled against, blanked
+that one to "New Obstacle", and left the participant without a name — the
+chase could not be run any further. A roll's undo record was keyed by dotted
+paths (`obstacles.o1.chasePoints.current`), and Foundry 14 expands dotted keys
+when it saves a setting; Foundry 13 does not, which is why it passed testing
+there. The expanded record put the whole obstacle map back as a single stub.
+Every subsystem was exposed, not only chases. The record is now a list of
+paths with no dotted keys anywhere, an undo no longer recreates something
+deleted since the roll, and a record saved by an earlier version is refused
+rather than applied — that participant's last roll simply cannot be taken
+back.
+
 **Adding players by selected token failed on influence encounters**, reporting
 that the actors were "already in this chase" — on an encounter that was not a
 chase. Its button was the only one in the module that named the chase rather

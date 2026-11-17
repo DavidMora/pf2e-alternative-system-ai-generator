@@ -1,6 +1,7 @@
 import { MODULE_ID } from './constants.js';
 import {
   applySnapshot,
+  hasUndoableRoll,
   inverseDiff,
   awarenessForDegree,
   chasePointsForDegree,
@@ -454,7 +455,7 @@ export async function clearLastRoll({ subsystem, eventId, participantId }) {
   await api.update(eventId, (event) => {
     const participant = event.participants?.[participantId];
     const record = participant?.lastRoll;
-    if (!record?.undo || !Object.keys(record.undo).length) return;
+    if (!hasUndoableRoll(participant)) return;
     applySnapshot(event, record.undo);
     // The restore puts back whatever record stood before this roll; this one
     // is spent either way.
