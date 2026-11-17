@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.6.1
+
+Two fixes. The undo fix was reproduced and verified by saving through
+Foundry 13.351's and 14.367's own data-model code, not in a live world.
+
 
 ### Fixed
 
